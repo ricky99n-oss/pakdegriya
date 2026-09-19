@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Building2, Compass, MessageCircle, ShieldCheck, Sparkles, LogOut } from "lucide-react";
 import { validateRequest } from "@/lib/auth"; // <-- BARU: Fungsi cek sesi
 import { keluarAction } from "@/app/auth/actions"; // <-- BARU: Fungsi logout
+export const dynamic = "force-dynamic";
 
 export default async function BerandaPublik() {
   // <-- Cek siapa yang sedang membuka Beranda

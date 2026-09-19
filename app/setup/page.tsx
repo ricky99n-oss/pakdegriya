@@ -3,6 +3,7 @@ import { users } from "../../db/schema";
 import { count } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { createSuperadmin } from "./actions";
+export const dynamic = "force-dynamic";
 
 export default async function SetupPage() {
   // PENGUNCI KEAMANAN: Cek apakah sudah ada akun yang terdaftar

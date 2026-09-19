@@ -3,6 +3,7 @@ import { properties } from "../../../db/schema";
 import { desc } from "drizzle-orm";
 import Link from "next/link";
 import { Plus, Building2, Edit2 } from "lucide-react";
+export const dynamic = "force-dynamic";
 
 export default async function DaftarPropertiPage() {
   const dataProperti = await db.select().from(properties).orderBy(desc(properties.updatedAt));
