@@ -1,41 +1,41 @@
 "use server";
 
-import { db } from "../../../../db";
-import { propertyMedia, properties } from "../../../../db/schema";
+import { db } from "@/db";
+import { propertyMedia, properties } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import fs from "fs/promises";
 import path from "path";
-import crypto from "crypto";
 import sharp from "sharp";
 
-// === FUNGSI UPLOAD MEDIA (DENGAN PENGECUALIAN PANORAMA) ===
+// === FUNGSI UPLOAD MEDIA (DENGAN PENGECUALIAN PANORAMA & AUDIO) ===
 export async function uploadMediaAction(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
-  const fileType = formData.get("fileType") as "cover_public" | "gallery_private" | "floorplan_private" | "panorama_private";
+  const fileType = formData.get("fileType") as "cover_public" | "gallery_private" | "panorama_private" | "audio_private" | "intro_planet_public";
   const file = formData.get("file") as File;
 
   if (!file || file.size === 0) {
     throw new Error("File kosong atau tidak valid");
   }
 
-  const fileId = crypto.randomUUID();
+  // Menggunakan crypto bawaan web standar yang lebih aman untuk semua runtime
+  const fileId = globalThis.crypto.randomUUID();
   const originalBuffer = Buffer.from(await file.arrayBuffer());
   
   let finalBuffer: Buffer;
   let finalFileName: string;
   let finalMimeType: string;
 
-  if (fileType === "panorama_private") {
-    // KHUSUS PANORAMA: Jangan dikompres, jangan di-resize. Simpan file aslinya!
+  if (fileType === "panorama_private" || fileType === "audio_private") {
+    // KHUSUS PANORAMA & AUDIO: Jangan dikompres, jangan di-resize. Simpan file aslinya!
     finalBuffer = originalBuffer;
     
-    // Pertahankan ekstensi asli (misal .jpg atau .png)
+    // Pertahankan ekstensi asli (misal .jpg, .png, .mp3, atau .wav)
     const fileExt = file.name.substring(file.name.lastIndexOf("."));
     finalFileName = `${fileId}${fileExt}`;
     finalMimeType = file.type;
   } else {
-    // GALERI & COVER: Tetap dikompres menjadi .webp agar web tetap super cepat
+    // GALERI, COVER, & INTRO PLANET: Tetap dikompres menjadi .webp agar web tetap super cepat
     finalBuffer = await sharp(originalBuffer)
       .resize({ width: 1280, withoutEnlargement: true })
       .webp({ quality: 75 })
