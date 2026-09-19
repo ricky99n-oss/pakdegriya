@@ -11,10 +11,8 @@ export const dynamic = "force-dynamic";
 
 export default async function BerandaPublik() {
   try {
-    // 1. Cek sesi user
     const { user } = await validateRequest();
 
-    // 2. Tarik daftar properti yang sudah dipublikasikan
     const publikProperti = await db
       .select()
       .from(properties)
@@ -22,7 +20,6 @@ export default async function BerandaPublik() {
       .orderBy(desc(properties.updatedAt))
       .limit(6);
 
-    // 3. Ambil cover publik untuk masing-masing properti
     const propertiDenganCover = await Promise.all(
       publikProperti.map(async (prop) => {
         const cover = await db
@@ -56,7 +53,6 @@ export default async function BerandaPublik() {
               <Link href="/" className="hover:text-[#D6A34A] transition-colors">Beranda</Link>
               <Link href="#properti" className="hover:text-[#D6A34A] transition-colors">Cari Properti</Link>
               
-              {/* === LOGIKA NAVBAR DINAMIS === */}
               {user ? (
                 <div className="flex items-center gap-4 pl-4 border-l border-[#D6A34A]/30">
                   <div className="text-right leading-tight">
@@ -64,14 +60,12 @@ export default async function BerandaPublik() {
                     <span className="font-black text-sm capitalize">{user.name}</span>
                   </div>
                   
-                  {/* Tombol Khusus Admin */}
                   {(user.role === 'superadmin' || user.role === 'admin') && (
                     <Link href="/admin/dashboard" className="text-xs bg-[#4A2F1B] text-white px-4 py-2 rounded-xl hover:bg-[#281C15] transition-all font-bold shadow-md">
                       Panel Admin
                     </Link>
                   )}
 
-                  {/* Tombol Logout untuk semua tipe user */}
                   <form action={keluarAction}>
                     <button type="submit" className="flex items-center gap-1 text-xs bg-red-50 text-red-600 border border-red-200 px-3 py-2 rounded-xl hover:bg-red-100 transition-all font-bold" title="Keluar Akun">
                       <LogOut size={14} /> Keluar
@@ -130,20 +124,23 @@ export default async function BerandaPublik() {
           </div>
         </section>
 
-        {/* Highlight Section: Layanan Pakde Griya (Animasi Blur & Zig-Zag) */}
+        {/* Highlight Section: Layanan Pakde Griya */}
         <section className="container mx-auto px-6 mt-16 mb-24 space-y-32 max-w-7xl overflow-hidden">
           
           {/* Seksi 1: Survey 360 */}
           <div className="flex flex-col md:flex-row items-center gap-10 scroll-blur">
-            <div className="w-full md:w-1/2 relative h-[350px] md:h-[450px] rounded-3xl overflow-hidden shadow-xl border border-[#D6A34A]/20">
+            {/* Ukuran diperkecil (w-5/12, h-380px) & Background sama dengan page (#FFF7E8) agar gradasi mulus */}
+            <div className="w-full md:w-5/12 relative h-[300px] md:h-[380px] rounded-3xl overflow-hidden flex items-end justify-center bg-[#FFF7E8] border border-[#D6A34A]/20 shadow-md group">
               <Image 
                 src="/images/pakde-1.webp" 
                 alt="Pakde Griya Survey 360 Derajat" 
                 fill 
-                className="object-cover hover:scale-105 transition-transform duration-700" 
+                className="object-contain object-bottom pt-6 group-hover:scale-105 transition-transform duration-700 z-0" 
               />
+              {/* Efek Gradasi Transparan di bagian bawah foto */}
+              <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#FFF7E8] via-[#FFF7E8]/80 to-transparent z-10 pointer-events-none"></div>
             </div>
-            <div className="w-full md:w-1/2 space-y-6">
+            <div className="w-full md:w-7/12 space-y-6 md:pl-6">
               <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
                 Survey Rumah Makin Mudah dengan <span className="text-[#D6A34A]">Fitur 360°</span>
               </h2>
@@ -155,15 +152,17 @@ export default async function BerandaPublik() {
 
           {/* Seksi 2: Daftarkan Properti (Reverse) */}
           <div className="flex flex-col md:flex-row-reverse items-center gap-10 scroll-blur">
-            <div className="w-full md:w-1/2 relative h-[350px] md:h-[450px] rounded-3xl overflow-hidden shadow-xl border border-[#D6A34A]/20">
+            <div className="w-full md:w-5/12 relative h-[300px] md:h-[380px] rounded-3xl overflow-hidden flex items-end justify-center bg-[#FFF7E8] border border-[#D6A34A]/20 shadow-md group">
               <Image 
                 src="/images/pakde-2.webp" 
                 alt="Daftarkan Properti di Pakde Griya" 
                 fill 
-                className="object-cover hover:scale-105 transition-transform duration-700" 
+                className="object-contain object-bottom pt-6 group-hover:scale-105 transition-transform duration-700 z-0" 
               />
+              {/* Efek Gradasi Transparan */}
+              <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#FFF7E8] via-[#FFF7E8]/80 to-transparent z-10 pointer-events-none"></div>
             </div>
-            <div className="w-full md:w-1/2 space-y-6">
+            <div className="w-full md:w-7/12 space-y-6 md:pr-6">
               <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
                 Dapatkan Kesempatan Masuk <span className="text-[#D6A34A]">Konten Pakde!</span>
               </h2>
@@ -183,15 +182,17 @@ export default async function BerandaPublik() {
 
           {/* Seksi 3: Jual Properti */}
           <div className="flex flex-col md:flex-row items-center gap-10 scroll-blur">
-            <div className="w-full md:w-1/2 relative h-[350px] md:h-[450px] rounded-3xl overflow-hidden shadow-xl border border-[#D6A34A]/20">
+            <div className="w-full md:w-5/12 relative h-[300px] md:h-[380px] rounded-3xl overflow-hidden flex items-end justify-center bg-[#FFF7E8] border border-[#D6A34A]/20 shadow-md group">
               <Image 
                 src="/images/pakde-3.webp" 
                 alt="Jual Properti Bersama Pakde" 
                 fill 
-                className="object-cover hover:scale-105 transition-transform duration-700" 
+                className="object-contain object-bottom pt-6 group-hover:scale-105 transition-transform duration-700 z-0" 
               />
+              {/* Efek Gradasi Transparan */}
+              <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#FFF7E8] via-[#FFF7E8]/80 to-transparent z-10 pointer-events-none"></div>
             </div>
-            <div className="w-full md:w-1/2 space-y-6">
+            <div className="w-full md:w-7/12 space-y-6 md:pl-6">
               <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
                 Jual Propertimu Bersama <span className="text-[#D6A34A]">Pakde Griya</span>
               </h2>
@@ -264,7 +265,6 @@ export default async function BerandaPublik() {
       </div>
     );
   } catch (error: any) {
-    // Tampilan Error Ramah + Detail Debugging
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF7E8] p-6 text-center">
         <div className="bg-white p-8 rounded-2xl shadow border border-red-200 max-w-lg w-full">

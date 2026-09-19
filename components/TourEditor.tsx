@@ -51,11 +51,24 @@ export default function TourEditor({
     }
 
     if (isReady && viewerRef.current && window.pannellum && currentScene) {
+      
+      // Menggunakan custom hotspot agar visualnya persis dengan viewer pengunjung
       const mappedHotspots = sceneHotspots.map(h => ({
         pitch: h.pitch,
         yaw: h.yaw,
-        type: "info",
-        text: h.label
+        type: "custom",
+        cssClass: "pakde-hotspot-wrapper",
+        createTooltipFunc: (hotSpotDiv: HTMLElement, args: string) => {
+          const dot = document.createElement('div');
+          dot.classList.add('pakde-hotspot-dot');
+          hotSpotDiv.appendChild(dot);
+          
+          const label = document.createElement('div');
+          label.classList.add('pakde-hotspot-label');
+          label.innerHTML = args;
+          hotSpotDiv.appendChild(label);
+        },
+        createTooltipArgs: h.label
       }));
 
       viewerInstance.current = window.pannellum.viewer(viewerRef.current.id, {
@@ -88,6 +101,14 @@ export default function TourEditor({
   return (
     <div className="space-y-6">
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
+      
+      {/* Memasukkan style hotspot yang sama persis dengan viewer */}
+      <style>{`
+        .pakde-hotspot-wrapper { position: relative; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; pointer-events: none; }
+        .pakde-hotspot-dot { width: 32px; height: 32px; background-color: rgba(255, 255, 255, 0.9); border: 4px solid #D6A34A; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .pakde-hotspot-label { position: absolute; bottom: 45px; left: 50%; transform: translateX(-50%); background: rgba(74, 47, 27, 0.95); color: white; padding: 6px 14px; border-radius: 12px; font-size: 13px; font-weight: 700; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(214, 163, 74, 0.3); }
+      `}</style>
+
       <Script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js" onLoad={() => setIsReady(true)} />
 
       <div className="flex flex-wrap gap-2 bg-white p-4 rounded-2xl shadow-sm border border-[#D6A34A]/20 items-center">
@@ -149,9 +170,10 @@ export default function TourEditor({
 
           <div className="flex flex-col xl:flex-row gap-6">
             
-            <div className="w-full xl:w-2/3 h-[500px] relative bg-black rounded-xl overflow-hidden shadow-inner">
+            <div className="w-full xl:w-2/3 h-[500px] relative bg-black rounded-xl overflow-hidden shadow-inner border-2 border-gray-200">
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                <Crosshair className="text-[#D6A34A] opacity-80" size={32} strokeWidth={1.5} />
+                {/* Visual Target Sniper agar admin mudah menentukan pusat layar */}
+                <Crosshair className="text-[#D6A34A] drop-shadow-md" size={40} strokeWidth={2} />
               </div>
               <div key={activeSceneId} id={`tour-canvas-${activeSceneId}`} ref={viewerRef} className="w-full h-full cursor-crosshair" />
             </div>
@@ -162,14 +184,14 @@ export default function TourEditor({
                 <h3 className="text-lg font-bold text-[#4A2F1B] mb-2 flex items-center gap-2">
                   <Target size={18} /> Kunci Koordinat
                 </h3>
-                <p className="text-xs text-[#281C15]/70 mb-4">Geser layar di samping ke sudut yang diinginkan, lalu klik tombol di bawah.</p>
+                <p className="text-xs text-[#281C15]/70 mb-4">Arahkan tanda silang di layar ke posisi yang tepat, lalu klik tombol di bawah.</p>
 
                 <button 
                   type="button" 
                   onClick={handleCaptureCoords}
-                  className="w-full bg-[#4A2F1B] text-white text-sm font-bold py-2.5 px-4 rounded-lg hover:bg-[#281C15] transition-all shadow-md mb-4"
+                  className="w-full bg-[#4A2F1B] text-white text-sm font-bold py-3 px-4 rounded-lg hover:bg-[#281C15] transition-all shadow-md mb-4 flex justify-center items-center gap-2"
                 >
-                  Kunci Koordinat Disini
+                  <Crosshair size={16}/> Tangkap Titik Kordinat
                 </button>
 
                 <form action={setInitialViewAction} className="mb-4 pb-4 border-b border-[#D6A34A]/30">
@@ -177,8 +199,8 @@ export default function TourEditor({
                   <input type="hidden" name="propertyId" value={propertyId} />
                   <input type="hidden" name="pitch" value={pitch === "" ? (currentScene.initialPitch || 0) : pitch} />
                   <input type="hidden" name="yaw" value={yaw === "" ? (currentScene.initialYaw || 0) : yaw} />
-                  <button type="submit" disabled={pitch === "" || yaw === ""} className="w-full text-xs px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-bold hover:bg-blue-200 transition-colors disabled:opacity-50">
-                    Simpan Sbg Pandangan Awal Kamera
+                  <button type="submit" disabled={pitch === "" || yaw === ""} className="w-full text-xs px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-bold hover:bg-blue-200 transition-colors disabled:opacity-50">
+                    Jadikan Pandangan Awal Kamera
                   </button>
                 </form>
 
@@ -189,17 +211,17 @@ export default function TourEditor({
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[10px] font-bold text-gray-500 mb-1">PITCH (Vertikal)</label>
-                      <input type="text" name="pitch" value={pitch !== "" ? Number(pitch).toFixed(2) : ""} readOnly className="w-full bg-white border border-gray-300 p-2 rounded text-sm text-center font-mono text-gray-900 font-bold" />
+                      <input type="text" name="pitch" value={pitch !== "" ? Number(pitch).toFixed(2) : ""} readOnly className="w-full bg-white border border-gray-300 p-2.5 rounded-lg text-sm text-center font-mono text-gray-900 font-bold" placeholder="-" />
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-gray-500 mb-1">YAW (Horizontal)</label>
-                      <input type="text" name="yaw" value={yaw !== "" ? Number(yaw).toFixed(2) : ""} readOnly className="w-full bg-white border border-gray-300 p-2 rounded text-sm text-center font-mono text-gray-900 font-bold" />
+                      <input type="text" name="yaw" value={yaw !== "" ? Number(yaw).toFixed(2) : ""} readOnly className="w-full bg-white border border-gray-300 p-2.5 rounded-lg text-sm text-center font-mono text-gray-900 font-bold" placeholder="-" />
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-[#281C15] mb-1">Pilih Ruangan Tujuan</label>
-                    <select name="targetSceneId" required className="w-full border border-[#D6A34A]/50 p-2 rounded-lg bg-white text-[#281C15] text-sm">
+                    <select name="targetSceneId" required className="w-full border border-[#D6A34A]/50 p-2.5 rounded-lg bg-white text-[#281C15] text-sm focus:outline-none focus:ring-1 focus:ring-[#D6A34A]">
                       <option value="">-- Pilih Tujuan --</option>
                       {existingScenes.filter(s => s.id !== currentScene.id).map(scene => (
                         <option key={scene.id} value={scene.id}>{scene.name}</option>
@@ -209,17 +231,17 @@ export default function TourEditor({
 
                   <div>
                     <label className="block text-xs font-bold text-[#281C15] mb-1">Label Tombol</label>
-                    <input type="text" name="label" required className="w-full border border-[#D6A34A]/50 p-2 rounded-lg bg-white text-[#281C15] text-sm" placeholder="Mis: Ke Dapur..." />
+                    <input type="text" name="label" required className="w-full border border-[#D6A34A]/50 p-2.5 rounded-lg bg-white text-[#281C15] text-sm focus:outline-none focus:ring-1 focus:ring-[#D6A34A]" placeholder="Mis: Menuju Dapur..." />
                   </div>
 
-                  <button type="submit" disabled={pitch === "" || yaw === ""} className="w-full flex items-center justify-center gap-2 bg-[#D6A34A] text-[#281C15] font-bold py-2.5 px-4 rounded-lg hover:bg-[#c2913b] transition-all shadow-md disabled:opacity-50 mt-2">
-                    <Save size={16} /> Buat Titik Hotspot
+                  <button type="submit" disabled={pitch === "" || yaw === ""} className="w-full flex items-center justify-center gap-2 bg-[#D6A34A] text-[#281C15] font-bold py-3 px-4 rounded-lg hover:bg-[#c2913b] transition-all shadow-md disabled:opacity-50 mt-2">
+                    <Save size={16} /> Simpan Titik Hotspot
                   </button>
                 </form>
               </div>
 
               <div className="bg-white p-5 rounded-xl border border-[#D6A34A]/30">
-                <h3 className="text-sm font-bold text-[#4A2F1B] mb-3 border-b pb-2">Audio & Rotasi Ruangan Ini</h3>
+                <h3 className="text-sm font-bold text-[#4A2F1B] mb-3 border-b pb-2">Audio & Putaran Kamera</h3>
                 <form action={updateSceneAudioAction} className="space-y-3">
                   <input type="hidden" name="propertyId" value={propertyId} />
                   <input type="hidden" name="sceneId" value={currentScene.id} />
@@ -235,33 +257,33 @@ export default function TourEditor({
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-bold text-[#281C15] mb-1">Kecepatan Putaran Otomatis</label>
-                    <input type="number" step="0.1" name="autoRotateSpeed" defaultValue={currentScene.autoRotateSpeed ?? 2} className="w-full border border-gray-300 p-2 rounded-lg bg-gray-50 text-xs font-bold font-mono text-center focus:border-[#D6A34A] focus:outline-none" />
-                    <p className="text-[10px] text-gray-500 mt-1 leading-tight">Minus = Kiri, Plus = Kanan. (Misal: -2 atau 1.5). 0 = Mati.</p>
+                    <label className="block text-xs font-bold text-[#281C15] mb-1">Kecepatan Putaran (Auto-rotate)</label>
+                    <input type="number" step="0.1" name="autoRotateSpeed" defaultValue={currentScene.autoRotateSpeed ?? 2} className="w-full border border-gray-300 p-2 rounded-lg bg-gray-50 text-xs font-bold font-mono focus:border-[#D6A34A] focus:outline-none" />
+                    <p className="text-[10px] text-gray-500 mt-1 leading-tight">Gunakan nilai negatif (Misal: -2) untuk putaran ke kiri. Isi 0 untuk mematikan putaran.</p>
                   </div>
                   
-                  <button type="submit" className="w-full flex items-center justify-center gap-2 bg-[#4A2F1B] text-[#D6A34A] font-bold py-2 px-4 rounded-lg hover:bg-[#281C15] transition-all shadow-md text-xs mt-2">
-                    <Save size={14} /> Simpan Pengaturan Audio
+                  <button type="submit" className="w-full flex items-center justify-center gap-2 bg-[#4A2F1B] text-[#D6A34A] font-bold py-2.5 px-4 rounded-lg hover:bg-[#281C15] transition-all shadow-md text-xs mt-2">
+                    <Save size={14} /> Perbarui Ruangan Ini
                   </button>
                 </form>
               </div>
 
               <div className="bg-white p-5 rounded-xl border border-gray-200">
-                <h3 className="text-sm font-bold text-[#4A2F1B] mb-3 border-b pb-2">Hotspot Tersimpan ({sceneHotspots.length})</h3>
+                <h3 className="text-sm font-bold text-[#4A2F1B] mb-3 border-b pb-2">Daftar Hotspot ({sceneHotspots.length})</h3>
                 {sceneHotspots.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">Belum ada hotspot di ruangan ini.</p>
+                  <p className="text-xs text-gray-400 italic">Belum ada titik yang dibuat di ruangan ini.</p>
                 ) : (
-                  <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                     {sceneHotspots.map(hs => (
-                      <div key={hs.id} className="flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-100 text-xs">
+                      <div key={hs.id} className="flex items-center justify-between bg-gray-50 p-2.5 rounded-lg border border-gray-100 text-xs shadow-sm hover:border-[#D6A34A]/50 transition-colors">
                         <div>
                           <p className="font-bold text-[#4A2F1B]">{hs.label}</p>
-                          <p className="font-mono text-gray-500 text-[10px]">p:{hs.pitch.toFixed(1)}, y:{hs.yaw.toFixed(1)}</p>
+                          <p className="font-mono text-gray-500 text-[10px] mt-0.5">p:{hs.pitch.toFixed(1)}, y:{hs.yaw.toFixed(1)}</p>
                         </div>
                         <form action={deleteHotspotAction}>
                           <input type="hidden" name="hotspotId" value={hs.id} />
                           <input type="hidden" name="propertyId" value={propertyId} />
-                          <button type="submit" className="text-red-500 hover:text-red-700 p-1">
+                          <button type="submit" className="text-red-500 hover:text-white hover:bg-red-500 p-1.5 rounded-md transition-colors" title="Hapus Hotspot">
                             <Trash2 size={14} />
                           </button>
                         </form>

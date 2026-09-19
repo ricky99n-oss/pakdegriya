@@ -2,7 +2,8 @@ import { db } from "@/db";
 import { properties } from "@/db/schema";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import crypto from "crypto";
+// Hapus import crypto dari Node.js untuk menghindari error runtime
+// import crypto from "crypto"; 
 
 export default function TambahPropertiPage() {
   
@@ -10,7 +11,8 @@ export default function TambahPropertiPage() {
   async function simpanProperti(formData: FormData) {
     "use server";
     
-    const id = crypto.randomUUID();
+    // Gunakan fungsi crypto global yang aman di semua runtime
+    const id = globalThis.crypto.randomUUID();
     const code = formData.get("code") as string;
     const slug = formData.get("slug") as string;
     const title = formData.get("title") as string;

@@ -6,8 +6,11 @@ import Link from "next/link";
 import { ArrowLeft, ImagePlus, Lock, Globe, Save, Trash2, Music, Sparkles } from "lucide-react";
 import { uploadMediaAction, togglePublishStatus, updatePropertyAction, deleteMediaAction } from "./actions";
 
-export default async function KelolaMediaProperti({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+// Memperbaiki typing props pada Next.js 15
+export default async function KelolaMediaProperti(props: { params: Promise<{ id: string }> }) {
+  // Await params untuk mengambil ID dengan aman
+  const params = await props.params;
+  const id = params.id;
 
   const propertyRecord = await db.select().from(properties).where(eq(properties.id, id));
   if (propertyRecord.length === 0) redirect("/admin/properti");
@@ -123,7 +126,6 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
                   <option value="gallery_private">Galeri Detail (Khusus Member)</option>
                   <option value="panorama_private">Panorama 360 (Khusus Member)</option>
                   <option value="audio_private">Audio MP3/WAV (Voice Over/Musik)</option>
-                  {/* OPSI BARU: LITTLE PLANET */}
                   <option value="intro_planet_public">Gambar Intro Little Planet (Publik)</option>
                 </select>
               </div>
