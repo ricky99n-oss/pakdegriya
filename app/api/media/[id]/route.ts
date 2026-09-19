@@ -6,6 +6,10 @@ import { validateRequest } from "../../../../lib/auth";
 import fs from "fs/promises";
 import path from "path";
 
+// WAJIB ditambahkan: Mencegah Next.js melakukan build statis pada rute ini.
+// Ini menyelesaikan error "Failed to collect page data" saat build.
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> } // Menggunakan Promise sesuai standar Next.js 15+
