@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { properties, propertyMedia } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import Link from "next/link";
+import Image from "next/image";
 import { Building2, Compass, MessageCircle, ShieldCheck, Sparkles, LogOut } from "lucide-react";
 import { validateRequest } from "@/lib/auth";
 import { keluarAction } from "@/app/auth/actions";
@@ -79,7 +80,7 @@ export default async function BerandaPublik() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3 pl-4 border-l border-[#D6A34A]/30">
-                  <Link href="/setup" className="text-sm font-bold hover:text-[#D6A34A] transition-colors">Masuk</Link>
+                  <Link href="/auth/masuk" className="text-sm font-bold hover:text-[#D6A34A] transition-colors">Masuk</Link>
                   <Link href="/auth/daftar" className="text-xs bg-[#D6A34A] text-[#281C15] px-5 py-2.5 rounded-xl hover:bg-[#c2913b] transition-all font-bold shadow-sm">
                     Daftar Member
                   </Link>
@@ -129,8 +130,81 @@ export default async function BerandaPublik() {
           </div>
         </section>
 
+        {/* Highlight Section: Layanan Pakde Griya (Animasi Blur & Zig-Zag) */}
+        <section className="container mx-auto px-6 mt-16 mb-24 space-y-32 max-w-7xl overflow-hidden">
+          
+          {/* Seksi 1: Survey 360 */}
+          <div className="flex flex-col md:flex-row items-center gap-10 scroll-blur">
+            <div className="w-full md:w-1/2 relative h-[350px] md:h-[450px] rounded-3xl overflow-hidden shadow-xl border border-[#D6A34A]/20">
+              <Image 
+                src="/images/pakde-1.webp" 
+                alt="Pakde Griya Survey 360 Derajat" 
+                fill 
+                className="object-cover hover:scale-105 transition-transform duration-700" 
+              />
+            </div>
+            <div className="w-full md:w-1/2 space-y-6">
+              <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
+                Survey Rumah Makin Mudah dengan <span className="text-[#D6A34A]">Fitur 360°</span>
+              </h2>
+              <p className="text-lg text-[#281C15]/80 leading-relaxed">
+                Gunakan fitur 360 derajat kami untuk melihat setiap sudut ruangan secara virtual tanpa harus keluar rumah. Hemat waktu dan pastinya 100% transparan tanpa manipulasi sudut pandang.
+              </p>
+            </div>
+          </div>
+
+          {/* Seksi 2: Daftarkan Properti (Reverse) */}
+          <div className="flex flex-col md:flex-row-reverse items-center gap-10 scroll-blur">
+            <div className="w-full md:w-1/2 relative h-[350px] md:h-[450px] rounded-3xl overflow-hidden shadow-xl border border-[#D6A34A]/20">
+              <Image 
+                src="/images/pakde-2.webp" 
+                alt="Daftarkan Properti di Pakde Griya" 
+                fill 
+                className="object-cover hover:scale-105 transition-transform duration-700" 
+              />
+            </div>
+            <div className="w-full md:w-1/2 space-y-6">
+              <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
+                Dapatkan Kesempatan Masuk <span className="text-[#D6A34A]">Konten Pakde!</span>
+              </h2>
+              <p className="text-lg text-[#281C15]/80 leading-relaxed">
+                Daftarkan propertimu sekarang dan raih peluang agar propertimu dipromosikan langsung melalui konten eksklusif media sosial Pakde Griya yang menjangkau ribuan calon pembeli potensial.
+              </p>
+              <a 
+                href="https://wa.me/6285815999953" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-8 py-4 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold rounded-2xl transition-all hover:scale-105 shadow-lg shadow-[#25D366]/30"
+              >
+                <MessageCircle size={20} /> Hubungi via WA (085815999953)
+              </a>
+            </div>
+          </div>
+
+          {/* Seksi 3: Jual Properti */}
+          <div className="flex flex-col md:flex-row items-center gap-10 scroll-blur">
+            <div className="w-full md:w-1/2 relative h-[350px] md:h-[450px] rounded-3xl overflow-hidden shadow-xl border border-[#D6A34A]/20">
+              <Image 
+                src="/images/pakde-3.webp" 
+                alt="Jual Properti Bersama Pakde" 
+                fill 
+                className="object-cover hover:scale-105 transition-transform duration-700" 
+              />
+            </div>
+            <div className="w-full md:w-1/2 space-y-6">
+              <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
+                Jual Propertimu Bersama <span className="text-[#D6A34A]">Pakde Griya</span>
+              </h2>
+              <p className="text-lg text-[#281C15]/80 leading-relaxed">
+                Percayakan penjualan propertimu kepada tim profesional kami. Kami urus segala kerumitan teknis dan promosinya. Transaksi dijamin aman, cepat, dan transparan dari awal hingga tuntas.
+              </p>
+            </div>
+          </div>
+
+        </section>
+
         {/* Daftar Properti Unggulan */}
-        <section id="properti" className="py-16 px-6 max-w-7xl mx-auto">
+        <section id="properti" className="py-16 px-6 max-w-7xl mx-auto scroll-blur">
           <div className="flex justify-between items-end mb-10">
             <div>
               <h2 className="text-3xl font-black text-[#4A2F1B]">Listing Pilihan</h2>
@@ -184,7 +258,7 @@ export default async function BerandaPublik() {
         </section>
 
         {/* Footer Sederhana */}
-        <footer className="border-t border-[#D6A34A]/20 bg-white/50 py-12 px-6 text-center text-sm text-[#4A2F1B]/70">
+        <footer className="border-t border-[#D6A34A]/20 bg-white/50 py-12 px-6 text-center text-sm text-[#4A2F1B]/70 mt-10">
           <p>© 2026 Pakde Griya. Seluruh hak cipta dilindungi. • Hubungi Pusat: 6289681011618</p>
         </footer>
       </div>
