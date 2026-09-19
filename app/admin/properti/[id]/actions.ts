@@ -1,14 +1,15 @@
 "use server";
 
-import { db } from "@/db";
-import { propertyMedia, properties } from "@/db/schema";
+// 1. Gunakan jalur relatif agar 100% terbaca
+import { db } from "../../../../db";
+import { propertyMedia, properties } from "../../../../db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import fs from "fs/promises";
 import path from "path";
-import sharp from "sharp";
+import crypto from "crypto"; 
+// HAPUS import sharp dari sini untuk mencegah crash di cPanel
 
-// === FUNGSI UPLOAD MEDIA (DENGAN PENGECUALIAN PANORAMA & AUDIO) ===
 export async function uploadMediaAction(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
   const fileType = formData.get("fileType") as "cover_public" | "gallery_private" | "panorama_private" | "audio_private" | "intro_planet_public";
@@ -18,38 +19,19 @@ export async function uploadMediaAction(formData: FormData) {
     throw new Error("File kosong atau tidak valid");
   }
 
-  // Menggunakan crypto bawaan web standar yang lebih aman untuk semua runtime
-  const fileId = globalThis.crypto.randomUUID();
+  const fileId = crypto.randomUUID();
   const originalBuffer = Buffer.from(await file.arrayBuffer());
   
-  let finalBuffer: Buffer;
-  let finalFileName: string;
-  let finalMimeType: string;
-
-  if (fileType === "panorama_private" || fileType === "audio_private") {
-    // KHUSUS PANORAMA & AUDIO: Jangan dikompres, jangan di-resize. Simpan file aslinya!
-    finalBuffer = originalBuffer;
-    
-    // Pertahankan ekstensi asli (misal .jpg, .png, .mp3, atau .wav)
-    const fileExt = file.name.substring(file.name.lastIndexOf("."));
-    finalFileName = `${fileId}${fileExt}`;
-    finalMimeType = file.type;
-  } else {
-    // GALERI, COVER, & INTRO PLANET: Tetap dikompres menjadi .webp agar web tetap super cepat
-    finalBuffer = await sharp(originalBuffer)
-      .resize({ width: 1280, withoutEnlargement: true })
-      .webp({ quality: 75 })
-      .toBuffer();
-      
-    finalFileName = `${fileId}.webp`;
-    finalMimeType = "image/webp";
-  }
+  // Karena kita membuang sharp untuk menghindari error 500, kita simpan file apa adanya.
+  const fileExt = file.name.substring(file.name.lastIndexOf("."));
+  const finalFileName = `${fileId}${fileExt}`;
+  const finalMimeType = file.type;
 
   const storageDir = path.join(process.cwd(), "storage");
   await fs.mkdir(storageDir, { recursive: true });
 
   const filePath = path.join(storageDir, finalFileName);
-  await fs.writeFile(filePath, finalBuffer);
+  await fs.writeFile(filePath, originalBuffer);
 
   await db.insert(propertyMedia).values({
     id: fileId,
@@ -62,7 +44,6 @@ export async function uploadMediaAction(formData: FormData) {
   revalidatePath(`/admin/properti/${propertyId}`);
 }
 
-// === FUNGSI STATUS PUBLISH ===
 export async function togglePublishStatus(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
   const currentStatus = formData.get("currentStatus") as string;
@@ -77,7 +58,6 @@ export async function togglePublishStatus(formData: FormData) {
   revalidatePath(`/admin/properti/${propertyId}`);
 }
 
-// === FUNGSI UPDATE DATA PROPERTI ===
 export async function updatePropertyAction(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
   
@@ -96,21 +76,18 @@ export async function updatePropertyAction(formData: FormData) {
   revalidatePath(`/admin/properti/${propertyId}`);
 }
 
-// === FUNGSI HAPUS MEDIA ===
 export async function deleteMediaAction(formData: FormData) {
   const mediaId = formData.get("mediaId") as string;
   const propertyId = formData.get("propertyId") as string;
   const fileName = formData.get("fileName") as string;
 
-  // 1. Hapus catatan dari database
   await db.delete(propertyMedia).where(eq(propertyMedia.id, mediaId));
 
-  // 2. Hapus file fisik dari folder storage agar server tidak penuh
   try {
     const filePath = path.join(process.cwd(), "storage", fileName);
     await fs.unlink(filePath);
   } catch (error) {
-    console.error("Gagal menghapus file fisik (mungkin sudah terhapus):", error);
+    console.error("Gagal menghapus file fisik:", error);
   }
 
   revalidatePath(`/admin/properti/${propertyId}`);
