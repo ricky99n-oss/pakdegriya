@@ -190,14 +190,21 @@ export default async function BerandaPublik() {
       </div>
     );
   } catch (error: any) {
-    // Tampilan Error Ramah
+    // Tampilan Error Ramah + Detail Debugging
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF7E8] p-6 text-center">
-        <div className="bg-white p-8 rounded-2xl shadow border border-red-200 max-w-lg">
+        <div className="bg-white p-8 rounded-2xl shadow border border-red-200 max-w-lg w-full">
           <h1 className="text-2xl font-bold text-red-600 mb-2">Terjadi Gangguan Sistem</h1>
           <p className="text-gray-600 text-sm mb-4">Kami tidak dapat memuat data properti saat ini karena kendala koneksi database.</p>
-          <div className="bg-red-50 text-red-800 p-4 rounded text-xs font-mono break-all text-left">
-            {error.message || "Unknown Database Error"}
+          <div className="bg-red-50 text-red-800 p-4 rounded text-xs font-mono break-all text-left space-y-3 border border-red-100">
+            <div>
+              <span className="font-bold text-red-900 block mb-1">Pesan Utama:</span>
+              {error.message || "Unknown Database Error"}
+            </div>
+            <div className="pt-2 border-t border-red-200">
+              <span className="font-bold text-red-900 block mb-1">Akar Masalah (Dari MariaDB):</span>
+              <span className="text-blue-700 font-semibold">{error.cause ? String(error.cause) : "Tidak ada detail spesifik. Cek penamaan host, tabel, atau port."}</span>
+            </div>
           </div>
         </div>
       </div>
