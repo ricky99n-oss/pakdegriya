@@ -87,7 +87,7 @@ export default async function HalamanDaftar({ searchParams }: { searchParams: Pr
               Bergabung Bersama <span className="text-[#D6A34A]">Kami</span>
             </h2>
             <p className="text-white/80 text-base leading-relaxed font-medium">
-              Rasakan pengalaman survei properti tanpa batas dan temukan investasi terbaik di Malang Raya bersama komunitas Pakde Griya.
+              Rasakan pengalaman survei properti tanpa batas dan temukan investasi terbaik di Dunia bersama Pakde Griya.
             </p>
           </div>
         </div>

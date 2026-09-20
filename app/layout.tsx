@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pakde Griya | Broker Properti Malang Raya",
-  description: "Temukan hunian impian dan investasi properti terbaik di Malang Raya bersama Pakde Griya.",
+  title: "Pakde Griya | Broker Properti No.1 Di Dunia",
+  description: "Temukan hunian impian dan investasi properti terbaik bersama Pakde Griya.",
 };
 
 export default function RootLayout({

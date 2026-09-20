@@ -1,8 +1,10 @@
-import { db } from "../../../db";
-import { properties } from "../../../db/schema";
+import { db } from "@/db"; // MENGGUNAKAN ALIAS
+import { properties } from "@/db/schema"; // MENGGUNAKAN ALIAS
 import { desc } from "drizzle-orm";
 import Link from "next/link";
-import { Plus, Building2, Edit2 } from "lucide-react";
+import { Plus, Building2, Edit2, Trash2 } from "lucide-react";
+import { hapusPropertiAction } from "./actions"; 
+
 export const dynamic = "force-dynamic";
 
 export default async function DaftarPropertiPage() {
@@ -48,7 +50,8 @@ export default async function DaftarPropertiPage() {
                   </td>
                 </tr>
               ) : (
-                dataProperti.map((item) => (
+                // Menyelesaikan error (item implicitly has any type) dengan menetapkan tipenya
+                dataProperti.map((item: typeof properties.$inferSelect) => (
                   <tr key={item.id} className="hover:bg-gray-50/50 transition-colors group">
                     <td className="p-5">
                       <p className="font-bold text-[#281C15] text-base">{item.title}</p>
@@ -70,10 +73,23 @@ export default async function DaftarPropertiPage() {
                       </span>
                     </td>
                     <td className="p-5 text-right">
-                      {/* Tombol edit (ikon) ini baru akan muncul jika kursor di-hover ke barisnya */}
-                      <Link href={`/admin/properti/${item.id}`} className="inline-block p-2 text-gray-400 hover:text-[#D6A34A] bg-white rounded-lg border border-transparent hover:border-gray-200 shadow-sm opacity-0 group-hover:opacity-100 transition-all" title="Kelola Media & Edit">
-  <Edit2 size={16} />
-</Link>
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                        <Link href={`/admin/properti/${item.id}`} className="inline-block p-2 text-blue-500 hover:bg-blue-50 rounded-lg border border-transparent hover:border-blue-200 shadow-sm" title="Kelola Media & Edit">
+                          <Edit2 size={16} />
+                        </Link>
+                        
+                        <form action={hapusPropertiAction}>
+                          <input type="hidden" name="propertyId" value={item.id} />
+                          {/* Harus pakai <button> (bukan Link) untuk men-trigger form action */}
+                          <button 
+                            type="submit" 
+                            className="inline-block p-2 text-red-500 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 shadow-sm cursor-pointer" 
+                            title="Hapus Properti"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 ))

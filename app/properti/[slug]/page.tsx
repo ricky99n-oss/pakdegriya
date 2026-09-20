@@ -148,7 +148,7 @@ export default async function DetailPropertiPublik({ params }: { params: Promise
               </div>
 
               <a 
-                href={`https://wa.me/6289681011618?text=${waMessage}`} 
+                href={`https://wa.me/6285815999953?text=${waMessage}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold py-3.5 px-4 rounded-2xl shadow-md shadow-[#25D366]/20 hover:bg-[#20ba59] transition-all text-center"
@@ -157,7 +157,7 @@ export default async function DetailPropertiPublik({ params }: { params: Promise
               </a>
 
               <div className="text-center text-[11px] text-gray-400">
-                Respon cepat pada jam kerja operasional Malang Raya.
+                Respon cepat pada jam kerja.
               </div>
             </div>
           </div>

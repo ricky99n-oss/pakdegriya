@@ -5,7 +5,10 @@ import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ImagePlus, Lock, Globe, Save, Trash2, Music, Sparkles } from "lucide-react";
-import { uploadMediaAction, togglePublishStatus, updatePropertyAction, deleteMediaAction } from "./actions";
+import { togglePublishStatus, updatePropertyAction, deleteMediaAction } from "./actions";
+
+// IMPORT Form Unggah yang baru kita buat
+import UploadMediaForm from "./UploadMediaForm";
 
 // Trik kompatibilitas aman untuk membaca params tanpa crash
 export default async function KelolaMediaProperti(props: { params: Promise<{ id: string }> | { id: string } }) {
@@ -118,26 +121,9 @@ export default async function KelolaMediaProperti(props: { params: Promise<{ id:
               <h2 className="text-xl font-bold text-[#4A2F1B]">Tambah Media</h2>
             </div>
             
-            <form action={uploadMediaAction} className="space-y-4">
-              <input type="hidden" name="propertyId" value={property.id} />
-              <div>
-                <label className="block text-sm font-medium mb-1 text-[#281C15]">Jenis Media</label>
-                <select name="fileType" className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-white text-[#281C15] font-medium shadow-sm">
-                  <option value="cover_public">Cover Publik (Dilihat Semua Orang)</option>
-                  <option value="gallery_private">Galeri Detail (Khusus Member)</option>
-                  <option value="panorama_private">Panorama 360 (Khusus Member)</option>
-                  <option value="audio_private">Audio MP3/WAV (Voice Over/Musik)</option>
-                  <option value="intro_planet_public">Gambar Intro Little Planet (Publik)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 text-[#281C15]">Pilih File</label>
-                <input type="file" name="file" accept="image/jpeg, image/png, image/webp, audio/mpeg, audio/wav" required className="w-full border p-2 rounded-lg bg-white text-[#281C15] text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#FFF7E8] file:text-[#4A2F1B] hover:file:bg-[#D6A34A] hover:file:text-white transition-all cursor-pointer shadow-sm" />
-              </div>
-              <button type="submit" className="w-full bg-[#4A2F1B] text-white font-bold py-3 px-4 rounded-xl hover:bg-[#281C15] transition-all shadow-md mt-4">
-                Unggah File
-              </button>
-            </form>
+            {/* INI BAGIAN YANG BERUBAH: Memanggil Komponen Client UploadMediaForm */}
+            <UploadMediaForm propertyId={property.id} />
+
           </div>
         </div>
 
