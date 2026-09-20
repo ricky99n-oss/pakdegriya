@@ -15,7 +15,7 @@ declare global {
 }
 
 export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig: any, introPlanetUrl?: string }) {
-  const viewerContainerRef = useRef<HTMLDivElement>(null); // Untuk keperluan Fullscreen
+  const viewerContainerRef = useRef<HTMLDivElement>(null); 
   const viewerRef = useRef<HTMLDivElement>(null);
   const viewerInstance = useRef<any>(null);
   
@@ -34,7 +34,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
-  // Scene List untuk Navigasi Prev/Next dan Gallery
   const sceneIds = Object.keys(tourConfig?.scenes || {});
 
   useEffect(() => {
@@ -57,35 +56,50 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
     if (isScriptReady && viewerRef.current && window.pannellum && !viewerInstance.current) {
       const config = JSON.parse(JSON.stringify(tourConfig));
 
-      // PENGATURAN PANNELLUM CUSTOM
-      config.default.autoRotate = -2; 
-      config.default.autoRotateInactivityDelay = 3000; 
+      // PENGATURAN PANNELLUM CUSTOM (FIX DISTORSI & ZOOM OTOMATIS)
+      // 1. Matikan putaran otomatis agar tidak zoom sendiri
+      config.default.autoRotate = 0; 
+      // 2. Set HFOV (sudut pandang) awal ke 90 agar tidak distorsi/tertarik di pinggir
+      config.default.hfov = 90;
       config.default.sceneFadeDuration = 1000; 
       
       // MATIKAN UI DEFAULT BAWAAN PANNELLUM
       config.default.showControls = false;
       config.default.showZoomCtrl = false;
       config.default.showFullscreenCtrl = false;
+      config.default.title = ""; // Hapus teks ganda bawaan
 
-      // Custom Hotspot (Sama seperti sebelumnya)
       if (config.scenes) {
         Object.keys(config.scenes).forEach(sceneKey => {
           const scene = config.scenes[sceneKey];
+          // Hapus juga judul bawaan di tiap scene
+          scene.title = ""; 
+          
+          // Batasi rentang HFOV tiap ruangan agar user tidak bisa zoom out sampai rusak
+          scene.minHfov = 50;
+          scene.maxHfov = 110; 
+
           if (scene.hotSpots) {
             scene.hotSpots.forEach((hs: any) => {
               if (hs.type === "scene" && hs.sceneId) {
                 const targetRoom = hs.sceneId;
-                const targetRoomTitle = config.scenes[hs.sceneId]?.title || "Ke Ruangan Selanjutnya";
+                const targetRoomTitle = tourConfig.scenes[hs.sceneId]?.title || "Ke Ruangan Selanjutnya";
 
                 hs.type = "custom";
-                hs.cssClass = "pakde-hotspot-wrapper"; 
+                // Gunakan class baru untuk desain pintu
+                hs.cssClass = "pakde-door-hotspot"; 
+                
                 hs.createTooltipFunc = (hotSpotDiv: HTMLElement, args: string) => {
-                  const dot = document.createElement('div');
-                  dot.classList.add('pakde-hotspot-dot');
-                  hotSpotDiv.appendChild(dot);
+                  // Membuat ikon pintu (menggunakan icon bawaan Pannellum/font-awesome)
+                  const iconSpan = document.createElement('span');
+                  iconSpan.classList.add('door-icon');
+                  // SVG Sederhana berbentuk pintu terbuka
+                  iconSpan.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><path d="M18 3a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12z"></path><path d="M10 9v6"></path><path d="M14 9v6"></path></svg>`;
+                  hotSpotDiv.appendChild(iconSpan);
                   
+                  // Label Tooltip
                   const label = document.createElement('div');
-                  label.classList.add('pakde-hotspot-label');
+                  label.classList.add('door-label');
                   label.innerHTML = args;
                   hotSpotDiv.appendChild(label);
                 };
@@ -101,7 +115,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
                         viewer.loadScene(targetRoom);
                       }
                     };
-                    viewer.lookAt(hs.pitch, hs.yaw, 30, 800, eksekusiPindahRuangan);
+                    viewer.lookAt(hs.pitch, hs.yaw, 50, 800, eksekusiPindahRuangan);
                     setTimeout(eksekusiPindahRuangan, 850);
                   }
                 };
@@ -122,7 +136,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
           if (newSceneConfig && newSceneConfig.customAudioUrl) {
             if (!audioRef.current.src.includes(newSceneConfig.customAudioUrl)) {
               audioRef.current.src = newSceneConfig.customAudioUrl;
-              audioRef.current.play().catch(e => console.log("Audio diblokir:", e));
+              audioRef.current.play().catch(e => {});
               setIsAudioPlaying(true);
             }
           } else {
@@ -151,8 +165,10 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
     if (viewerInstance.current) {
       const currentPitch = viewerInstance.current.getPitch();
       const currentYaw = viewerInstance.current.getYaw();
-      viewerInstance.current.setHfov(150);
-      viewerInstance.current.lookAt(currentPitch, currentYaw, 110, 2500);
+      // Efek intro planet sedikit lebih dekat agar tidak distorsi (130)
+      viewerInstance.current.setHfov(130);
+      // Kembali ke HFOV 90 (normal tanpa distorsi)
+      viewerInstance.current.lookAt(currentPitch, currentYaw, 90, 2000);
     }
 
     if (withAudio && viewerInstance.current && audioRef.current) {
@@ -163,7 +179,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
       }
     }
     
-    // Tampilkan guide overlay sejenak saat pertama masuk
     setTimeout(() => setShowGuide(true), 1500);
   };
 
@@ -199,13 +214,13 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
   const goToPrevScene = () => {
     const idx = sceneIds.indexOf(currentSceneId);
     if (idx > 0) changeScene(sceneIds[idx - 1]);
-    else changeScene(sceneIds[sceneIds.length - 1]); // Loop ke akhir
+    else changeScene(sceneIds[sceneIds.length - 1]);
   };
 
   const goToNextScene = () => {
     const idx = sceneIds.indexOf(currentSceneId);
     if (idx < sceneIds.length - 1) changeScene(sceneIds[idx + 1]);
-    else changeScene(sceneIds[0]); // Loop ke awal
+    else changeScene(sceneIds[0]);
   };
 
   return (
@@ -215,13 +230,67 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
 
       {/* STYLE BAWAAN PANNELLUM CUSTOM */}
       <style>{`
-        .pakde-hotspot-wrapper { position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; width: 40px; height: 40px; }
-        .pakde-hotspot-dot { width: 32px; height: 32px; background-color: rgba(255, 255, 255, 0.9); border: 4px solid #D6A34A; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: all 0.3s ease; animation: pulse-hotspot 2s infinite; }
-        .pakde-hotspot-wrapper:hover .pakde-hotspot-dot { transform: scale(1.3); background-color: #D6A34A; border-color: white; animation: none; }
-        .pakde-hotspot-label { position: absolute; bottom: 45px; left: 50%; transform: translateX(-50%) translateY(10px); background: rgba(0, 0, 0, 0.8); color: #D6A34A; padding: 6px 14px; border-radius: 12px; font-size: 13px; font-weight: 700; white-space: nowrap; opacity: 0; pointer-events: none; transition: all 0.3s ease; border: 1px solid #D6A34A; }
-        .pakde-hotspot-wrapper:hover .pakde-hotspot-label { opacity: 1; transform: translateX(-50%) translateY(0); }
-        @keyframes pulse-hotspot { 0% { box-shadow: 0 0 0 0 rgba(214, 163, 74, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(214, 163, 74, 0); } 100% { box-shadow: 0 0 0 0 rgba(214, 163, 74, 0); } }
+        /* --- DESAIN HOTSPOT PINTU MINIMALIS --- */
+        .pakde-door-hotspot {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          border: 3px solid rgba(255, 255, 255, 0.8);
+          background: rgba(0, 0, 0, 0.4);
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+          animation: float-pulse 3s infinite ease-in-out;
+        }
         
+        .pakde-door-hotspot:hover {
+          transform: scale(1.1);
+          background: rgba(214, 163, 74, 0.8); /* Warna emas saat hover */
+          border-color: #D6A34A;
+          animation: none;
+        }
+
+        .door-icon {
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .door-label {
+          position: absolute;
+          bottom: 60px;
+          left: 50%;
+          transform: translateX(-50%) translateY(10px);
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          padding: 6px 14px;
+          border-radius: 6px;
+          font-size: 13px;
+          font-weight: 500;
+          white-space: nowrap;
+          opacity: 0;
+          pointer-events: none;
+          transition: all 0.3s ease;
+          border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .pakde-door-hotspot:hover .door-label {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+
+        @keyframes float-pulse {
+          0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4); transform: translateY(0px); }
+          50% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); transform: translateY(-5px); }
+          100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); transform: translateY(0px); }
+        }
+        
+        /* --- TIRAI LITTLE PLANET --- */
         .planet-curtain { position: absolute; inset: 0; z-index: 50; background-color: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; transition: opacity 2.5s ease, transform 2.5s ease; }
         .planet-curtain.hidden { opacity: 0; pointer-events: none; transform: scale(8); }
         .planet-curtain.visible { opacity: 1; transform: scale(1); }
@@ -258,17 +327,16 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
       {/* LAYER 3: PANNELLUM VIEWER */}
       <div id="public-tour-container" ref={viewerRef} className="w-full h-full cursor-move z-0" />
 
-      {/* LAYER 4: CUSTOM UI CONTROLS (Hanya tampil jika playing) */}
+      {/* LAYER 4: CUSTOM UI CONTROLS */}
       {tourState === "playing" && (
         <>
-          {/* Judul Ruangan Kiri Atas */}
+          {/* Judul Ruangan Kiri Atas - Kini menjadi satu-satunya judul */}
           <div className="absolute top-6 left-6 z-20 pointer-events-none">
             <h1 className="text-white text-2xl md:text-3xl font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
               {tourConfig?.scenes[currentSceneId]?.title || "Memuat..."}
             </h1>
           </div>
 
-          {/* Tombol Info (Kiri Bawah) */}
           <button 
             onClick={() => setShowGuide(true)}
             className="absolute bottom-6 left-6 z-20 w-12 h-12 rounded-full bg-black/60 hover:bg-black/90 border border-[#D6A34A]/50 text-[#D6A34A] flex items-center justify-center backdrop-blur-md transition-all shadow-lg hover:scale-110"
@@ -277,7 +345,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
             <Info size={22} />
           </button>
 
-          {/* Tombol Audio (Kanan Bawah) */}
           <button 
             onClick={toggleAudio}
             className="absolute bottom-6 right-6 z-20 w-12 h-12 rounded-full bg-black/60 hover:bg-black/90 border border-[#D6A34A]/50 text-[#D6A34A] flex items-center justify-center backdrop-blur-md transition-all shadow-lg hover:scale-110"
@@ -286,7 +353,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
             {isAudioPlaying ? <Volume2 size={22} /> : <VolumeX size={22} />}
           </button>
 
-          {/* PILL CONTROLS (Tengah Bawah) */}
+          {/* PILL CONTROLS */}
           <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-20 transition-all duration-500 ease-in-out ${showTools ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
             <div className="bg-black/80 backdrop-blur-md border border-[#D6A34A]/30 rounded-full px-4 md:px-6 py-3 flex items-center gap-4 md:gap-6 shadow-2xl">
               <button onClick={goToPrevScene} className="text-[#D6A34A] hover:text-white hover:scale-110 transition-all p-1" title="Ruangan Sebelumnya">
@@ -315,7 +382,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
             </div>
           </div>
 
-          {/* Tombol Munculkan Tools (Hanya tampil saat Tools disembunyikan) */}
           {!showTools && (
             <button 
               onClick={() => setShowTools(true)}

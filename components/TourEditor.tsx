@@ -44,6 +44,34 @@ export default function TourEditor({
   const currentScene = existingScenes.find(s => s.id === activeSceneId);
   const sceneHotspots = allHotspots.filter(h => h.sceneId === activeSceneId);
 
+  // FUNGSI RENDER HOTSPOT KUSTOM UNTUK EDITOR
+  const renderCustomHotspot = (hotSpotDiv: HTMLElement, args: any) => {
+    const { label, iconType, targetImage } = args;
+    const dot = document.createElement('div');
+
+    if (iconType === 'thumbnail' && targetImage) {
+      dot.classList.add('pakde-hotspot-thumbnail');
+      dot.style.backgroundImage = `url(${targetImage})`;
+    } else {
+      dot.classList.add('pakde-hotspot-dot');
+      const iconSpan = document.createElement('span');
+      iconSpan.classList.add('door-icon');
+      
+      if (iconType === 'arrow') {
+        iconSpan.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
+      } else {
+        iconSpan.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 3a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12z"></path><path d="M10 9v6"></path><path d="M14 9v6"></path></svg>`;
+      }
+      dot.appendChild(iconSpan);
+    }
+
+    hotSpotDiv.appendChild(dot);
+    const labelDiv = document.createElement('div');
+    labelDiv.classList.add('door-label');
+    labelDiv.innerHTML = label;
+    hotSpotDiv.appendChild(labelDiv);
+  };
+
   useEffect(() => {
     if (viewerInstance.current) {
       try { viewerInstance.current.destroy(); } catch(e) {}
@@ -52,30 +80,29 @@ export default function TourEditor({
 
     if (isReady && viewerRef.current && window.pannellum && currentScene) {
       
-      // Menggunakan custom hotspot agar visualnya persis dengan viewer pengunjung
-      const mappedHotspots = sceneHotspots.map(h => ({
-        pitch: h.pitch,
-        yaw: h.yaw,
-        type: "custom",
-        cssClass: "pakde-hotspot-wrapper",
-        createTooltipFunc: (hotSpotDiv: HTMLElement, args: string) => {
-          const dot = document.createElement('div');
-          dot.classList.add('pakde-hotspot-dot');
-          hotSpotDiv.appendChild(dot);
-          
-          const label = document.createElement('div');
-          label.classList.add('pakde-hotspot-label');
-          label.innerHTML = args;
-          hotSpotDiv.appendChild(label);
-        },
-        createTooltipArgs: h.label
-      }));
+      const mappedHotspots = sceneHotspots.map(h => {
+        // Mengekstrak label dan tipe ikon dari trik pemisah "|||"
+        const [rawLabel, iconType = "door"] = (h.label || "").split("|||");
+        
+        // Cari gambar ruangan tujuan untuk mode thumbnail
+        const targetScene = existingScenes.find(s => s.id === h.targetSceneId);
+        const targetImage = targetScene ? `/api/media/${targetScene.mediaId}` : "";
+
+        return {
+          pitch: h.pitch,
+          yaw: h.yaw,
+          type: "custom",
+          cssClass: "pakde-hotspot-wrapper",
+          createTooltipFunc: renderCustomHotspot,
+          createTooltipArgs: { label: rawLabel, iconType, targetImage }
+        };
+      });
 
       viewerInstance.current = window.pannellum.viewer(viewerRef.current.id, {
         type: "equirectangular",
         panorama: `/api/media/${currentScene.mediaId}`,
         autoLoad: true, 
-        hfov: 120,
+        hfov: 90, // Fix Distorsi (Dari 120 turun ke 90)
         compass: false,
         showControls: true,
         hotSpots: mappedHotspots 
@@ -87,7 +114,7 @@ export default function TourEditor({
         try { viewerInstance.current.destroy(); } catch(e) {}
       }
     };
-  }, [isReady, activeSceneId, currentScene, sceneHotspots]);
+  }, [isReady, activeSceneId, currentScene, sceneHotspots, existingScenes]);
 
   const handleCaptureCoords = () => {
     if (viewerInstance.current) {
@@ -96,17 +123,31 @@ export default function TourEditor({
     }
   };
 
+  // Intercept form submission untuk menyisipkan gaya ikon ke dalam field label
+  const handleHotspotSubmit = async (formData: FormData) => {
+    const label = formData.get("label") as string;
+    const iconType = formData.get("iconType") as string;
+    
+    // Gabungkan label dan tipe ikon agar tersimpan di DB tanpa merombak schema
+    formData.set("label", `${label}|||${iconType}`);
+    await createHotspotAction(formData);
+    
+    setPitch(""); setYaw(""); // Reset koordinat setelah simpan
+  };
+
   if (existingScenes.length === 0) return null;
 
   return (
     <div className="space-y-6">
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
       
-      {/* Memasukkan style hotspot yang sama persis dengan viewer */}
+      {/* Memasukkan style hotspot yang sama persis dengan viewer pengunjung */}
       <style>{`
-        .pakde-hotspot-wrapper { position: relative; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; pointer-events: none; }
-        .pakde-hotspot-dot { width: 32px; height: 32px; background-color: rgba(255, 255, 255, 0.9); border: 4px solid #D6A34A; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .pakde-hotspot-label { position: absolute; bottom: 45px; left: 50%; transform: translateX(-50%); background: rgba(74, 47, 27, 0.95); color: white; padding: 6px 14px; border-radius: 12px; font-size: 13px; font-weight: 700; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(214, 163, 74, 0.3); }
+        .pakde-hotspot-wrapper { position: relative; display: flex; align-items: center; justify-content: center; width: 60px; height: 60px; pointer-events: none; }
+        .pakde-hotspot-dot { width: 44px; height: 44px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.8); background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .pakde-hotspot-thumbnail { width: 60px; height: 60px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.9); background-size: cover; background-position: center; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
+        .door-icon { display: flex; align-items: center; justify-content: center; }
+        .door-label { position: absolute; bottom: 100%; margin-bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); }
       `}</style>
 
       <Script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js" onLoad={() => setIsReady(true)} />
@@ -172,7 +213,6 @@ export default function TourEditor({
             
             <div className="w-full xl:w-2/3 h-[500px] relative bg-black rounded-xl overflow-hidden shadow-inner border-2 border-gray-200">
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                {/* Visual Target Sniper agar admin mudah menentukan pusat layar */}
                 <Crosshair className="text-[#D6A34A] drop-shadow-md" size={40} strokeWidth={2} />
               </div>
               <div key={activeSceneId} id={`tour-canvas-${activeSceneId}`} ref={viewerRef} className="w-full h-full cursor-crosshair" />
@@ -204,7 +244,7 @@ export default function TourEditor({
                   </button>
                 </form>
 
-                <form action={createHotspotAction} className="space-y-3">
+                <form action={handleHotspotSubmit} className="space-y-3">
                   <input type="hidden" name="propertyId" value={propertyId} />
                   <input type="hidden" name="sceneId" value={currentScene.id} />
                   
@@ -217,6 +257,15 @@ export default function TourEditor({
                       <label className="block text-[10px] font-bold text-gray-500 mb-1">YAW (Horizontal)</label>
                       <input type="text" name="yaw" value={yaw !== "" ? Number(yaw).toFixed(2) : ""} readOnly className="w-full bg-white border border-gray-300 p-2.5 rounded-lg text-sm text-center font-mono text-gray-900 font-bold" placeholder="-" />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#281C15] mb-1">Pilih Gaya Ikon</label>
+                    <select name="iconType" className="w-full border border-[#D6A34A]/50 p-2.5 rounded-lg bg-white text-[#281C15] text-sm focus:outline-none focus:ring-1 focus:ring-[#D6A34A]">
+                      <option value="door">🚪 Ikon Pintu Klasik</option>
+                      <option value="arrow">⬆️ Ikon Panah Arah</option>
+                      <option value="thumbnail">🖼️ Thumbnail Foto Ruangan</option>
+                    </select>
                   </div>
 
                   <div>
@@ -240,55 +289,30 @@ export default function TourEditor({
                 </form>
               </div>
 
-              <div className="bg-white p-5 rounded-xl border border-[#D6A34A]/30">
-                <h3 className="text-sm font-bold text-[#4A2F1B] mb-3 border-b pb-2">Audio & Putaran Kamera</h3>
-                <form action={updateSceneAudioAction} className="space-y-3">
-                  <input type="hidden" name="propertyId" value={propertyId} />
-                  <input type="hidden" name="sceneId" value={currentScene.id} />
-                  
-                  <div>
-                    <label className="block text-xs font-bold text-[#281C15] mb-1">Pilih Audio (Voice Over/Musik)</label>
-                    <select name="audioMediaId" defaultValue={currentScene.audioMediaId || ""} className="w-full border border-gray-300 p-2 rounded-lg bg-gray-50 text-xs font-medium text-gray-700 focus:border-[#D6A34A] focus:outline-none">
-                      <option value="">-- Tanpa Audio --</option>
-                      {availableAudios.map(audio => (
-                        <option key={audio.id} value={audio.id}>{audio.fileName}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs font-bold text-[#281C15] mb-1">Kecepatan Putaran (Auto-rotate)</label>
-                    <input type="number" step="0.1" name="autoRotateSpeed" defaultValue={currentScene.autoRotateSpeed ?? 2} className="w-full border border-gray-300 p-2 rounded-lg bg-gray-50 text-xs font-bold font-mono focus:border-[#D6A34A] focus:outline-none" />
-                    <p className="text-[10px] text-gray-500 mt-1 leading-tight">Gunakan nilai negatif (Misal: -2) untuk putaran ke kiri. Isi 0 untuk mematikan putaran.</p>
-                  </div>
-                  
-                  <button type="submit" className="w-full flex items-center justify-center gap-2 bg-[#4A2F1B] text-[#D6A34A] font-bold py-2.5 px-4 rounded-lg hover:bg-[#281C15] transition-all shadow-md text-xs mt-2">
-                    <Save size={14} /> Perbarui Ruangan Ini
-                  </button>
-                </form>
-              </div>
-
               <div className="bg-white p-5 rounded-xl border border-gray-200">
                 <h3 className="text-sm font-bold text-[#4A2F1B] mb-3 border-b pb-2">Daftar Hotspot ({sceneHotspots.length})</h3>
                 {sceneHotspots.length === 0 ? (
                   <p className="text-xs text-gray-400 italic">Belum ada titik yang dibuat di ruangan ini.</p>
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                    {sceneHotspots.map(hs => (
-                      <div key={hs.id} className="flex items-center justify-between bg-gray-50 p-2.5 rounded-lg border border-gray-100 text-xs shadow-sm hover:border-[#D6A34A]/50 transition-colors">
-                        <div>
-                          <p className="font-bold text-[#4A2F1B]">{hs.label}</p>
-                          <p className="font-mono text-gray-500 text-[10px] mt-0.5">p:{hs.pitch.toFixed(1)}, y:{hs.yaw.toFixed(1)}</p>
+                    {sceneHotspots.map(hs => {
+                      const [realLabel, iconType = "door"] = (hs.label || "").split("|||");
+                      return (
+                        <div key={hs.id} className="flex items-center justify-between bg-gray-50 p-2.5 rounded-lg border border-gray-100 text-xs shadow-sm hover:border-[#D6A34A]/50 transition-colors">
+                          <div>
+                            <p className="font-bold text-[#4A2F1B]">{realLabel}</p>
+                            <p className="text-[10px] text-gray-500 uppercase mt-0.5">Style: {iconType}</p>
+                          </div>
+                          <form action={deleteHotspotAction}>
+                            <input type="hidden" name="hotspotId" value={hs.id} />
+                            <input type="hidden" name="propertyId" value={propertyId} />
+                            <button type="submit" className="text-red-500 hover:text-white hover:bg-red-500 p-1.5 rounded-md transition-colors" title="Hapus Hotspot">
+                              <Trash2 size={14} />
+                            </button>
+                          </form>
                         </div>
-                        <form action={deleteHotspotAction}>
-                          <input type="hidden" name="hotspotId" value={hs.id} />
-                          <input type="hidden" name="propertyId" value={propertyId} />
-                          <button type="submit" className="text-red-500 hover:text-white hover:bg-red-500 p-1.5 rounded-md transition-colors" title="Hapus Hotspot">
-                            <Trash2 size={14} />
-                          </button>
-                        </form>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
