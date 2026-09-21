@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { validateRequest } from "@/lib/auth";
 import { ArrowLeft, MessageCircle, MapPin, BedDouble, Bath, Maximize2, Home as HomeIcon } from "lucide-react";
+import ShareButton from "@/components/ShareButton";
 
 export const dynamic = "force-dynamic";
 
@@ -22,47 +23,33 @@ export default async function DetailPropertiPage(props: { params: Promise<{ slug
   const allMedia = await db.select().from(propertyMedia).where(eq(propertyMedia.propertyId, property.id));
   
   const coverImage = allMedia.find(m => m.fileType === "cover_public");
-  // Galeri sekarang bersifat publik (semua pengunjung bisa melihat)
+  // Galeri sekarang bersifat publik
   const galleryImages = allMedia.filter(m => m.fileType === "gallery_private" || m.fileType === "cover_public");
   const hasVirtualTour = allMedia.some(m => m.fileType === "panorama_private");
 
   const isMember = !!user;
 
   return (
-    // Penambahan background pola dengan class kustom
     <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] pb-32 relative">
       
-      {/* CSS Inline untuk Background Pola Berulang (Jarang-jarang) */}
       <style dangerouslySetInnerHTML={{__html: `
         .bg-pola {
           background-image: url('/images/pola.webp');
           background-size: 300px;
           background-repeat: repeat;
           background-position: center;
-          opacity: 0.05; /* Dibuat sangat tipis agar tidak mengganggu bacaan */
+          opacity: 0.05; 
           position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
+          top: 0; left: 0; right: 0; bottom: 0;
           z-index: 0;
           pointer-events: none;
         }
-        
-        /* Menyembunyikan scrollbar bawaan pada galeri horizontal */
-        .hide-scroll::-webkit-scrollbar {
-          display: none;
-        }
-        .hide-scroll {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
 
-      {/* Layer Pola Background */}
       <div className="bg-pola"></div>
 
-      {/* HEADER (Z-Index tinggi agar menimpa pola) */}
       <header className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-[#D6A34A]/20">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-[#4A2F1B] hover:text-[#D6A34A] font-bold transition-colors">
@@ -74,17 +61,22 @@ export default async function DetailPropertiPage(props: { params: Promise<{ slug
         </div>
       </header>
 
-      {/* KONTEN UTAMA */}
       <main className="max-w-4xl mx-auto px-4 mt-8 space-y-8 relative z-10">
         
-        {/* JUDUL & HARGA */}
+        {/* JUDUL, HARGA, & TOMBOL SHARE */}
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold text-[#D6A34A] uppercase tracking-wider mb-2">
-            <span className="bg-[#D6A34A]/10 px-2 py-1 rounded">{property.propertyType}</span>
-            <span>•</span>
-            <span>{property.transactionType.replace('_', ' ')}</span>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#D6A34A] uppercase tracking-wider">
+              <span className="bg-[#D6A34A]/10 px-2 py-1 rounded">{property.propertyType}</span>
+              <span>•</span>
+              <span>{property.transactionType.replace('_', ' ')}</span>
+            </div>
+            
+            {/* TOMBOL SHARE PANGGILAN */}
+            <ShareButton title={property.title} slug={property.slug} className="w-10 h-10 shrink-0" />
           </div>
-          <h1 className="text-3xl md:text-4xl font-black text-[#4A2F1B] leading-tight mb-2">
+
+          <h1 className="text-3xl md:text-4xl font-black text-[#4A2F1B] leading-tight mb-2 pr-12">
             {property.title}
           </h1>
           <p className="flex items-center gap-1.5 text-gray-500 font-medium mb-4">
@@ -98,7 +90,7 @@ export default async function DetailPropertiPage(props: { params: Promise<{ slug
         {/* FOTO COVER UTAMA */}
         <div className="w-full aspect-[16/9] bg-gray-200 rounded-3xl overflow-hidden relative shadow-lg">
           {coverImage ? (
-            <Image src={`/api/media/${coverImage.id}`} alt={property.title} fill className="object-cover" />
+            <Image src={`/api/media/${coverImage.id}`} alt={property.title} fill className="object-cover" priority />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400">Tidak Ada Foto Cover</div>
           )}
@@ -109,11 +101,17 @@ export default async function DetailPropertiPage(props: { params: Promise<{ slug
           <div className="pt-4">
             <h3 className="text-xl font-bold text-[#4A2F1B] mb-4 border-l-4 border-[#D6A34A] pl-3">Galeri Properti</h3>
             
-            {/* Wrapper Horizontal Scroll */}
             <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 hide-scroll cursor-grab active:cursor-grabbing">
               {galleryImages.map((img) => (
                 <div key={img.id} className="min-w-[280px] md:min-w-[320px] aspect-[4/3] bg-gray-100 rounded-2xl relative overflow-hidden group snap-center shadow-sm shrink-0">
-                  <Image src={`/api/media/${img.id}`} alt="Galeri Properti" fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                  {/* Gunakan img standar HTML agar RAM Server cPanel tidak penuh */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src={`/api/media/${img.id}`} 
+                    alt="Galeri Properti" 
+                    loading="lazy" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                  />
                 </div>
               ))}
             </div>
@@ -175,17 +173,14 @@ export default async function DetailPropertiPage(props: { params: Promise<{ slug
           <h3 className="text-xl font-bold text-[#4A2F1B] mb-4">Deskripsi Properti</h3>
           
           <div className="relative group">
-            {/* Checkbox hack untuk Read More */}
             <input type="checkbox" id="readMoreToggle" className="peer hidden" />
             
             <div className="text-[#281C15]/80 leading-relaxed max-h-48 overflow-hidden peer-checked:max-h-none transition-all duration-500 whitespace-pre-wrap">
               {property.publicSummary || "Belum ada deskripsi lengkap yang ditambahkan untuk properti ini."}
             </div>
             
-            {/* Gradasi Blur */}
             <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent peer-checked:hidden pointer-events-none"></div>
             
-            {/* Tombol yang lebih mencolok */}
             <label htmlFor="readMoreToggle" className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-4 bg-white border border-[#D6A34A]/40 px-6 py-2 rounded-full font-bold text-[#D6A34A] cursor-pointer hover:bg-[#FFF7E8] hover:border-[#D6A34A] transition-colors select-none shadow-sm z-10">
               <span className="block peer-checked:hidden">Baca Selengkapnya ▾</span>
               <span className="hidden peer-checked:block">Sembunyikan ▴</span>
