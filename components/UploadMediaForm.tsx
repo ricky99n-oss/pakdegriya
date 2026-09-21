@@ -2,10 +2,8 @@
 
 import { useFormStatus } from "react-dom";
 import { Loader2 } from "lucide-react";
-// Pastikan path import ini sesuai dengan lokasi actions Anda
 import { uploadMediaAction } from "@/app/admin/properti/[id]/actions"; 
 
-// Komponen tombol submit internal yang bisa membaca status 'pending'
 function SubmitButton() {
   const { pending } = useFormStatus();
 
@@ -21,10 +19,10 @@ function SubmitButton() {
     >
       {pending ? (
         <>
-          <Loader2 size={18} className="animate-spin" /> Sedang Mengunggah File...
+          <Loader2 size={18} className="animate-spin" /> Sedang Mengunggah...
         </>
       ) : (
-        "Unggah File"
+        "Unggah Semua File"
       )}
     </button>
   );
@@ -47,10 +45,11 @@ export default function UploadMediaForm({ propertyId }: { propertyId: string }) 
       </div>
       
       <div>
-        <label className="block text-sm font-medium mb-1 text-[#281C15]">Pilih File</label>
+        <label className="block text-sm font-medium mb-1 text-[#281C15]">Pilih File (Bisa pilih lebih dari 1)</label>
         <input 
           type="file" 
           name="file" 
+          multiple
           accept="image/jpeg, image/png, image/webp, audio/mpeg, audio/wav" 
           required 
           className="w-full border p-2 rounded-lg bg-white text-[#281C15] text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#FFF7E8] file:text-[#4A2F1B] hover:file:bg-[#D6A34A] hover:file:text-white transition-all cursor-pointer shadow-sm" 

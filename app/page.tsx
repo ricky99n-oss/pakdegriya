@@ -36,7 +36,6 @@ export default async function BerandaPublik() {
 
     return (
       <div className="min-h-screen bg-[#FFF7E8] text-[#281C15]">
-        {/* Navbar Publik Cerdas */}
         <header className="border-b border-[#D6A34A]/20 bg-white/80 backdrop-blur-md sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -124,83 +123,7 @@ export default async function BerandaPublik() {
           </div>
         </section>
 
-        {/* Highlight Section: Layanan Pakde Griya */}
-        <section className="container mx-auto px-6 mt-16 mb-24 space-y-32 max-w-7xl overflow-hidden">
-          
-          {/* Seksi 1: Survey 360 */}
-          <div className="flex flex-col md:flex-row items-center gap-10 scroll-blur">
-            {/* FRAME DIHAPUS: Hanya container transparan dengan tinggi proporsional */}
-            <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
-              <Image 
-                src="/images/pakde-1.webp" 
-                alt="Pakde Griya Survey 360 Derajat" 
-                fill 
-                className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" 
-              />
-            </div>
-            <div className="w-full md:w-7/12 space-y-6 md:pl-6">
-              <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
-                Survey Rumah Makin Mudah dengan <span className="text-[#D6A34A]">Fitur 360°</span>
-              </h2>
-              <p className="text-lg text-[#281C15]/80 leading-relaxed">
-                Gunakan fitur 360 derajat kami untuk melihat setiap sudut ruangan secara virtual tanpa harus keluar rumah. Hemat waktu dan pastinya 100% transparan tanpa manipulasi sudut pandang.
-              </p>
-            </div>
-          </div>
-
-          {/* Seksi 2: Daftarkan Properti (Reverse) */}
-          <div className="flex flex-col md:flex-row-reverse items-center gap-10 scroll-blur">
-            {/* FRAME DIHAPUS */}
-            <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
-              <Image 
-                src="/images/pakde-2.webp" 
-                alt="Daftarkan Properti di Pakde Griya" 
-                fill 
-                className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" 
-              />
-            </div>
-            <div className="w-full md:w-7/12 space-y-6 md:pr-6">
-              <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
-                Dapatkan Kesempatan Masuk <span className="text-[#D6A34A]">Konten Pakde!</span>
-              </h2>
-              <p className="text-lg text-[#281C15]/80 leading-relaxed">
-                Daftarkan propertimu sekarang dan raih peluang agar propertimu dipromosikan langsung melalui konten eksklusif media sosial Pakde Griya yang menjangkau ribuan calon pembeli potensial.
-              </p>
-              <a 
-                href="https://wa.me/6285815999953" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-8 py-4 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold rounded-2xl transition-all hover:scale-105 shadow-lg shadow-[#25D366]/30"
-              >
-                <MessageCircle size={20} /> Hubungi via WA (085815999953)
-              </a>
-            </div>
-          </div>
-
-          {/* Seksi 3: Jual Properti */}
-          <div className="flex flex-col md:flex-row items-center gap-10 scroll-blur">
-            {/* FRAME DIHAPUS */}
-            <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
-              <Image 
-                src="/images/pakde-3.webp" 
-                alt="Jual Properti Bersama Pakde" 
-                fill 
-                className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" 
-              />
-            </div>
-            <div className="w-full md:w-7/12 space-y-6 md:pl-6">
-              <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
-                Jual Propertimu Bersama <span className="text-[#D6A34A]">Pakde Griya</span>
-              </h2>
-              <p className="text-lg text-[#281C15]/80 leading-relaxed">
-                Percayakan penjualan propertimu kepada tim profesional kami. Kami urus segala kerumitan teknis dan promosinya. Transaksi dijamin aman, cepat, dan transparan dari awal hingga tuntas.
-              </p>
-            </div>
-          </div>
-
-        </section>
-
-        {/* Daftar Properti Unggulan */}
+        {/* DAFTAR PROPERTI (Pindah ke bawah Hero) */}
         <section id="properti" className="py-16 px-6 max-w-7xl mx-auto scroll-blur">
           <div className="flex justify-between items-end mb-10">
             <div>
@@ -254,7 +177,56 @@ export default async function BerandaPublik() {
           )}
         </section>
 
-        {/* Footer Sederhana */}
+        {/* Highlight Section: Layanan Pakde Griya */}
+        <section className="container mx-auto px-6 mt-16 mb-24 space-y-32 max-w-7xl overflow-hidden">
+          
+          <div className="flex flex-col md:flex-row items-center gap-10 scroll-blur">
+            <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
+              <Image src="/images/pakde-1.webp" alt="Pakde Griya Survey 360 Derajat" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
+            </div>
+            <div className="w-full md:w-7/12 space-y-6 md:pl-6">
+              <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
+                Survey Rumah Makin Mudah dengan <span className="text-[#D6A34A]">Fitur 360°</span>
+              </h2>
+              <p className="text-lg text-[#281C15]/80 leading-relaxed">
+                Gunakan fitur 360 derajat kami untuk melihat setiap sudut ruangan secara virtual tanpa harus keluar rumah. Hemat waktu dan pastinya 100% transparan tanpa manipulasi sudut pandang.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row-reverse items-center gap-10 scroll-blur">
+            <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
+              <Image src="/images/pakde-2.webp" alt="Daftarkan Properti di Pakde Griya" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
+            </div>
+            <div className="w-full md:w-7/12 space-y-6 md:pr-6">
+              <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
+                Dapatkan Kesempatan Masuk <span className="text-[#D6A34A]">Konten Pakde!</span>
+              </h2>
+              <p className="text-lg text-[#281C15]/80 leading-relaxed">
+                Daftarkan propertimu sekarang dan raih peluang agar propertimu dipromosikan langsung melalui konten eksklusif media sosial Pakde Griya yang menjangkau ribuan calon pembeli potensial.
+              </p>
+              <a href="https://wa.me/6285815999953" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-8 py-4 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold rounded-2xl transition-all hover:scale-105 shadow-lg shadow-[#25D366]/30">
+                <MessageCircle size={20} /> Hubungi via WA (085815999953)
+              </a>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row items-center gap-10 scroll-blur">
+            <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
+              <Image src="/images/pakde-3.webp" alt="Jual Properti Bersama Pakde" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
+            </div>
+            <div className="w-full md:w-7/12 space-y-6 md:pl-6">
+              <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
+                Jual Propertimu Bersama <span className="text-[#D6A34A]">Pakde Griya</span>
+              </h2>
+              <p className="text-lg text-[#281C15]/80 leading-relaxed">
+                Percayakan penjualan propertimu kepada tim profesional kami. Kami urus segala kerumitan teknis dan promosinya. Transaksi dijamin aman, cepat, dan transparan dari awal hingga tuntas.
+              </p>
+            </div>
+          </div>
+
+        </section>
+
         <footer className="border-t border-[#D6A34A]/20 bg-white/50 py-12 px-6 text-center text-sm text-[#4A2F1B]/70 mt-10">
           <p>© 2026 Pakde Griya. Seluruh hak cipta dilindungi. • Hubungi Pusat: 6285815999953</p>
         </footer>
@@ -266,16 +238,6 @@ export default async function BerandaPublik() {
         <div className="bg-white p-8 rounded-2xl shadow border border-red-200 max-w-lg w-full">
           <h1 className="text-2xl font-bold text-red-600 mb-2">Terjadi Gangguan Sistem</h1>
           <p className="text-gray-600 text-sm mb-4">Kami tidak dapat memuat data properti saat ini karena kendala koneksi database.</p>
-          <div className="bg-red-50 text-red-800 p-4 rounded text-xs font-mono break-all text-left space-y-3 border border-red-100">
-            <div>
-              <span className="font-bold text-red-900 block mb-1">Pesan Utama:</span>
-              {error.message || "Unknown Database Error"}
-            </div>
-            <div className="pt-2 border-t border-red-200">
-              <span className="font-bold text-red-900 block mb-1">Akar Masalah (Dari MariaDB):</span>
-              <span className="text-blue-700 font-semibold">{error.cause ? String(error.cause) : "Tidak ada detail spesifik. Cek penamaan host, tabel, atau port."}</span>
-            </div>
-          </div>
         </div>
       </div>
     );

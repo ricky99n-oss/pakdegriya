@@ -1,5 +1,5 @@
-import { db } from "@/db"; // MENGGUNAKAN ALIAS
-import { properties } from "@/db/schema"; // MENGGUNAKAN ALIAS
+import { db } from "@/db"; 
+import { properties } from "@/db/schema"; 
 import { desc } from "drizzle-orm";
 import Link from "next/link";
 import { Plus, Building2, Edit2, Trash2 } from "lucide-react";
@@ -50,7 +50,6 @@ export default async function DaftarPropertiPage() {
                   </td>
                 </tr>
               ) : (
-                // Menyelesaikan error (item implicitly has any type) dengan menetapkan tipenya
                 dataProperti.map((item: typeof properties.$inferSelect) => (
                   <tr key={item.id} className="hover:bg-gray-50/50 transition-colors group">
                     <td className="p-5">
@@ -78,14 +77,9 @@ export default async function DaftarPropertiPage() {
                           <Edit2 size={16} />
                         </Link>
                         
-                        <form action={hapusPropertiAction}>
+                        <form action={hapusPropertiAction} onSubmit={(e) => { if(!confirm("Yakin ingin menghapus properti ini beserta semua medianya?")) e.preventDefault(); }}>
                           <input type="hidden" name="propertyId" value={item.id} />
-                          {/* Harus pakai <button> (bukan Link) untuk men-trigger form action */}
-                          <button 
-                            type="submit" 
-                            className="inline-block p-2 text-red-500 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 shadow-sm cursor-pointer" 
-                            title="Hapus Properti"
-                          >
+                          <button type="submit" className="inline-block p-2 text-red-500 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 shadow-sm cursor-pointer" title="Hapus Properti">
                             <Trash2 size={16} />
                           </button>
                         </form>

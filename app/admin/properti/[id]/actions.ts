@@ -1,78 +1,50 @@
 "use server";
-
-// 1. Gunakan jalur relatif agar 100% terbaca
-import { db } from "../../../../db";
-import { propertyMedia, properties } from "../../../../db/schema";
+import { db } from "@/db";
+import { propertyMedia } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import fs from "fs/promises";
 import path from "path";
-import crypto from "crypto"; 
-// HAPUS import sharp dari sini untuk mencegah crash di cPanel
 
+// === FUNGSI UPLOAD BANYAK FILE (BULK) ===
 export async function uploadMediaAction(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
   const fileType = formData.get("fileType") as "cover_public" | "gallery_private" | "panorama_private" | "audio_private" | "intro_planet_public";
-  const file = formData.get("file") as File;
+  
+  // Tangkap SEMUA file yang diunggah
+  const files = formData.getAll("file") as File[];
 
-  if (!file || file.size === 0) {
+  if (files.length === 0 || files[0].size === 0) {
     throw new Error("File kosong atau tidak valid");
   }
-
-  const fileId = crypto.randomUUID();
-  const originalBuffer = Buffer.from(await file.arrayBuffer());
-  
-  // Karena kita membuang sharp untuk menghindari error 500, kita simpan file apa adanya.
-  const fileExt = file.name.substring(file.name.lastIndexOf("."));
-  const finalFileName = `${fileId}${fileExt}`;
-  const finalMimeType = file.type;
 
   const storageDir = path.join(process.cwd(), "storage");
   await fs.mkdir(storageDir, { recursive: true });
 
-  const filePath = path.join(storageDir, finalFileName);
-  await fs.writeFile(filePath, originalBuffer);
+  // Loop setiap file dan simpan
+  for (const file of files) {
+    if (file.size === 0) continue;
 
-  await db.insert(propertyMedia).values({
-    id: fileId,
-    propertyId,
-    fileType,
-    fileName: finalFileName,
-    mimeType: finalMimeType,
-  });
+    const fileId = globalThis.crypto.randomUUID();
+    const originalBuffer = Buffer.from(await file.arrayBuffer());
+    
+    // Tanpa Sharp untuk keamanan server cPanel
+    const fileExt = file.name.substring(file.name.lastIndexOf("."));
+    const finalFileName = `${fileId}${fileExt}`;
+    const finalMimeType = file.type;
 
-  revalidatePath(`/admin/properti/${propertyId}`);
-}
+    const filePath = path.join(storageDir, finalFileName);
+    await fs.writeFile(filePath, originalBuffer);
 
-export async function togglePublishStatus(formData: FormData) {
-  const propertyId = formData.get("propertyId") as string;
-  const currentStatus = formData.get("currentStatus") as string;
-  const newStatus = currentStatus === "published" ? "draft" : "published";
+    await db.insert(propertyMedia).values({
+      id: fileId,
+      propertyId,
+      fileType,
+      fileName: finalFileName,
+      mimeType: finalMimeType,
+    });
+  }
 
-  await db.update(properties)
-    .set({ publishStatus: newStatus })
-    .where(eq(properties.id, propertyId));
-
-  revalidatePath(`/`);
-  revalidatePath(`/admin/properti`);
-  revalidatePath(`/admin/properti/${propertyId}`);
-}
-
-export async function updatePropertyAction(formData: FormData) {
-  const propertyId = formData.get("propertyId") as string;
-  
-  await db.update(properties).set({
-    title: formData.get("title") as string,
-    slug: formData.get("slug") as string,
-    price: Number(formData.get("price")),
-    generalLocation: formData.get("generalLocation") as string,
-    publicSummary: formData.get("publicSummary") as string,
-    transactionType: formData.get("transactionType") as "jual" | "sewa_bulan" | "sewa_tahun",
-    propertyType: formData.get("propertyType") as "rumah" | "tanah" | "villa" | "ruko" | "apartemen",
-  }).where(eq(properties.id, propertyId));
-
-  revalidatePath(`/`);
-  revalidatePath(`/admin/properti`);
   revalidatePath(`/admin/properti/${propertyId}`);
 }
 

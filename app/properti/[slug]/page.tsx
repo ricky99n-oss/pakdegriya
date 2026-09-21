@@ -1,168 +1,182 @@
 import { db } from "@/db";
 import { properties, propertyMedia } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, MapPin, Tag, ShieldAlert } from "lucide-react";
-import { validateRequest } from "@/lib/auth"; // <-- BARU: Memanggil fungsi autentikasi
+import Image from "next/image";
+import { validateRequest } from "@/lib/auth";
+import { ArrowLeft, MessageCircle, MapPin, BedDouble, Bath, Maximize2, Home as HomeIcon } from "lucide-react";
 
-export default async function DetailPropertiPublik({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  
-  // <-- BARU: Mengecek apakah pengunjung sudah login
-  const { user } = await validateRequest(); 
+export const dynamic = "force-dynamic";
 
-  // 1. Tarik data properti berdasarkan slug dan pastikan sudah published
-  const propertyRecord = await db
-    .select()
-    .from(properties)
-    .where(and(eq(properties.slug, slug), eq(properties.publishStatus, "published")));
+export default async function DetailPropertiPage(props: { params: Promise<{ slug: string }> | { slug: string } }) {
+  const resolvedParams = await Promise.resolve(props.params);
+  const slug = resolvedParams.slug;
 
-  if (propertyRecord.length === 0) {
-    notFound(); // Menampilkan halaman 404 jika properti tidak ada / belum published
-  }
+  const { user } = await validateRequest();
 
+  const propertyRecord = await db.select().from(properties).where(eq(properties.slug, slug));
+  if (propertyRecord.length === 0) notFound();
   const property = propertyRecord[0];
 
-  // 2. Tarik gambar cover publik
-  const coverRecord = await db
-    .select()
-    .from(propertyMedia)
-    .where(and(eq(propertyMedia.propertyId, property.id), eq(propertyMedia.fileType, "cover_public")))
-    .limit(1);
+  const allMedia = await db.select().from(propertyMedia).where(eq(propertyMedia.propertyId, property.id));
+  
+  const coverImage = allMedia.find(m => m.fileType === "cover_public");
+  const galleryImages = allMedia.filter(m => m.fileType === "gallery_private");
+  const hasVirtualTour = allMedia.some(m => m.fileType === "panorama_private");
 
-  const coverId = coverRecord.length > 0 ? coverRecord[0].id : null;
-
-  // Format pesan WhatsApp otomatis sesuai brief
-  const waMessage = encodeURIComponent(
-    `Halo Pakde Griya, saya tertarik properti ${property.code} — ${property.title}, harga Rp ${property.price.toLocaleString('id-ID')}, lokasi ${property.generalLocation}. Link: http://localhost:3000/properti/${property.slug}. Saya ingin bertanya/jadwal survei.`
-  );
+  const isMember = !!user;
 
   return (
-    <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] pb-20">
-      {/* Navbar Atas */}
-      <div className="bg-white border-b border-[#D6A34A]/20 sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-[#4A2F1B] font-bold hover:text-[#D6A34A] transition-colors">
-            <ArrowLeft size={20} /> Kembali ke Beranda
+    <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] pb-32">
+      
+      <header className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-[#D6A34A]/20">
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 text-[#4A2F1B] hover:text-[#D6A34A] font-bold transition-colors">
+            <ArrowLeft size={20} /> Kembali
           </Link>
-          <span className="font-mono text-xs font-bold bg-[#FFF7E8] px-3 py-1 rounded-full border border-[#D6A34A]/30">
-            {property.code}
-          </span>
+          <div className="font-black text-lg tracking-tight text-[#4A2F1B]">
+            P<span className="text-[#D6A34A]">G</span>
+          </div>
         </div>
-      </div>
+      </header>
 
-      <main className="max-w-5xl mx-auto px-6 pt-10 space-y-8">
-        {/* Judul & Lokasi */}
-        <div className="space-y-2">
-          <span className="inline-block uppercase tracking-wider text-xs font-bold text-[#D6A34A] bg-[#4A2F1B] px-3 py-1 rounded-md">
-            {property.propertyType} • {property.transactionType.replace('_', ' ')}
-          </span>
-          <h1 className="text-3xl md:text-5xl font-black text-[#4A2F1B]">{property.title}</h1>
-          <p className="flex items-center gap-1.5 text-gray-600 text-sm font-medium">
-            <MapPin size={16} className="text-[#D6A34A]" /> {property.generalLocation}
+      <main className="max-w-4xl mx-auto px-4 mt-8 space-y-8">
+        
+        {/* JUDUL & HARGA */}
+        <div>
+          <div className="flex items-center gap-2 text-xs font-bold text-[#D6A34A] uppercase tracking-wider mb-2">
+            <span className="bg-[#D6A34A]/10 px-2 py-1 rounded">{property.propertyType}</span>
+            <span>•</span>
+            <span>{property.transactionType.replace('_', ' ')}</span>
+          </div>
+          <h1 className="text-3xl md:text-4xl font-black text-[#4A2F1B] leading-tight mb-2">
+            {property.title}
+          </h1>
+          <p className="flex items-center gap-1.5 text-gray-500 font-medium mb-4">
+            <MapPin size={16} /> {property.generalLocation}
           </p>
+          <div className="text-3xl font-black text-[#4A2F1B]">
+            Rp {property.price.toLocaleString('id-ID')}
+          </div>
         </div>
 
-        {/* Cover Utama */}
-        <div className="rounded-3xl overflow-hidden aspect-[16/9] bg-white border border-[#D6A34A]/20 shadow-md">
-          {coverId ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img 
-              src={`/api/media/${coverId}`} 
-              alt={property.title} 
-              className="w-full h-full object-cover"
-            />
+        {/* FOTO COVER UTAMA */}
+        <div className="w-full aspect-[16/9] bg-gray-200 rounded-3xl overflow-hidden relative shadow-lg">
+          {coverImage ? (
+            <Image src={`/api/media/${coverImage.id}`} alt={property.title} fill className="object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400">
-              Tidak ada cover publik
-            </div>
+            <div className="w-full h-full flex items-center justify-center text-gray-400">Tidak Ada Foto Cover</div>
           )}
         </div>
 
-        {/* Grid Informasi & CTA */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Sisi Kiri: Harga & Ringkasan */}
-          <div className="md:col-span-2 space-y-6">
-            <div className="bg-white p-8 rounded-3xl border border-[#D6A34A]/20 shadow-sm space-y-6">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-gray-400 font-bold">Harga Penawaran</p>
-                <p className="text-4xl font-black text-[#4A2F1B] mt-1">Rp {property.price.toLocaleString('id-ID')}</p>
-              </div>
-
-              <hr className="border-gray-100" />
-
-              <div>
-                <h3 className="text-lg font-bold text-[#4A2F1B] mb-2">Ringkasan Properti</h3>
-                <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                  {property.publicSummary || "Hubungi tim Pakde Griya melalui WhatsApp untuk mendapatkan rangkuman lengkap spesifikasi properti ini."}
-                </p>
-              </div>
-            </div>
-
-            {/* <-- BARU: Kotak Pengaman Akses Member (Dinamis berdasarkan sesi) --> */}
-            <div className="bg-[#4A2F1B] text-white p-8 rounded-3xl shadow-lg border border-[#D6A34A]/30 space-y-4">
-              {user ? (
-                <>
-                  <div className="flex items-center gap-3 text-[#D6A34A]">
-                    <ShieldAlert size={28} />
-                    <h3 className="text-xl font-bold text-white">Akses Member Terbuka</h3>
-                  </div>
-                  <p className="text-white/80 text-sm leading-relaxed">
-                    Karena Anda masuk sebagai <span className="font-bold text-[#D6A34A]">{user.name}</span>, Anda memiliki hak penuh untuk menjelajahi properti ini melalui Simulasi Virtual 360°.
-                  </p>
-                  <div className="pt-2">
-                    <Link href={`/properti/${property.slug}/tour`} className="inline-block bg-[#D6A34A] text-[#281C15] font-bold px-8 py-3 rounded-xl hover:bg-[#c2913b] transition-all shadow-lg shadow-[#D6A34A]/20">
-                      Mulai Virtual Tour 360°
-                    </Link>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-3 text-[#D6A34A]">
-                    <ShieldAlert size={28} />
-                    <h3 className="text-xl font-bold text-white">Tur 360° Terkunci</h3>
-                  </div>
-                  <p className="text-white/80 text-sm leading-relaxed">
-                    Simulasi <strong>Virtual Tour 360°</strong> hanya dapat diakses oleh member aktif terdaftar.
-                  </p>
-                  <div className="pt-2">
-                    <Link href="/setup" className="inline-block bg-[#D6A34A] text-[#281C15] font-bold px-6 py-2.5 rounded-xl hover:bg-[#c2913b] transition-all text-sm">
-                      Masuk / Daftar Member
-                    </Link>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Sisi Kanan: Kotak Aksi WhatsApp Pusat */}
-          <div className="md:col-span-1">
-            <div className="bg-white p-6 rounded-3xl border border-[#D6A34A]/20 shadow-sm sticky top-24 space-y-6">
-              <div className="text-center space-y-2">
-                <div className="w-12 h-12 rounded-2xl bg-[#FFF7E8] text-[#4A2F1B] flex items-center justify-center mx-auto font-bold text-xl border border-[#D6A34A]/30">
-                  <Tag size={20} />
+        {/* GALERI FOTO */}
+        {galleryImages.length > 0 && (
+          <div className="pt-4">
+            <h3 className="text-xl font-bold text-[#4A2F1B] mb-4 border-l-4 border-[#D6A34A] pl-3">Galeri Properti</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {galleryImages.slice(0, 6).map((img) => (
+                <div key={img.id} className="aspect-square bg-gray-100 rounded-2xl relative overflow-hidden group">
+                  {isMember ? (
+                    <Image src={`/api/media/${img.id}`} alt="Galeri" fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                      <LockIcon size={20} className="text-gray-400" />
+                    </div>
+                  )}
                 </div>
-                <h3 className="font-bold text-lg text-[#4A2F1B]">Minat Properti Ini?</h3>
-                <p className="text-xs text-gray-500">Tanyakan ketersediaan dan jadwalkan survei langsung dengan pusat.</p>
-              </div>
-
-              <a 
-                href={`https://wa.me/6285815999953?text=${waMessage}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold py-3.5 px-4 rounded-2xl shadow-md shadow-[#25D366]/20 hover:bg-[#20ba59] transition-all text-center"
-              >
-                <MessageCircle size={18} /> Hubungi WhatsApp
-              </a>
-
-              <div className="text-center text-[11px] text-gray-400">
-                Respon cepat pada jam kerja.
-              </div>
+              ))}
             </div>
+            {!isMember && galleryImages.length > 0 && (
+              <p className="text-center text-sm text-gray-500 mt-4 italic">Login sebagai member untuk melihat resolusi penuh galeri foto.</p>
+            )}
+          </div>
+        )}
+
+        {/* VIRTUAL TOUR 360 */}
+        {hasVirtualTour && (
+          <div className="bg-[#4A2F1B] rounded-3xl p-8 text-center text-white shadow-xl relative overflow-hidden my-8">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#D6A34A] to-transparent"></div>
+            <h2 className="text-2xl font-black mb-2 text-[#D6A34A]">Eksplorasi Virtual Tour 360°</h2>
+            <p className="text-white/70 mb-6 text-sm">Lihat setiap sudut ruangan layaknya survei langsung.</p>
+            
+            {isMember ? (
+              <Link href={`/properti/${property.slug}/tour`} className="inline-block bg-[#D6A34A] text-[#281C15] font-bold px-8 py-3.5 rounded-full hover:bg-[#c2913b] transition-transform hover:scale-105 shadow-lg">
+                Mulai Virtual Tour
+              </Link>
+            ) : (
+              <div className="bg-white/10 p-4 rounded-2xl inline-block max-w-sm w-full backdrop-blur border border-white/10">
+                <LockIcon className="mx-auto mb-2 text-[#D6A34A]" size={24} />
+                <p className="text-sm font-medium mb-3">Akses Virtual Tour Terkunci</p>
+                <Link href="/auth/daftar" className="block w-full bg-white text-[#4A2F1B] font-bold py-2.5 rounded-xl hover:bg-gray-100 transition-colors">
+                  Daftar Member Gratis
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ICON SPESIFIKASI */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white p-6 rounded-3xl border border-[#D6A34A]/20 shadow-sm mt-8">
+          <div className="flex flex-col items-center justify-center text-center p-2">
+            <BedDouble size={28} className="text-[#D6A34A] mb-2" strokeWidth={1.5} />
+            <span className="text-xl font-black text-[#4A2F1B]">{property.bedrooms || "-"}</span>
+            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Kamar Tidur</span>
+          </div>
+          <div className="flex flex-col items-center justify-center text-center p-2 border-l border-gray-100">
+            <Bath size={28} className="text-[#D6A34A] mb-2" strokeWidth={1.5} />
+            <span className="text-xl font-black text-[#4A2F1B]">{property.bathrooms || "-"}</span>
+            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Kamar Mandi</span>
+          </div>
+          <div className="flex flex-col items-center justify-center text-center p-2 border-t md:border-t-0 md:border-l border-gray-100">
+            <Maximize2 size={28} className="text-[#D6A34A] mb-2" strokeWidth={1.5} />
+            <span className="text-xl font-black text-[#4A2F1B]">{property.landArea || "-"} <span className="text-sm">m²</span></span>
+            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Luas Tanah</span>
+          </div>
+          <div className="flex flex-col items-center justify-center text-center p-2 border-t md:border-t-0 border-l border-gray-100">
+            <HomeIcon size={28} className="text-[#D6A34A] mb-2" strokeWidth={1.5} />
+            <span className="text-xl font-black text-[#4A2F1B]">{property.buildingArea || "-"} <span className="text-sm">m²</span></span>
+            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Luas Bangunan</span>
           </div>
         </div>
+
+        {/* DESKRIPSI (PALING BAWAH, DENGAN READ MORE) */}
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-[#D6A34A]/20 mt-8">
+          <h3 className="text-xl font-bold text-[#4A2F1B] mb-4">Deskripsi Properti</h3>
+          
+          <div className="relative group">
+            <input type="checkbox" id="readMoreToggle" className="peer hidden" />
+            
+            <div className="text-[#281C15]/80 leading-relaxed max-h-48 overflow-hidden peer-checked:max-h-none transition-all duration-500 whitespace-pre-wrap">
+              {property.publicSummary || "Belum ada deskripsi lengkap yang ditambahkan untuk properti ini."}
+            </div>
+            
+            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent peer-checked:hidden pointer-events-none"></div>
+            
+            <label htmlFor="readMoreToggle" className="mt-4 inline-block font-bold text-[#D6A34A] cursor-pointer hover:text-[#4A2F1B] transition-colors select-none">
+              <span className="block peer-checked:hidden">Baca Selengkapnya ▾</span>
+              <span className="hidden peer-checked:block">Sembunyikan ▴</span>
+            </label>
+          </div>
+        </div>
+
       </main>
+
+      {/* FLOATING ACTION BUTTON (WA) */}
+      <div className="fixed bottom-6 left-0 right-0 px-4 z-40 pointer-events-none flex justify-center">
+        <a 
+          href={`https://wa.me/6285815999953?text=Halo%20Pakde,%20saya%20tertarik%20dengan%20properti%20[${property.code}]%20${property.title}`} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="pointer-events-auto flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold py-4 px-8 rounded-full shadow-2xl hover:bg-[#20ba59] transition-transform hover:scale-105 max-w-sm w-full"
+        >
+          <MessageCircle size={24} /> Minat? Hubungi WhatsApp
+        </a>
+      </div>
     </div>
   );
+}
+
+function LockIcon(props: any) {
+  return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>;
 }

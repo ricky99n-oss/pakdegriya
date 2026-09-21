@@ -1,18 +1,14 @@
-// 1. Gunakan jalur relatif agar 100% terbaca
-import { db } from "../../../../db";
-import { properties, propertyMedia } from "../../../../db/schema";
+import { db } from "@/db";
+import { properties, propertyMedia } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ImagePlus, Lock, Globe, Save, Trash2, Music, Sparkles } from "lucide-react";
-import { togglePublishStatus, updatePropertyAction, deleteMediaAction } from "./actions";
+import { togglePublishStatus, updatePropertyAction } from "../actions";
+import { deleteMediaAction } from "./actions";
+import UploadMediaForm from "@/components/UploadMediaForm";
 
-// IMPORT Form Unggah yang baru kita buat
-import UploadMediaForm from "./UploadMediaForm";
-
-// Trik kompatibilitas aman untuk membaca params tanpa crash
 export default async function KelolaMediaProperti(props: { params: Promise<{ id: string }> | { id: string } }) {
-  // Secara cerdas membaca params terlepas dari versi Next.js-nya
   const resolvedParams = await Promise.resolve(props.params);
   const id = resolvedParams.id;
 
@@ -41,10 +37,7 @@ export default async function KelolaMediaProperti(props: { params: Promise<{ id:
         </div>
 
         <div className="flex gap-3 items-center">
-          <Link 
-            href={`/admin/properti/${property.id}/tour`} 
-            className="px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm bg-[#4A2F1B] text-[#D6A34A] hover:bg-[#281C15] border border-[#D6A34A]/50 flex items-center gap-2 text-sm"
-          >
+          <Link href={`/admin/properti/${property.id}/tour`} className="px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm bg-[#4A2F1B] text-[#D6A34A] hover:bg-[#281C15] border border-[#D6A34A]/50 flex items-center gap-2 text-sm">
             Buka Editor Tur 360°
           </Link>
 
@@ -59,45 +52,34 @@ export default async function KelolaMediaProperti(props: { params: Promise<{ id:
       </div>
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#D6A34A]/20">
-        <h2 className="text-xl font-bold text-[#4A2F1B] mb-6 border-b border-gray-100 pb-4">Detail Informasi</h2>
+        <h2 className="text-xl font-bold text-[#4A2F1B] mb-6 border-b border-gray-100 pb-4">Detail & Spesifikasi Properti</h2>
         <form action={updatePropertyAction} className="space-y-4">
           <input type="hidden" name="propertyId" value={property.id} />
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium mb-1 text-[#281C15]">Judul Iklan</label>
-              <input type="text" name="title" defaultValue={property.title} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 text-[#281C15]">Slug URL</label>
-              <input type="text" name="slug" defaultValue={property.slug} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 text-[#281C15]">Harga (Angka)</label>
-              <input type="number" name="price" defaultValue={property.price} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 text-[#281C15]">Lokasi Umum</label>
-              <input type="text" name="generalLocation" defaultValue={property.generalLocation} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" />
-            </div>
+            <div><label className="block text-sm font-medium mb-1 text-[#281C15]">Judul Iklan</label><input type="text" name="title" defaultValue={property.title} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
+            <div><label className="block text-sm font-medium mb-1 text-[#281C15]">Slug URL</label><input type="text" name="slug" defaultValue={property.slug} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
+            <div><label className="block text-sm font-medium mb-1 text-[#281C15]">Harga (Angka)</label><input type="number" name="price" defaultValue={property.price} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
+            <div><label className="block text-sm font-medium mb-1 text-[#281C15]">Lokasi Umum</label><input type="text" name="generalLocation" defaultValue={property.generalLocation} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
             <div>
               <label className="block text-sm font-medium mb-1 text-[#281C15]">Tipe Transaksi</label>
               <select name="transactionType" defaultValue={property.transactionType} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-white text-[#281C15]">
-                <option value="jual">Jual</option>
-                <option value="sewa_bulan">Sewa (Bulanan)</option>
-                <option value="sewa_tahun">Sewa (Tahunan)</option>
+                <option value="jual">Jual</option><option value="sewa_bulan">Sewa (Bulanan)</option><option value="sewa_tahun">Sewa (Tahunan)</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1 text-[#281C15]">Jenis Properti</label>
               <select name="propertyType" defaultValue={property.propertyType} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-white text-[#281C15]">
-                <option value="rumah">Rumah</option>
-                <option value="tanah">Tanah</option>
-                <option value="villa">Villa</option>
-                <option value="ruko">Ruko</option>
-                <option value="apartemen">Apartemen</option>
+                <option value="rumah">Rumah</option><option value="tanah">Tanah</option><option value="villa">Villa</option><option value="ruko">Ruko</option><option value="apartemen">Apartemen</option>
               </select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-y border-gray-100 my-4">
+            <div><label className="block text-xs font-bold mb-1 text-gray-500">Kamar Tidur</label><input type="number" name="bedrooms" defaultValue={property.bedrooms || 0} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
+            <div><label className="block text-xs font-bold mb-1 text-gray-500">Kamar Mandi</label><input type="number" name="bathrooms" defaultValue={property.bathrooms || 0} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
+            <div><label className="block text-xs font-bold mb-1 text-gray-500">Luas Tanah (m²)</label><input type="number" name="landArea" defaultValue={property.landArea || 0} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
+            <div><label className="block text-xs font-bold mb-1 text-gray-500">Luas Bangunan (m²)</label><input type="number" name="buildingArea" defaultValue={property.buildingArea || 0} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
           </div>
 
           <div>
@@ -121,7 +103,6 @@ export default async function KelolaMediaProperti(props: { params: Promise<{ id:
               <h2 className="text-xl font-bold text-[#4A2F1B]">Tambah Media</h2>
             </div>
             
-            {/* INI BAGIAN YANG BERUBAH: Memanggil Komponen Client UploadMediaForm */}
             <UploadMediaForm propertyId={property.id} />
 
           </div>
