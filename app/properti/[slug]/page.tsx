@@ -22,14 +22,47 @@ export default async function DetailPropertiPage(props: { params: Promise<{ slug
   const allMedia = await db.select().from(propertyMedia).where(eq(propertyMedia.propertyId, property.id));
   
   const coverImage = allMedia.find(m => m.fileType === "cover_public");
-  const galleryImages = allMedia.filter(m => m.fileType === "gallery_private");
+  // Galeri sekarang bersifat publik (semua pengunjung bisa melihat)
+  const galleryImages = allMedia.filter(m => m.fileType === "gallery_private" || m.fileType === "cover_public");
   const hasVirtualTour = allMedia.some(m => m.fileType === "panorama_private");
 
   const isMember = !!user;
 
   return (
-    <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] pb-32">
+    // Penambahan background pola dengan class kustom
+    <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] pb-32 relative">
       
+      {/* CSS Inline untuk Background Pola Berulang (Jarang-jarang) */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .bg-pola {
+          background-image: url('/images/pola.webp');
+          background-size: 300px;
+          background-repeat: repeat;
+          background-position: center;
+          opacity: 0.05; /* Dibuat sangat tipis agar tidak mengganggu bacaan */
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 0;
+          pointer-events: none;
+        }
+        
+        /* Menyembunyikan scrollbar bawaan pada galeri horizontal */
+        .hide-scroll::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scroll {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}} />
+
+      {/* Layer Pola Background */}
+      <div className="bg-pola"></div>
+
+      {/* HEADER (Z-Index tinggi agar menimpa pola) */}
       <header className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-[#D6A34A]/20">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-[#4A2F1B] hover:text-[#D6A34A] font-bold transition-colors">
@@ -41,7 +74,8 @@ export default async function DetailPropertiPage(props: { params: Promise<{ slug
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 mt-8 space-y-8">
+      {/* KONTEN UTAMA */}
+      <main className="max-w-4xl mx-auto px-4 mt-8 space-y-8 relative z-10">
         
         {/* JUDUL & HARGA */}
         <div>
@@ -70,25 +104,21 @@ export default async function DetailPropertiPage(props: { params: Promise<{ slug
           )}
         </div>
 
-        {/* GALERI FOTO */}
+        {/* GALERI FOTO (HORIZONTAL SLIDER) */}
         {galleryImages.length > 0 && (
           <div className="pt-4">
             <h3 className="text-xl font-bold text-[#4A2F1B] mb-4 border-l-4 border-[#D6A34A] pl-3">Galeri Properti</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {galleryImages.slice(0, 6).map((img) => (
-                <div key={img.id} className="aspect-square bg-gray-100 rounded-2xl relative overflow-hidden group">
-                  {isMember ? (
-                    <Image src={`/api/media/${img.id}`} alt="Galeri" fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <LockIcon size={20} className="text-gray-400" />
-                    </div>
-                  )}
+            
+            {/* Wrapper Horizontal Scroll */}
+            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 hide-scroll cursor-grab active:cursor-grabbing">
+              {galleryImages.map((img) => (
+                <div key={img.id} className="min-w-[280px] md:min-w-[320px] aspect-[4/3] bg-gray-100 rounded-2xl relative overflow-hidden group snap-center shadow-sm shrink-0">
+                  <Image src={`/api/media/${img.id}`} alt="Galeri Properti" fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
                 </div>
               ))}
             </div>
-            {!isMember && galleryImages.length > 0 && (
-              <p className="text-center text-sm text-gray-500 mt-4 italic">Login sebagai member untuk melihat resolusi penuh galeri foto.</p>
+            {galleryImages.length > 2 && (
+              <p className="text-center text-xs text-gray-400 mt-1 italic">Geser ke samping untuk melihat lebih banyak foto ↔</p>
             )}
           </div>
         )}
@@ -107,9 +137,9 @@ export default async function DetailPropertiPage(props: { params: Promise<{ slug
             ) : (
               <div className="bg-white/10 p-4 rounded-2xl inline-block max-w-sm w-full backdrop-blur border border-white/10">
                 <LockIcon className="mx-auto mb-2 text-[#D6A34A]" size={24} />
-                <p className="text-sm font-medium mb-3">Akses Virtual Tour Terkunci</p>
-                <Link href="/auth/daftar" className="block w-full bg-white text-[#4A2F1B] font-bold py-2.5 rounded-xl hover:bg-gray-100 transition-colors">
-                  Daftar Member Gratis
+                <p className="text-sm font-medium mb-3">Akses Virtual Tour Khusus Member</p>
+                <Link href="/auth/daftar" className="block w-full bg-[#D6A34A] text-[#4A2F1B] font-bold py-2.5 rounded-xl hover:bg-[#e8b65c] transition-colors">
+                  Daftar / Masuk Member Gratis
                 </Link>
               </div>
             )}
@@ -140,20 +170,23 @@ export default async function DetailPropertiPage(props: { params: Promise<{ slug
           </div>
         </div>
 
-        {/* DESKRIPSI (PALING BAWAH, DENGAN READ MORE) */}
+        {/* DESKRIPSI (DENGAN READ MORE YANG DIPERJELAS) */}
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-[#D6A34A]/20 mt-8">
           <h3 className="text-xl font-bold text-[#4A2F1B] mb-4">Deskripsi Properti</h3>
           
           <div className="relative group">
+            {/* Checkbox hack untuk Read More */}
             <input type="checkbox" id="readMoreToggle" className="peer hidden" />
             
             <div className="text-[#281C15]/80 leading-relaxed max-h-48 overflow-hidden peer-checked:max-h-none transition-all duration-500 whitespace-pre-wrap">
               {property.publicSummary || "Belum ada deskripsi lengkap yang ditambahkan untuk properti ini."}
             </div>
             
+            {/* Gradasi Blur */}
             <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent peer-checked:hidden pointer-events-none"></div>
             
-            <label htmlFor="readMoreToggle" className="mt-4 inline-block font-bold text-[#D6A34A] cursor-pointer hover:text-[#4A2F1B] transition-colors select-none">
+            {/* Tombol yang lebih mencolok */}
+            <label htmlFor="readMoreToggle" className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-4 bg-white border border-[#D6A34A]/40 px-6 py-2 rounded-full font-bold text-[#D6A34A] cursor-pointer hover:bg-[#FFF7E8] hover:border-[#D6A34A] transition-colors select-none shadow-sm z-10">
               <span className="block peer-checked:hidden">Baca Selengkapnya ▾</span>
               <span className="hidden peer-checked:block">Sembunyikan ▴</span>
             </label>

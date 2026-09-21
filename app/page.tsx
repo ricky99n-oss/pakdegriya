@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Building2, Compass, MessageCircle, ShieldCheck, Sparkles, LogOut } from "lucide-react";
 import { validateRequest } from "@/lib/auth";
 import { keluarAction } from "@/app/auth/actions";
+import ShareButton from "@/components/ShareButton"; // <-- IMPORT TOMBOL SHARE
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,30 @@ export default async function BerandaPublik() {
     );
 
     return (
-      <div className="min-h-screen bg-[#FFF7E8] text-[#281C15]">
+      <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] relative">
+        
+        {/* CSS Inline untuk Background Pola Berulang (Jarang-jarang) */}
+        <style dangerouslySetInnerHTML={{__html: `
+          .bg-pola {
+            background-image: url('/images/pola.webp');
+            background-size: 400px;
+            background-repeat: repeat;
+            background-position: center;
+            opacity: 0.05;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 0;
+            pointer-events: none;
+          }
+        `}} />
+
+        {/* Layer Pola Background */}
+        <div className="bg-pola"></div>
+
+        {/* Navbar Publik Cerdas */}
         <header className="border-b border-[#D6A34A]/20 bg-white/80 backdrop-blur-md sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -84,7 +108,7 @@ export default async function BerandaPublik() {
         </header>
 
         {/* Hero Section */}
-        <section className="relative py-20 px-6 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+        <section className="relative z-10 py-20 px-6 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
             <span className="inline-flex items-center gap-2 bg-[#D6A34A]/10 text-[#4A2F1B] px-4 py-1.5 rounded-full text-xs font-bold border border-[#D6A34A]/30">
               <Sparkles size={14} className="text-[#D6A34A]" /> Tuku gak tuku sak karepmu
@@ -123,8 +147,8 @@ export default async function BerandaPublik() {
           </div>
         </section>
 
-        {/* DAFTAR PROPERTI (Pindah ke bawah Hero) */}
-        <section id="properti" className="py-16 px-6 max-w-7xl mx-auto scroll-blur">
+        {/* DAFTAR PROPERTI */}
+        <section id="properti" className="relative z-10 py-16 px-6 max-w-7xl mx-auto scroll-blur">
           <div className="flex justify-between items-end mb-10">
             <div>
               <h2 className="text-3xl font-black text-[#4A2F1B]">Listing Pilihan</h2>
@@ -140,45 +164,49 @@ export default async function BerandaPublik() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {propertiDenganCover.map((item) => (
-                <div key={item.id} className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-[#D6A34A]/20 flex flex-col group">
-                  <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden">
-                    {item.coverId ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img 
-                        src={`/api/media/${item.coverId}`} 
-                        alt={item.title} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">Tanpa Cover</div>
-                    )}
-                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-[#4A2F1B] shadow-sm uppercase">
-                      {item.propertyType}
+                <Link href={`/properti/${item.slug}`} key={item.id} className="block group">
+                  <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-[#D6A34A]/20 flex flex-col h-full">
+                    <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden">
+                      {item.coverId ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img 
+                          src={`/api/media/${item.coverId}`} 
+                          alt={item.title} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">Tanpa Cover</div>
+                      )}
+                      
+                      <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-[#4A2F1B] shadow-sm uppercase">
+                        {item.propertyType}
+                      </div>
+
+                      {/* --- TOMBOL SHARE KITA TARUH DI SINI --- */}
+                      <ShareButton title={item.title} slug={item.slug} />
+
+                    </div>
+
+                    <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                      <div>
+                        <p className="text-xs text-[#D6A34A] font-bold uppercase tracking-wider">{item.generalLocation}</p>
+                        <h3 className="text-xl font-bold text-[#281C15] mt-1 group-hover:text-[#4A2F1B] transition-colors line-clamp-1">{item.title}</h3>
+                        <p className="text-2xl font-black text-[#4A2F1B] mt-2">Rp {item.price.toLocaleString('id-ID')}</p>
+                      </div>
+
+                      <div className="w-full block text-center bg-[#FFF7E8] text-[#4A2F1B] border border-[#D6A34A]/40 font-bold py-3 rounded-xl group-hover:bg-[#4A2F1B] group-hover:text-white transition-all shadow-sm">
+                        Lihat Detail
+                      </div>
                     </div>
                   </div>
-
-                  <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
-                    <div>
-                      <p className="text-xs text-[#D6A34A] font-bold uppercase tracking-wider">{item.generalLocation}</p>
-                      <h3 className="text-xl font-bold text-[#281C15] mt-1 group-hover:text-[#4A2F1B] transition-colors line-clamp-1">{item.title}</h3>
-                      <p className="text-2xl font-black text-[#4A2F1B] mt-2">Rp {item.price.toLocaleString('id-ID')}</p>
-                    </div>
-
-                    <Link 
-                      href={`/properti/${item.slug}`} 
-                      className="w-full block text-center bg-[#FFF7E8] text-[#4A2F1B] border border-[#D6A34A]/40 font-bold py-3 rounded-xl hover:bg-[#4A2F1B] hover:text-white transition-all shadow-sm"
-                    >
-                      Lihat Detail
-                    </Link>
-                  </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
         </section>
 
         {/* Highlight Section: Layanan Pakde Griya */}
-        <section className="container mx-auto px-6 mt-16 mb-24 space-y-32 max-w-7xl overflow-hidden">
+        <section className="relative z-10 container mx-auto px-6 mt-16 mb-24 space-y-32 max-w-7xl overflow-hidden">
           
           <div className="flex flex-col md:flex-row items-center gap-10 scroll-blur">
             <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
@@ -227,7 +255,7 @@ export default async function BerandaPublik() {
 
         </section>
 
-        <footer className="border-t border-[#D6A34A]/20 bg-white/50 py-12 px-6 text-center text-sm text-[#4A2F1B]/70 mt-10">
+        <footer className="relative z-10 border-t border-[#D6A34A]/20 bg-white/50 py-12 px-6 text-center text-sm text-[#4A2F1B]/70 mt-10">
           <p>© 2026 Pakde Griya. Seluruh hak cipta dilindungi. • Hubungi Pusat: 6285815999953</p>
         </footer>
       </div>
