@@ -3,6 +3,8 @@ import { validateRequest } from "../../lib/auth";
 import { redirect } from "next/navigation";
 import { LayoutDashboard, Home, UserCircle } from "lucide-react";
 
+export const runtime = "edge";
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // 1. VALIDASI SESI OTOMATIS (Mencegah Akses Hacker / Sesi Kadaluarsa)
   const { user, session } = await validateRequest();
