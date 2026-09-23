@@ -1,12 +1,16 @@
-import { db } from "@/db";
-import { properties, propertyMedia } from "@/db/schema";
+import { db } from "../../../../db";
+import { properties, propertyMedia } from "../../../../db/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ImagePlus, Lock, Globe, Save, Trash2, Music, Sparkles } from "lucide-react";
+
+// PERBAIKAN IMPORT: Diambil dari folder luar (../actions)
 import { togglePublishStatus, updatePropertyAction } from "../actions";
-import { deleteMediaAction } from "./actions";
-import UploadMediaForm from "@/components/UploadMediaForm";
+// Diambil dari folder saat ini (./actions)
+import { deleteMediaAction } from "./actions"; 
+
+import UploadMediaForm from "./UploadMediaForm";
 
 export default async function KelolaMediaProperti(props: { params: Promise<{ id: string }> | { id: string } }) {
   const resolvedParams = await Promise.resolve(props.params);
@@ -37,9 +41,12 @@ export default async function KelolaMediaProperti(props: { params: Promise<{ id:
         </div>
 
         <div className="flex gap-3 items-center">
-          <Link href={`/admin/properti/${property.id}/tour`} className="px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm bg-[#4A2F1B] text-[#D6A34A] hover:bg-[#281C15] border border-[#D6A34A]/50 flex items-center gap-2 text-sm">
+          <a 
+            href={`/admin/properti/${property.id}/tour`} 
+            className="px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm bg-[#4A2F1B] text-[#D6A34A] hover:bg-[#281C15] border border-[#D6A34A]/50 flex items-center gap-2 text-sm"
+          >
             Buka Editor Tur 360°
-          </Link>
+          </a>
 
           <form action={togglePublishStatus}>
             <input type="hidden" name="propertyId" value={property.id} />
@@ -52,25 +59,43 @@ export default async function KelolaMediaProperti(props: { params: Promise<{ id:
       </div>
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#D6A34A]/20">
-        <h2 className="text-xl font-bold text-[#4A2F1B] mb-6 border-b border-gray-100 pb-4">Detail & Spesifikasi Properti</h2>
+        <h2 className="text-xl font-bold text-[#4A2F1B] mb-6 border-b border-gray-100 pb-4">Detail Informasi</h2>
         <form action={updatePropertyAction} className="space-y-4">
           <input type="hidden" name="propertyId" value={property.id} />
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><label className="block text-sm font-medium mb-1 text-[#281C15]">Judul Iklan</label><input type="text" name="title" defaultValue={property.title} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
-            <div><label className="block text-sm font-medium mb-1 text-[#281C15]">Slug URL</label><input type="text" name="slug" defaultValue={property.slug} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
-            <div><label className="block text-sm font-medium mb-1 text-[#281C15]">Harga (Angka)</label><input type="number" name="price" defaultValue={property.price} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
-            <div><label className="block text-sm font-medium mb-1 text-[#281C15]">Lokasi Umum</label><input type="text" name="generalLocation" defaultValue={property.generalLocation} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-[#281C15]">Judul Iklan</label>
+              <input type="text" name="title" defaultValue={property.title} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-[#281C15]">Slug URL</label>
+              <input type="text" name="slug" defaultValue={property.slug} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-[#281C15]">Harga (Angka)</label>
+              <input type="number" name="price" defaultValue={property.price} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-[#281C15]">Lokasi Umum</label>
+              <input type="text" name="generalLocation" defaultValue={property.generalLocation} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" />
+            </div>
             <div>
               <label className="block text-sm font-medium mb-1 text-[#281C15]">Tipe Transaksi</label>
               <select name="transactionType" defaultValue={property.transactionType} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-white text-[#281C15]">
-                <option value="jual">Jual</option><option value="sewa_bulan">Sewa (Bulanan)</option><option value="sewa_tahun">Sewa (Tahunan)</option>
+                <option value="jual">Jual</option>
+                <option value="sewa_bulan">Sewa (Bulanan)</option>
+                <option value="sewa_tahun">Sewa (Tahunan)</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1 text-[#281C15]">Jenis Properti</label>
               <select name="propertyType" defaultValue={property.propertyType} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-white text-[#281C15]">
-                <option value="rumah">Rumah</option><option value="tanah">Tanah</option><option value="villa">Villa</option><option value="ruko">Ruko</option><option value="apartemen">Apartemen</option>
+                <option value="rumah">Rumah</option>
+                <option value="tanah">Tanah</option>
+                <option value="villa">Villa</option>
+                <option value="ruko">Ruko</option>
+                <option value="apartemen">Apartemen</option>
               </select>
             </div>
           </div>
