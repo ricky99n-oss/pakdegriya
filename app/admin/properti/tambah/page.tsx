@@ -1,91 +1,123 @@
-import { db } from "@/db";
-import { properties } from "@/db/schema";
-import { redirect } from "next/navigation";
+"use client";
+
 import Link from "next/link";
-// Hapus import crypto dari Node.js untuk menghindari error runtime
-// import crypto from "crypto"; 
+import { ArrowLeft, Save } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createPropertyAction } from "./actions";
 
 export default function TambahPropertiPage() {
-  
-  // Server Action untuk menyimpan ke database
-  async function simpanProperti(formData: FormData) {
-    "use server";
+  const router = useRouter();
+  const [judul, setJudul] = useState("");
+  const [slug, setSlug] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // Auto-generate Slug saat mengetik judul
+  const handleJudulChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const text = e.target.value;
+    setJudul(text);
+    // Konversi: huruf kecil, ganti spasi dengan strip, buang karakter aneh
+    setSlug(text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''));
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMsg("");
     
-    // Gunakan fungsi crypto global yang aman di semua runtime
-    const id = globalThis.crypto.randomUUID();
-    const code = formData.get("code") as string;
-    const slug = formData.get("slug") as string;
-    const title = formData.get("title") as string;
-    const price = Number(formData.get("price"));
-    const generalLocation = formData.get("generalLocation") as string;
-    const transactionType = formData.get("transactionType") as "jual" | "sewa_bulan" | "sewa_tahun";
-    const propertyType = formData.get("propertyType") as "rumah" | "tanah" | "villa" | "ruko" | "apartemen";
-
-    await db.insert(properties).values({
-      id,
-      code,
-      slug,
-      title,
-      price,
-      generalLocation,
-      transactionType,
-      propertyType,
-      publishStatus: "draft",
-      availabilityStatus: "available",
-    });
-
-    // Setelah simpan, langsung arahkan ke halaman Edit & Upload Media
-    redirect(`/admin/properti/${id}`);
-  }
+    try {
+      const formData = new FormData(e.currentTarget);
+      // Panggil Server Action
+      await createPropertyAction(formData);
+      // Jika sukses, kembali ke daftar properti
+      router.push("/admin/properti");
+      router.refresh();
+    } catch (err: any) {
+      setErrorMsg(err.message || "Gagal menyimpan data.");
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="max-w-4xl mx-auto pb-20">
+    <div className="max-w-4xl mx-auto space-y-8 pb-20">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/admin/properti" className="p-2 bg-white rounded-xl shadow-sm border border-[#D6A34A]/20 hover:bg-[#FFF7E8] transition-colors">
+            <ArrowLeft size={24} className="text-[#4A2F1B]" />
+          </Link>
+          <h1 className="text-3xl font-extrabold text-[#281C15] tracking-tight">Tambah Properti Baru</h1>
+        </div>
+      </div>
+
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-[#D6A34A]/20">
         
-        <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
-          <h1 className="text-2xl font-black text-[#4A2F1B]">Tambah Properti Baru</h1>
-          <Link href="/admin/properti" className="text-sm font-bold text-gray-500 hover:text-[#D6A34A] transition-colors">
-            Batal & Kembali
-          </Link>
-        </div>
+        {errorMsg && (
+          <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 text-sm font-bold border border-red-200">
+            {errorMsg}
+          </div>
+        )}
 
-        <form action={simpanProperti} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-bold text-[#281C15] mb-2">Kode Properti (Mis: PG-001)</label>
-              <input type="text" name="code" required className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-gray-50 text-[#281C15] placeholder-gray-400" placeholder="PG-001" />
+              <label className="block text-sm font-bold text-[#4A2F1B] mb-2">Kode Properti</label>
+              <input type="text" name="code" required placeholder="Mis: PG-001" className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-gray-50 text-[#281C15]" />
             </div>
-            <div>
-              <label className="block text-sm font-bold text-[#281C15] mb-2">Slug URL (Mis: rumah-murah-malang)</label>
-              <input type="text" name="slug" required className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-gray-50 text-[#281C15] placeholder-gray-400" placeholder="rumah-murah-malang" />
+            
+            {/* Field Judul Iklan yang Memicu Auto-Slug */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-[#4A2F1B] mb-2">Judul Iklan</label>
+              <input 
+                type="text" 
+                name="title" 
+                required 
+                value={judul}
+                onChange={handleJudulChange}
+                placeholder="Rumah Nyaman Siap Huni di Pusat Kota" 
+                className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-gray-50 text-[#281C15] text-lg font-semibold" 
+              />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-bold text-[#281C15] mb-2">Judul Iklan</label>
-            <input type="text" name="title" required className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-gray-50 text-[#281C15] placeholder-gray-400" placeholder="Rumah Nyaman Siap Huni di Pusat Kota" />
-          </div>
+            {/* Field Slug Otomatis (Masih bisa diedit manual) */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-[#4A2F1B] mb-2">Slug URL (Otomatis)</label>
+              <div className="flex items-center">
+                <span className="bg-gray-100 border border-gray-300 border-r-0 p-3 rounded-l-xl text-gray-500 text-sm hidden md:block">pakdegriya.com/properti/</span>
+                <input 
+                  type="text" 
+                  name="slug" 
+                  required 
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="rumah-nyaman-siap-huni" 
+                  className="w-full border border-gray-300 p-3 md:rounded-l-none rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-white text-[#281C15]" 
+                />
+              </div>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-bold text-[#281C15] mb-2">Harga (Angka saja, tanpa titik/Rp)</label>
-              <input type="number" name="price" required className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-gray-50 text-[#281C15] placeholder-gray-400" placeholder="500000000" />
+              <label className="block text-sm font-bold text-[#4A2F1B] mb-2">Harga (Angka Saja)</label>
+              <input type="number" name="price" required placeholder="500000000" className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-gray-50 text-[#281C15]" />
             </div>
+
             <div>
-              <label className="block text-sm font-bold text-[#281C15] mb-2">Lokasi Umum (Mis: Lowokwaru, Malang)</label>
-              <input type="text" name="generalLocation" required className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-gray-50 text-[#281C15] placeholder-gray-400" placeholder="Batu, Jawa Timur" />
+              <label className="block text-sm font-bold text-[#4A2F1B] mb-2">Lokasi Umum</label>
+              <input type="text" name="generalLocation" required placeholder="Batu, Jawa Timur" className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-gray-50 text-[#281C15]" />
             </div>
+
             <div>
-              <label className="block text-sm font-bold text-[#281C15] mb-2">Tipe Transaksi</label>
-              <select name="transactionType" required className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-white text-[#281C15]">
+              <label className="block text-sm font-bold text-[#4A2F1B] mb-2">Tipe Transaksi</label>
+              <select name="transactionType" className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-white text-[#281C15]">
                 <option value="jual">Jual</option>
                 <option value="sewa_bulan">Sewa (Bulanan)</option>
                 <option value="sewa_tahun">Sewa (Tahunan)</option>
               </select>
             </div>
+
             <div>
-              <label className="block text-sm font-bold text-[#281C15] mb-2">Jenis Properti</label>
-              <select name="propertyType" required className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-white text-[#281C15]">
+              <label className="block text-sm font-bold text-[#4A2F1B] mb-2">Jenis Properti</label>
+              <select name="propertyType" className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-white text-[#281C15]">
                 <option value="rumah">Rumah</option>
                 <option value="tanah">Tanah</option>
                 <option value="villa">Villa</option>
@@ -95,13 +127,12 @@ export default function TambahPropertiPage() {
             </div>
           </div>
 
-          <div className="pt-4">
-            <button type="submit" className="w-full bg-[#D6A34A] text-[#281C15] font-black py-4 rounded-xl hover:bg-[#c2913b] transition-all shadow-md text-lg">
-              Simpan sebagai Draft
+          <div className="pt-6 mt-6 border-t border-gray-100">
+            <button type="submit" disabled={isLoading} className="w-full flex justify-center items-center gap-2 bg-[#D6A34A] text-[#281C15] font-bold text-lg py-4 px-8 rounded-xl hover:bg-[#c2913b] transition-all shadow-lg shadow-[#D6A34A]/30 disabled:opacity-50 disabled:cursor-not-allowed">
+              {isLoading ? "Menyimpan..." : <><Save size={24} /> Simpan sebagai Draft</>}
             </button>
           </div>
         </form>
-        
       </div>
     </div>
   );
