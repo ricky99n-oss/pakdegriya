@@ -1,14 +1,28 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { useState } from "react";
 import { masukAction } from "../actions";
 import { LogIn } from "lucide-react";
 
-export const metadata = {
-  title: "Masuk | Pakde Griya",
-};
+export default function HalamanMasuk() {
+  const [errorMsg, setErrorMsg] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-export default async function HalamanMasuk({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error } = await searchParams;
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMsg("");
+
+    const formData = new FormData(e.currentTarget);
+    const res = await masukAction(formData);
+
+    if (res?.error) {
+      setErrorMsg(res.error);
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FFF7E8] p-4 md:p-6 font-sans text-[#281C15]">
@@ -24,19 +38,14 @@ export default async function HalamanMasuk({ searchParams }: { searchParams: Pro
             <p className="text-[#281C15]/70 mt-2 font-medium">Selamat datang kembali di Pakde Griya.</p>
           </div>
 
-          {/* Notifikasi Error */}
-          {error === "tidak_ditemukan" && (
+          {/* Notifikasi Error Dinamis */}
+          {errorMsg && (
             <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-bold mb-6 text-center border border-red-200 shadow-sm">
-              Email tidak ditemukan. Silakan daftar terlebih dahulu.
-            </div>
-          )}
-          {error === "password_salah" && (
-            <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-bold mb-6 text-center border border-red-200 shadow-sm">
-              Kata sandi salah. Silakan coba lagi.
+              {errorMsg}
             </div>
           )}
 
-          <form action={masukAction} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-bold text-[#281C15] mb-2">Alamat Email</label>
               <input 
@@ -58,8 +67,8 @@ export default async function HalamanMasuk({ searchParams }: { searchParams: Pro
               />
             </div>
             
-            <button type="submit" className="w-full flex justify-center items-center gap-2 bg-[#4A2F1B] text-white font-bold py-4 rounded-xl hover:bg-[#281C15] transition-all shadow-md mt-4">
-              <LogIn size={18} /> Masuk Sekarang
+            <button type="submit" disabled={isLoading} className="w-full flex justify-center items-center gap-2 bg-[#4A2F1B] text-white font-bold py-4 rounded-xl hover:bg-[#281C15] transition-all shadow-md mt-4 disabled:opacity-70">
+              <LogIn size={18} /> {isLoading ? "Memproses..." : "Masuk Sekarang"}
             </button>
           </form>
 

@@ -1,14 +1,28 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { useState } from "react";
 import { daftarMemberAction } from "../actions";
 import { UserPlus } from "lucide-react";
 
-export const metadata = {
-  title: "Daftar Member | Pakde Griya",
-};
+export default function HalamanDaftar() {
+  const [errorMsg, setErrorMsg] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-export default async function HalamanDaftar({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error } = await searchParams;
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMsg("");
+
+    const formData = new FormData(e.currentTarget);
+    const res = await daftarMemberAction(formData);
+
+    if (res?.error) {
+      setErrorMsg(res.error);
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FFF7E8] p-4 md:p-6 font-sans text-[#281C15]">
@@ -24,14 +38,14 @@ export default async function HalamanDaftar({ searchParams }: { searchParams: Pr
             <p className="text-[#281C15]/70 mt-2 font-medium">Buka akses eksklusif ke Virtual Tour 360° dan galeri properti lengkap.</p>
           </div>
 
-          {/* Notifikasi Error */}
-          {error === "email_terpakai" && (
+          {/* Notifikasi Error Dinamis */}
+          {errorMsg && (
             <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-bold mb-6 text-center border border-red-200 shadow-sm">
-              Email tersebut sudah terdaftar. Silakan gunakan email lain.
+              {errorMsg}
             </div>
           )}
 
-          <form action={daftarMemberAction} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-bold text-[#281C15] mb-2">Nama Lengkap</label>
               <input 
@@ -64,8 +78,8 @@ export default async function HalamanDaftar({ searchParams }: { searchParams: Pr
               />
             </div>
             
-            <button type="submit" className="w-full flex justify-center items-center gap-2 bg-[#D6A34A] text-[#281C15] font-bold py-4 rounded-xl hover:bg-[#c2913b] transition-all shadow-md mt-4">
-              <UserPlus size={18} /> Buat Akun Member
+            <button type="submit" disabled={isLoading} className="w-full flex justify-center items-center gap-2 bg-[#D6A34A] text-[#281C15] font-bold py-4 rounded-xl hover:bg-[#c2913b] transition-all shadow-md mt-4 disabled:opacity-70">
+              <UserPlus size={18} /> {isLoading ? "Memproses..." : "Buat Akun Member"}
             </button>
           </form>
 
@@ -95,4 +109,4 @@ export default async function HalamanDaftar({ searchParams }: { searchParams: Pr
       </div>
     </div>
   );
-}
+} 
