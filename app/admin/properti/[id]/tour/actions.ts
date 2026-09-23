@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { scenes, hotspots } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { randomUUID } from "crypto"; // Menggunakan modul bawaan server yang lebih stabil
+import { randomUUID } from "crypto";
 
 export async function createSceneAction(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
@@ -26,7 +26,8 @@ export async function createSceneAction(formData: FormData) {
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
 
-export async function saveHotspotAction(formData: FormData) {
+// 1. DIUBAH MENJADI createHotspotAction SESUAI PERMINTAAN KOMPONEN
+export async function createHotspotAction(formData: FormData) {
   const sceneId = formData.get("sceneId") as string;
   const targetSceneId = formData.get("targetSceneId") as string;
   const pitch = Number(formData.get("pitch"));
@@ -46,6 +47,15 @@ export async function saveHotspotAction(formData: FormData) {
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
 
+export async function deleteHotspotAction(formData: FormData) {
+  const hotspotId = formData.get("hotspotId") as string;
+  const propertyId = formData.get("propertyId") as string;
+
+  await db.delete(hotspots).where(eq(hotspots.id, hotspotId));
+
+  revalidatePath(`/admin/properti/${propertyId}/tour`);
+}
+
 export async function deleteSceneAction(formData: FormData) {
   const sceneId = formData.get("sceneId") as string;
   const propertyId = formData.get("propertyId") as string;
@@ -53,15 +63,6 @@ export async function deleteSceneAction(formData: FormData) {
   await db.delete(scenes).where(eq(scenes.id, sceneId));
   await db.delete(hotspots).where(eq(hotspots.sceneId, sceneId));
   await db.delete(hotspots).where(eq(hotspots.targetSceneId, sceneId));
-
-  revalidatePath(`/admin/properti/${propertyId}/tour`);
-}
-
-export async function deleteHotspotAction(formData: FormData) {
-  const hotspotId = formData.get("hotspotId") as string;
-  const propertyId = formData.get("propertyId") as string;
-
-  await db.delete(hotspots).where(eq(hotspots.id, hotspotId));
 
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
@@ -76,19 +77,41 @@ export async function setFirstSceneAction(formData: FormData) {
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
 
-export async function saveTourSettingsAction(formData: FormData) {
+// 2. FUNGSI BARU: UPDATE NAMA RUANGAN
+export async function updateSceneNameAction(formData: FormData) {
   const sceneId = formData.get("sceneId") as string;
   const propertyId = formData.get("propertyId") as string;
-  const initialPitch = Number(formData.get("initialPitch"));
-  const initialYaw = Number(formData.get("initialYaw"));
-  const autoRotateSpeed = Number(formData.get("autoRotateSpeed"));
+  const name = formData.get("name") as string;
+
+  await db.update(scenes).set({ name }).where(eq(scenes.id, sceneId));
+  revalidatePath(`/admin/properti/${propertyId}/tour`);
+}
+
+// 3. FUNGSI BARU: UPDATE AUDIO RUANGAN
+export async function updateSceneAudioAction(formData: FormData) {
+  const sceneId = formData.get("sceneId") as string;
+  const propertyId = formData.get("propertyId") as string;
   const audioMediaId = formData.get("audioMediaId") as string;
 
   await db.update(scenes).set({
-    initialPitch,
-    initialYaw,
-    autoRotateSpeed,
     audioMediaId: audioMediaId === "none" ? null : audioMediaId,
+  }).where(eq(scenes.id, sceneId));
+
+  revalidatePath(`/admin/properti/${propertyId}/tour`);
+}
+
+// 4. FUNGSI BARU: MENYIMPAN TITIK PANDANG AWAL (PITCH/YAW)
+export async function setInitialViewAction(formData: FormData) {
+  const sceneId = formData.get("sceneId") as string;
+  const propertyId = formData.get("propertyId") as string;
+  
+  // Deteksi cerdas: membaca input bernama "pitch" atau "initialPitch"
+  const pitch = formData.get("pitch") || formData.get("initialPitch");
+  const yaw = formData.get("yaw") || formData.get("initialYaw");
+
+  await db.update(scenes).set({
+    initialPitch: Number(pitch),
+    initialYaw: Number(yaw),
   }).where(eq(scenes.id, sceneId));
 
   revalidatePath(`/admin/properti/${propertyId}/tour`);
