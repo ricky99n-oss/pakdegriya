@@ -37,7 +37,7 @@ export default async function BerandaPublik() {
     );
 
     return (
-      <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] relative overflow-x-hidden">
+      <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] flex flex-col">
         
         <style dangerouslySetInnerHTML={{__html: `
           .bg-pola {
@@ -46,7 +46,7 @@ export default async function BerandaPublik() {
             background-repeat: repeat;
             background-position: center;
             opacity: 0.05;
-            position: absolute;
+            position: fixed; /* Ubah ke fixed */
             top: 0; left: 0; right: 0; bottom: 0;
             z-index: 0;
             pointer-events: none;
@@ -102,152 +102,157 @@ export default async function BerandaPublik() {
           </div>
         </header>
 
-        <section className="relative z-10 py-20 px-6 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-            <span className="inline-flex items-center gap-2 bg-[#D6A34A]/10 text-[#4A2F1B] px-4 py-1.5 rounded-full text-xs font-bold border border-[#D6A34A]/30">
-              <Sparkles size={14} className="text-[#D6A34A]" /> Tuku gak tuku sak karepmu
-            </span>
-            <h1 className="text-4xl md:text-6xl font-black tracking-tight text-[#4A2F1B] leading-tight">
-              Temukan Hunian Impian di <span className="text-[#D6A34A]">PakdeGriya.com</span>
-            </h1>
-            <p className="text-lg text-[#281C15]/80 leading-relaxed">
-              Survei virtual 360° sebelum survei langsung. Dijamin transparan, aman, dan dibimbing langsung oleh tim profesional Pakde Griya.
-            </p>
-            <div className="flex flex-wrap gap-4 pt-2">
-              <a 
-                href="https://wa.me/6285815999953?text=Halo%20Pakde%20Griya,%20saya%20tertarik%20konsultasi%20properti." 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 bg-[#25D366] text-white font-bold px-6 py-3.5 rounded-2xl shadow-lg shadow-[#25D366]/30 hover:bg-[#20ba59] transition-all"
-              >
-                <MessageCircle size={20} /> Konsultasi via WhatsApp
-              </a>
-            </div>
-          </div>
-
-          <div className="bg-[#4A2F1B] rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden border border-[#D6A34A]/30">
-            <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-[#D6A34A]/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="relative z-10 space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-[#D6A34A] text-[#4A2F1B] flex items-center justify-center font-black text-3xl">P</div>
-              <h3 className="text-2xl font-bold">Jaminan Layanan Pakde</h3>
-              <p className="text-white/80 text-sm leading-relaxed">
-                Semua listing properti telah melalui kurasi. Dapatkan data akurat tanpa rekayasa.
+        <main className="flex-grow">
+          <section className="relative z-10 py-20 px-6 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div className="space-y-6">
+              <span className="inline-flex items-center gap-2 bg-[#D6A34A]/10 text-[#4A2F1B] px-4 py-1.5 rounded-full text-xs font-bold border border-[#D6A34A]/30">
+                <Sparkles size={14} className="text-[#D6A34A]" /> Tuku gak tuku sak karepmu
+              </span>
+              <h1 className="text-4xl md:text-6xl font-black tracking-tight text-[#4A2F1B] leading-tight">
+                Temukan Hunian Impian di <span className="text-[#D6A34A]">PakdeGriya.com</span>
+              </h1>
+              <p className="text-lg text-[#281C15]/80 leading-relaxed">
+                Survei virtual 360° sebelum survei langsung. Dijamin transparan, aman, dan dibimbing langsung oleh tim profesional Pakde Griya.
               </p>
-              <div className="pt-4 flex items-center gap-4 text-xs font-semibold text-[#D6A34A]">
-                <span className="flex items-center gap-1"><ShieldCheck size={16} /> Terverifikasi Tim</span>
-                <span className="flex items-center gap-1"><Compass size={16} /> Fitur Tur 360°</span>
+              <div className="flex flex-wrap gap-4 pt-2">
+                <a 
+                  href="https://wa.me/6285815999953?text=Halo%20Pakde%20Griya,%20saya%20tertarik%20konsultasi%20properti." 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 bg-[#25D366] text-white font-bold px-6 py-3.5 rounded-2xl shadow-lg shadow-[#25D366]/30 hover:bg-[#20ba59] transition-all"
+                >
+                  <MessageCircle size={20} /> Konsultasi via WhatsApp
+                </a>
               </div>
             </div>
-          </div>
-        </section>
 
-        <section id="properti" className="relative z-10 py-16 px-6 max-w-7xl mx-auto">
-          <div className="flex justify-between items-end mb-10">
-            <div>
-              <h2 className="text-3xl font-black text-[#4A2F1B]">Listing Pilihan</h2>
-              <p className="text-[#281C15]/70 mt-1">Properti siap huni dan investasi terbaik minggu ini.</p>
-            </div>
-          </div>
-
-          {propertiDenganCover.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center border border-[#D6A34A]/20 shadow-sm">
-              <Building2 size={48} className="mx-auto text-gray-300 mb-3" />
-              <p className="text-gray-500 font-medium">Belum ada properti published yang tersedia saat ini.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {propertiDenganCover.map((item) => (
-                <div key={item.id} className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-[#D6A34A]/20 flex flex-col group relative">
-                  
-                  <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden block">
-                    <Link href={`/properti/${item.slug}`} className="absolute inset-0 z-10"></Link>
-                    {item.coverId ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img 
-                        src={`/api/media/${item.coverId}`} 
-                        alt={item.title} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">Tanpa Cover</div>
-                    )}
-                    
-                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-[#4A2F1B] shadow-sm uppercase pointer-events-none z-20">
-                      {item.propertyType}
-                    </div>
-
-                    <div className="absolute top-4 right-4 z-30">
-                      <ShareButton title={item.title} slug={item.slug} />
-                    </div>
-                  </div>
-
-                  <div className="p-6 flex-1 flex flex-col justify-between space-y-4 relative z-20 bg-white">
-                    <div>
-                      <p className="text-xs text-[#D6A34A] font-bold uppercase tracking-wider">{item.generalLocation}</p>
-                      <Link href={`/properti/${item.slug}`} className="block mt-1 hover:text-[#D6A34A] transition-colors">
-                        <h3 className="text-xl font-bold text-[#281C15] line-clamp-1">{item.title}</h3>
-                      </Link>
-                      <p className="text-2xl font-black text-[#4A2F1B] mt-2">Rp {item.price.toLocaleString('id-ID')}</p>
-                    </div>
-
-                    <Link href={`/properti/${item.slug}`} className="w-full block text-center bg-[#FFF7E8] text-[#4A2F1B] border border-[#D6A34A]/40 font-bold py-3 rounded-xl hover:bg-[#4A2F1B] hover:text-white transition-all shadow-sm">
-                      Lihat Detail
-                    </Link>
-                  </div>
+            <div className="bg-[#4A2F1B] rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden border border-[#D6A34A]/30">
+              <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-[#D6A34A]/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="relative z-10 space-y-4">
+                <div className="w-16 h-16 rounded-2xl bg-[#D6A34A] text-[#4A2F1B] flex items-center justify-center font-black text-3xl">P</div>
+                <h3 className="text-2xl font-bold">Jaminan Layanan Pakde</h3>
+                <p className="text-white/80 text-sm leading-relaxed">
+                  Semua listing properti telah melalui kurasi. Dapatkan data akurat tanpa rekayasa.
+                </p>
+                <div className="pt-4 flex items-center gap-4 text-xs font-semibold text-[#D6A34A]">
+                  <span className="flex items-center gap-1"><ShieldCheck size={16} /> Terverifikasi Tim</span>
+                  <span className="flex items-center gap-1"><Compass size={16} /> Fitur Tur 360°</span>
                 </div>
-              ))}
+              </div>
             </div>
-          )}
-        </section>
+          </section>
 
-        <section className="relative z-10 container mx-auto px-6 mt-16 mb-24 space-y-32 max-w-7xl">
-          <div className="flex flex-col md:flex-row items-center gap-10">
-            <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
-              <Image src="/images/pakde-1.webp" alt="Pakde Griya Survey 360 Derajat" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
+          <section id="properti" className="relative z-10 py-16 px-6 max-w-7xl mx-auto">
+            <div className="flex justify-between items-end mb-10">
+              <div>
+                <h2 className="text-3xl font-black text-[#4A2F1B]">Listing Pilihan</h2>
+                <p className="text-[#281C15]/70 mt-1">Properti siap huni dan investasi terbaik minggu ini.</p>
+              </div>
             </div>
-            <div className="w-full md:w-7/12 space-y-6 md:pl-6">
-              <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
-                Survey Rumah Makin Mudah dengan <span className="text-[#D6A34A]">Fitur 360°</span>
-              </h2>
-              <p className="text-lg text-[#281C15]/80 leading-relaxed">
-                Gunakan fitur 360 derajat kami untuk melihat setiap sudut ruangan secara virtual tanpa harus keluar rumah. Hemat waktu dan pastinya 100% transparan tanpa manipulasi sudut pandang.
-              </p>
-            </div>
-          </div>
 
-          <div className="flex flex-col md:flex-row-reverse items-center gap-10">
-            <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
-              <Image src="/images/pakde-2.webp" alt="Daftarkan Properti di Pakde Griya" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
-            </div>
-            <div className="w-full md:w-7/12 space-y-6 md:pr-6">
-              <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
-                Dapatkan Kesempatan Masuk <span className="text-[#D6A34A]">Konten Pakde!</span>
-              </h2>
-              <p className="text-lg text-[#281C15]/80 leading-relaxed">
-                Daftarkan propertimu sekarang dan raih peluang agar propertimu dipromosikan langsung melalui konten eksklusif media sosial Pakde Griya yang menjangkau ribuan calon pembeli potensial.
-              </p>
-              <a href="https://wa.me/6285815999953" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-8 py-4 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold rounded-2xl transition-all hover:scale-105 shadow-lg shadow-[#25D366]/30">
-                <MessageCircle size={20} /> Hubungi via WA (085815999953)
-              </a>
-            </div>
-          </div>
+            {propertiDenganCover.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-[#D6A34A]/20 shadow-sm">
+                <Building2 size={48} className="mx-auto text-gray-300 mb-3" />
+                <p className="text-gray-500 font-medium">Belum ada properti published yang tersedia saat ini.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {propertiDenganCover.map((item) => (
+                  <div key={item.id} className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-[#D6A34A]/20 flex flex-col group relative">
+                    
+                    <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden block">
+                      <Link href={`/properti/${item.slug}`} className="absolute inset-0 z-10"></Link>
+                      {item.coverId ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img 
+                          src={`/api/media/${item.coverId}`} 
+                          alt={item.title} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">Tanpa Cover</div>
+                      )}
+                      
+                      <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-[#4A2F1B] shadow-sm uppercase pointer-events-none z-20">
+                        {item.propertyType}
+                      </div>
 
-          <div className="flex flex-col md:flex-row items-center gap-10">
-            <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
-              <Image src="/images/pakde-3.webp" alt="Jual Properti Bersama Pakde" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
-            </div>
-            <div className="w-full md:w-7/12 space-y-6 md:pl-6">
-              <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
-                Jual Propertimu Bersama <span className="text-[#D6A34A]">Pakde Griya</span>
-              </h2>
-              <p className="text-lg text-[#281C15]/80 leading-relaxed">
-                Percayakan penjualan propertimu kepada tim profesional kami. Kami urus segala kerumitan teknis dan promosinya. Transaksi dijamin aman, cepat, dan transparan dari awal hingga tuntas.
-              </p>
-            </div>
-          </div>
-        </section>
+                      <div className="absolute top-4 right-4 z-30">
+                        <ShareButton title={item.title} slug={item.slug} />
+                      </div>
+                    </div>
 
-        <Footer />
+                    <div className="p-6 flex-1 flex flex-col justify-between space-y-4 relative z-20 bg-white">
+                      <div>
+                        <p className="text-xs text-[#D6A34A] font-bold uppercase tracking-wider">{item.generalLocation}</p>
+                        <Link href={`/properti/${item.slug}`} className="block mt-1 hover:text-[#D6A34A] transition-colors">
+                          <h3 className="text-xl font-bold text-[#281C15] line-clamp-1">{item.title}</h3>
+                        </Link>
+                        <p className="text-2xl font-black text-[#4A2F1B] mt-2">Rp {item.price.toLocaleString('id-ID')}</p>
+                      </div>
+
+                      <Link href={`/properti/${item.slug}`} className="w-full block text-center bg-[#FFF7E8] text-[#4A2F1B] border border-[#D6A34A]/40 font-bold py-3 rounded-xl hover:bg-[#4A2F1B] hover:text-white transition-all shadow-sm">
+                        Lihat Detail
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="relative z-10 container mx-auto px-6 mt-16 mb-24 space-y-32 max-w-7xl">
+            <div className="flex flex-col md:flex-row items-center gap-10">
+              <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
+                <Image src="/images/pakde-1.webp" alt="Pakde Griya Survey 360 Derajat" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
+              </div>
+              <div className="w-full md:w-7/12 space-y-6 md:pl-6">
+                <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
+                  Survey Rumah Makin Mudah dengan <span className="text-[#D6A34A]">Fitur 360°</span>
+                </h2>
+                <p className="text-lg text-[#281C15]/80 leading-relaxed">
+                  Gunakan fitur 360 derajat kami untuk melihat setiap sudut ruangan secara virtual tanpa harus keluar rumah. Hemat waktu dan pastinya 100% transparan tanpa manipulasi sudut pandang.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row-reverse items-center gap-10">
+              <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
+                <Image src="/images/pakde-2.webp" alt="Daftarkan Properti di Pakde Griya" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
+              </div>
+              <div className="w-full md:w-7/12 space-y-6 md:pr-6">
+                <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
+                  Dapatkan Kesempatan Masuk <span className="text-[#D6A34A]">Konten Pakde!</span>
+                </h2>
+                <p className="text-lg text-[#281C15]/80 leading-relaxed">
+                  Daftarkan propertimu sekarang dan raih peluang agar propertimu dipromosikan langsung melalui konten eksklusif media sosial Pakde Griya yang menjangkau ribuan calon pembeli potensial.
+                </p>
+                <a href="https://wa.me/6285815999953" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-8 py-4 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold rounded-2xl transition-all hover:scale-105 shadow-lg shadow-[#25D366]/30">
+                  <MessageCircle size={20} /> Hubungi via WA (085815999953)
+                </a>
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row items-center gap-10">
+              <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
+                <Image src="/images/pakde-3.webp" alt="Jual Properti Bersama Pakde" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
+              </div>
+              <div className="w-full md:w-7/12 space-y-6 md:pl-6">
+                <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
+                  Jual Propertimu Bersama <span className="text-[#D6A34A]">Pakde Griya</span>
+                </h2>
+                <p className="text-lg text-[#281C15]/80 leading-relaxed">
+                  Percayakan penjualan propertimu kepada tim profesional kami. Kami urus segala kerumitan teknis dan promosinya. Transaksi dijamin aman, cepat, dan transparan dari awal hingga tuntas.
+                </p>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        {/* Footer dipastikan berada di bagian terbawah flex container */}
+        <div className="mt-auto">
+          <Footer />
+        </div>
         
       </div>
     );
