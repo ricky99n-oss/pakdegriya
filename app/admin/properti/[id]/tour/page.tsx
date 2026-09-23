@@ -15,11 +15,18 @@ export default async function KelolaTurProperti(props: { params: Promise<{ id: s
   if (propertyRecord.length === 0) notFound();
   const property = propertyRecord[0];
 
-  const panoramas = await db.select().from(propertyMedia).where(and(eq(propertyMedia.propertyId, id), eq(propertyMedia.fileType, "panorama_private")));
-  const audios = await db.select().from(propertyMedia).where(and(eq(propertyMedia.propertyId, id), eq(propertyMedia.fileType, "audio_private")));
-  
-  const existingScenes = await db.select().from(scenes).where(eq(scenes.propertyId, id));
-  const allHotspots = await db.select().from(hotspots); 
+  // AMBIL DATA MENTAH DARI DATABASE
+  const panoramasRaw = await db.select().from(propertyMedia).where(and(eq(propertyMedia.propertyId, id), eq(propertyMedia.fileType, "panorama_private")));
+  const audiosRaw = await db.select().from(propertyMedia).where(and(eq(propertyMedia.propertyId, id), eq(propertyMedia.fileType, "audio_private")));
+  const existingScenesRaw = await db.select().from(scenes).where(eq(scenes.propertyId, id));
+  const allHotspotsRaw = await db.select().from(hotspots); 
+
+  // MENCEGAH ERROR 500 (SERIALISASI):
+  // Kita ubah data mentah menjadi JSON murni agar objek Date terhapus dan aman dikirim ke Client Component.
+  const panoramas = JSON.parse(JSON.stringify(panoramasRaw));
+  const audios = JSON.parse(JSON.stringify(audiosRaw));
+  const existingScenes = JSON.parse(JSON.stringify(existingScenesRaw));
+  const allHotspots = JSON.parse(JSON.stringify(allHotspotsRaw));
 
   return (
     <div className="space-y-8 pb-20">
@@ -43,8 +50,8 @@ export default async function KelolaTurProperti(props: { params: Promise<{ id: s
 
         <form action={createSceneAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input type="hidden" name="propertyId" value={property.id} />
-          {panoramas.map(pano => {
-            const isRegistered = existingScenes.some(s => s.mediaId === pano.id);
+          {panoramas.map((pano: any) => {
+            const isRegistered = existingScenes.some((s: any) => s.mediaId === pano.id);
             return (
               <div key={pano.id} className={`flex items-center gap-3 bg-white p-3 rounded-xl border ${isRegistered ? 'border-green-300 bg-green-50' : 'border-[#D6A34A]/50'} shadow-sm`}>
                 <div className="w-16 h-12 bg-gray-200 rounded-lg overflow-hidden shrink-0 relative">

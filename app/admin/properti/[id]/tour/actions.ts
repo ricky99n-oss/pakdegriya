@@ -1,8 +1,9 @@
 "use server";
 import { db } from "@/db";
-import { scenes, hotspots, propertyMedia } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { scenes, hotspots } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { randomUUID } from "crypto"; // Menggunakan modul bawaan server yang lebih stabil
 
 export async function createSceneAction(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
@@ -11,19 +12,17 @@ export async function createSceneAction(formData: FormData) {
 
   if (!name || name.trim() === "") return;
 
-  // Cek apakah ini scene pertama untuk properti ini
   const existingScenes = await db.select().from(scenes).where(eq(scenes.propertyId, propertyId));
   const isFirst = existingScenes.length === 0;
 
   await db.insert(scenes).values({
-    id: globalThis.crypto.randomUUID(),
+    id: randomUUID(),
     propertyId,
     mediaId,
     name: name.trim(),
     isFirstScene: isFirst,
   });
 
-  // Revalidate path yang TEPAT agar halaman merefresh datanya tanpa error 500
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
 
@@ -36,7 +35,7 @@ export async function saveHotspotAction(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
 
   await db.insert(hotspots).values({
-    id: globalThis.crypto.randomUUID(),
+    id: randomUUID(),
     sceneId,
     targetSceneId,
     pitch,
@@ -52,8 +51,6 @@ export async function deleteSceneAction(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
 
   await db.delete(scenes).where(eq(scenes.id, sceneId));
-  
-  // Hapus hotspot yang terhubung
   await db.delete(hotspots).where(eq(hotspots.sceneId, sceneId));
   await db.delete(hotspots).where(eq(hotspots.targetSceneId, sceneId));
 
@@ -73,15 +70,8 @@ export async function setFirstSceneAction(formData: FormData) {
   const sceneId = formData.get("sceneId") as string;
   const propertyId = formData.get("propertyId") as string;
 
-  // Reset semua scene menjadi false
-  await db.update(scenes)
-    .set({ isFirstScene: false })
-    .where(eq(scenes.propertyId, propertyId));
-
-  // Set scene yang dipilih menjadi true
-  await db.update(scenes)
-    .set({ isFirstScene: true })
-    .where(eq(scenes.id, sceneId));
+  await db.update(scenes).set({ isFirstScene: false }).where(eq(scenes.propertyId, propertyId));
+  await db.update(scenes).set({ isFirstScene: true }).where(eq(scenes.id, sceneId));
 
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
