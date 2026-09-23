@@ -37,7 +37,7 @@ export default async function BerandaPublik() {
     );
 
     return (
-      <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] relative">
+      <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] relative overflow-x-hidden">
         
         <style dangerouslySetInnerHTML={{__html: `
           .bg-pola {
@@ -55,9 +55,9 @@ export default async function BerandaPublik() {
 
         <div className="bg-pola"></div>
 
-        <header className="border-b border-[#D6A34A]/20 bg-white/80 backdrop-blur-md sticky top-0 z-50">
+        <header className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-[#D6A34A]/20">
           <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-[#4A2F1B] text-[#D6A34A] flex items-center justify-center font-bold text-2xl shadow-md">
                 P
               </div>
@@ -65,7 +65,7 @@ export default async function BerandaPublik() {
                 <span className="text-2xl font-black tracking-tight text-[#4A2F1B]">Pakde Griya</span>
                 <p className="text-[10px] tracking-widest text-[#D6A34A] uppercase font-bold">Broker Properti Malang Raya</p>
               </div>
-            </div>
+            </Link>
             
             <nav className="hidden md:flex items-center gap-6 font-medium text-[#4A2F1B]">
               <Link href="/" className="hover:text-[#D6A34A] transition-colors">Beranda</Link>
@@ -141,7 +141,7 @@ export default async function BerandaPublik() {
           </div>
         </section>
 
-        <section id="properti" className="relative z-10 py-16 px-6 max-w-7xl mx-auto scroll-blur">
+        <section id="properti" className="relative z-10 py-16 px-6 max-w-7xl mx-auto">
           <div className="flex justify-between items-end mb-10">
             <div>
               <h2 className="text-3xl font-black text-[#4A2F1B]">Listing Pilihan</h2>
@@ -159,43 +159,37 @@ export default async function BerandaPublik() {
               {propertiDenganCover.map((item) => (
                 <div key={item.id} className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-[#D6A34A]/20 flex flex-col group relative">
                   
-                  {/* BAGIAN GAMBAR KINI MEMILIKI LINK TERSENDIRI */}
-                  <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden">
-                    <Link href={`/properti/${item.slug}`} className="absolute inset-0 z-0">
-                      {item.coverId ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img 
-                          src={`/api/media/${item.coverId}`} 
-                          alt={item.title} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">Tanpa Cover</div>
-                      )}
-                    </Link>
+                  <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden block">
+                    <Link href={`/properti/${item.slug}`} className="absolute inset-0 z-10"></Link>
+                    {item.coverId ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img 
+                        src={`/api/media/${item.coverId}`} 
+                        alt={item.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">Tanpa Cover</div>
+                    )}
                     
-                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-[#4A2F1B] shadow-sm uppercase pointer-events-none z-10">
+                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-[#4A2F1B] shadow-sm uppercase pointer-events-none z-20">
                       {item.propertyType}
                     </div>
 
-                    {/* Tombol Share Berdiri Sendiri */}
-                    <div className="absolute top-4 right-4 z-20">
+                    <div className="absolute top-4 right-4 z-30">
                       <ShareButton title={item.title} slug={item.slug} />
                     </div>
                   </div>
 
-                  {/* BAGIAN TEKS */}
-                  <div className="p-6 flex-1 flex flex-col justify-between space-y-4 relative z-10 bg-white">
+                  <div className="p-6 flex-1 flex flex-col justify-between space-y-4 relative z-20 bg-white">
                     <div>
                       <p className="text-xs text-[#D6A34A] font-bold uppercase tracking-wider">{item.generalLocation}</p>
-                      {/* Judul Memiliki Link Tersendiri */}
-                      <Link href={`/properti/${item.slug}`}>
-                        <h3 className="text-xl font-bold text-[#281C15] mt-1 hover:text-[#D6A34A] transition-colors line-clamp-1">{item.title}</h3>
+                      <Link href={`/properti/${item.slug}`} className="block mt-1 hover:text-[#D6A34A] transition-colors">
+                        <h3 className="text-xl font-bold text-[#281C15] line-clamp-1">{item.title}</h3>
                       </Link>
                       <p className="text-2xl font-black text-[#4A2F1B] mt-2">Rp {item.price.toLocaleString('id-ID')}</p>
                     </div>
 
-                    {/* Tombol Bawah Memiliki Link Tersendiri */}
                     <Link href={`/properti/${item.slug}`} className="w-full block text-center bg-[#FFF7E8] text-[#4A2F1B] border border-[#D6A34A]/40 font-bold py-3 rounded-xl hover:bg-[#4A2F1B] hover:text-white transition-all shadow-sm">
                       Lihat Detail
                     </Link>
@@ -206,8 +200,8 @@ export default async function BerandaPublik() {
           )}
         </section>
 
-        <section className="relative z-10 container mx-auto px-6 mt-16 mb-24 space-y-32 max-w-7xl overflow-hidden">
-          <div className="flex flex-col md:flex-row items-center gap-10 scroll-blur">
+        <section className="relative z-10 container mx-auto px-6 mt-16 mb-24 space-y-32 max-w-7xl">
+          <div className="flex flex-col md:flex-row items-center gap-10">
             <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
               <Image src="/images/pakde-1.webp" alt="Pakde Griya Survey 360 Derajat" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
             </div>
@@ -221,7 +215,7 @@ export default async function BerandaPublik() {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row-reverse items-center gap-10 scroll-blur">
+          <div className="flex flex-col md:flex-row-reverse items-center gap-10">
             <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
               <Image src="/images/pakde-2.webp" alt="Daftarkan Properti di Pakde Griya" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
             </div>
@@ -238,7 +232,7 @@ export default async function BerandaPublik() {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row items-center gap-10 scroll-blur">
+          <div className="flex flex-col md:flex-row items-center gap-10">
             <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
               <Image src="/images/pakde-3.webp" alt="Jual Properti Bersama Pakde" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
             </div>
