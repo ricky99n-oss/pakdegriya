@@ -13,11 +13,9 @@ export default function TambahPropertiPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Auto-generate Slug saat mengetik judul
   const handleJudulChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const text = e.target.value;
     setJudul(text);
-    // Konversi: huruf kecil, ganti spasi dengan strip, buang karakter aneh
     setSlug(text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''));
   };
 
@@ -28,13 +26,19 @@ export default function TambahPropertiPage() {
     
     try {
       const formData = new FormData(e.currentTarget);
-      // Panggil Server Action
       await createPropertyAction(formData);
-      // Jika sukses, kembali ke daftar properti
       router.push("/admin/properti");
       router.refresh();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Gagal menyimpan data.");
+    } catch (err: unknown) {
+      // PERBAIKAN ERROR #441:
+      // Memastikan pesan error yang disetel ke state benar-benar sebuah string mentah.
+      if (err instanceof Error) {
+        setErrorMsg(err.message);
+      } else if (typeof err === "string") {
+        setErrorMsg(err);
+      } else {
+        setErrorMsg("Terjadi kesalahan sistem saat menyimpan properti.");
+      }
       setIsLoading(false);
     }
   };
@@ -65,7 +69,6 @@ export default function TambahPropertiPage() {
               <input type="text" name="code" required placeholder="Mis: PG-001" className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:border-[#D6A34A] focus:ring-1 focus:ring-[#D6A34A] bg-gray-50 text-[#281C15]" />
             </div>
             
-            {/* Field Judul Iklan yang Memicu Auto-Slug */}
             <div className="md:col-span-2">
               <label className="block text-sm font-bold text-[#4A2F1B] mb-2">Judul Iklan</label>
               <input 
@@ -79,7 +82,6 @@ export default function TambahPropertiPage() {
               />
             </div>
 
-            {/* Field Slug Otomatis (Masih bisa diedit manual) */}
             <div className="md:col-span-2">
               <label className="block text-sm font-bold text-[#4A2F1B] mb-2">Slug URL (Otomatis)</label>
               <div className="flex items-center">
