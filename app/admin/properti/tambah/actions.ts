@@ -32,7 +32,7 @@ export async function createPropertyAction(formData: FormData) {
       propertyType: propertyType as any,
       publishStatus: "draft" as any, 
       
-      // Menambahkan nilai default aman agar tidak ditolak oleh database
+      // Nilai default
       bedrooms: 0,
       bathrooms: 0,
       landArea: 0,
@@ -40,24 +40,18 @@ export async function createPropertyAction(formData: FormData) {
       publicSummary: "",
     });
 
-    // Refresh cache halaman admin agar data baru langsung muncul
+    // Refresh cache
     revalidatePath("/admin/properti");
     revalidatePath("/");
     
-    // Kembalikan status sukses
     return { success: true };
     
   } catch (error: any) {
     console.error("Error DB Insert:", error);
     
-    // Tangkap error secara spesifik
-    const errMsg = error?.message?.toLowerCase() || "";
-    
-    if (errMsg.includes("unique") || errMsg.includes("duplicate")) {
-      return { error: `Gagal! Kode Properti "${code}" atau Slug URL "${slug}" SUDAH TERPAKAI oleh properti lain.` };
-    }
-    
-    // Jika ada error lain (misal NOT NULL constraint), tampilkan pesan aslinya
-    return { error: `Gagal menyimpan data: ${error?.message || "Kesalahan Server"}` };
+    // Pukul rata semua error database di sini untuk menghindari kebocoran kode SQL ke UI
+    return { 
+      error: `Gagal menyimpan! Kode Properti "${code}" atau Slug URL "${slug}" kemungkinan besar SUDAH TERPAKAI di dalam database. Silakan gunakan kode lain (misal: PG-003 atau PG-004).` 
+    };
   }
 }
