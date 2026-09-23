@@ -2,7 +2,6 @@
 
 import { db } from "@/db";
 import { properties } from "@/db/schema";
-import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 
 export async function createPropertyAction(formData: FormData) {
@@ -20,9 +19,10 @@ export async function createPropertyAction(formData: FormData) {
   }
 
   try {
-    // Memasukkan data ke database Drizzle ORM
+    // Memasukkan data ke database Drizzle ORM Postgres
     await db.insert(properties).values({
-      id: randomUUID(),
+      // EDGE COMPATIBILITY: Gunakan crypto global, bukan import dari "crypto" Node.js
+      id: crypto.randomUUID(),
       code: code.trim(),
       title: title.trim(),
       slug: slug.trim().toLowerCase(),
@@ -51,7 +51,7 @@ export async function createPropertyAction(formData: FormData) {
     
     // Pukul rata semua error database di sini untuk menghindari kebocoran kode SQL ke UI
     return { 
-      error: `Gagal menyimpan! Kode Properti "${code}" atau Slug URL "${slug}" kemungkinan besar SUDAH TERPAKAI di dalam database. Silakan gunakan kode lain (misal: PG-003 atau PG-004).` 
+      error: `Gagal menyimpan! Kode Properti "${code}" atau Slug URL "${slug}" kemungkinan besar SUDAH TERPAKAI di dalam database. Silakan gunakan kode lain.` 
     };
   }
 }

@@ -4,9 +4,11 @@ import { redirect } from "next/navigation";
 import { LayoutDashboard, Home, UserCircle } from "lucide-react";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user } = await validateRequest();
+  // 1. VALIDASI SESI OTOMATIS (Mencegah Akses Hacker / Sesi Kadaluarsa)
+  const { user, session } = await validateRequest();
   
-  if (!user || (user.role !== "superadmin" && user.role !== "admin")) {
+  // Jika tidak login, atau sesi habis (> 24 Jam), atau bukan role admin/superadmin
+  if (!user || !session || (user.role !== "superadmin" && user.role !== "admin")) {
     redirect("/setup");
   }
 

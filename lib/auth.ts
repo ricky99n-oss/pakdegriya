@@ -1,59 +1,34 @@
-import { Lucia } from "lucia";
-import { DrizzleMySQLAdapter } from "@lucia-auth/adapter-drizzle";
-import { db } from "../db";
-import { sessions, users } from "../db/schema";
+import { db } from "@/db";
+import { sessions, users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 
-// Menyambungkan Lucia ke tabel sessions dan users di database kita
-const adapter = new DrizzleMySQLAdapter(db, sessions, users);
-
-export const lucia = new Lucia(adapter, {
-  sessionCookie: {
-    expires: false, // Cookie bertahan selama browser dibuka, bisa disesuaikan nanti
-    attributes: {
-      secure: process.env.NODE_ENV === "production",
-    },
-  },
-  getUserAttributes: (attributes) => {
-    return {
-      email: attributes.email,
-      name: attributes.name,
-      role: attributes.role,
-    };
-  },
-});
-
-// Deklarasi tipe data agar TypeScript mengenali properti user kita
-declare module "lucia" {
-  interface Register {
-    Lucia: typeof lucia;
-    DatabaseUserAttributes: {
-      email: string;
-      name: string;
-      role: "superadmin" | "admin" | "member";
-    };
-  }
-}
-
-// Fungsi pembantu untuk mengecek siapa yang sedang login di server
-export const validateRequest = async () => {
+export async function validateRequest() {
   const cookieStore = await cookies();
-  const sessionId = cookieStore.get(lucia.sessionCookieName)?.value ?? null;
-  
+  const sessionId = cookieStore.get("auth_session")?.value;
+
   if (!sessionId) {
     return { user: null, session: null };
   }
 
-  const result = await lucia.validateSession(sessionId);
-  try {
-    if (result.session && result.session.fresh) {
-      const sessionCookie = lucia.createSessionCookie(result.session.id);
-      cookieStore.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
-    }
-    if (!result.session) {
-      const sessionCookie = lucia.createBlankSessionCookie();
-      cookieStore.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
-    }
-  } catch {}
-  return result;
-};
+  // Cocokkan sesi di database Postgres
+  const result = await db.select({ user: users, session: sessions })
+    .from(sessions)
+    .innerJoin(users, eq(sessions.userId, users.id))
+    .where(eq(sessions.id, sessionId));
+
+  if (result.length === 0) {
+    return { user: null, session: null };
+  }
+
+  const { user, session } = result[0];
+
+  // PROTEKSI 1 HARI: Jika waktu saat ini melebih batas expiresAt
+  if (Date.now() >= session.expiresAt.getTime()) {
+    // Hapus sesi dari database
+    await db.delete(sessions).where(eq(sessions.id, session.id));
+    return { user: null, session: null };
+  }
+
+  return { user, session };
+}

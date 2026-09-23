@@ -1,12 +1,13 @@
-import { drizzle } from "drizzle-orm/mysql2";
-import mysql from "mysql2/promise";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import * as schema from "./schema";
 
-// Gunakan fallback 'dummy' jika DATABASE_URL tidak ditemukan saat proses build di GitHub Actions
-const connectionString = process.env.DATABASE_URL || "mysql://root:@127.0.0.1:3306/dummy_db";
+// Gunakan fallback 'dummy' jika DATABASE_URL tidak ditemukan saat proses build
+const connectionString = process.env.DATABASE_URL || "postgresql://postgres:dummy@localhost:5432/dummy";
 
-// Membuat connection pool ke database
-const poolConnection = mysql.createPool(connectionString);
+// Membuka koneksi ke Supabase PostgreSQL
+// Opsi prepare: false diwajibkan oleh Supabase saat menggunakan PgBouncer / Connection Pooler
+const client = postgres(connectionString, { prepare: false });
 
 // Ekspor instance db agar bisa dipakai di seluruh proyek
-export const db = drizzle(poolConnection, { schema, mode: "default" });
+export const db = drizzle(client, { schema });
