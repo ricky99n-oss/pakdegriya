@@ -15,14 +15,11 @@ export default async function KelolaTurProperti(props: { params: Promise<{ id: s
   if (propertyRecord.length === 0) notFound();
   const property = propertyRecord[0];
 
-  // AMBIL DATA MENTAH DARI DATABASE
   const panoramasRaw = await db.select().from(propertyMedia).where(and(eq(propertyMedia.propertyId, id), eq(propertyMedia.fileType, "panorama_private")));
   const audiosRaw = await db.select().from(propertyMedia).where(and(eq(propertyMedia.propertyId, id), eq(propertyMedia.fileType, "audio_private")));
   const existingScenesRaw = await db.select().from(scenes).where(eq(scenes.propertyId, id));
   const allHotspotsRaw = await db.select().from(hotspots); 
 
-  // MENCEGAH ERROR 500 (SERIALISASI):
-  // Kita ubah data mentah menjadi JSON murni agar objek Date terhapus dan aman dikirim ke Client Component.
   const panoramas = JSON.parse(JSON.stringify(panoramasRaw));
   const audios = JSON.parse(JSON.stringify(audiosRaw));
   const existingScenes = JSON.parse(JSON.stringify(existingScenesRaw));
@@ -48,12 +45,22 @@ export default async function KelolaTurProperti(props: { params: Promise<{ id: s
           Pilih file Panorama 360 yang sudah Anda unggah, beri nama ruangan (misal: Ruang Tamu), lalu klik tombol "+" untuk memasukkannya ke dalam Tur.
         </p>
 
-        <form action={createSceneAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input type="hidden" name="propertyId" value={property.id} />
+        {/* PERBAIKAN: Mengganti tag <form> raksasa menjadi <div> biasa */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
           {panoramas.map((pano: any) => {
-            const isRegistered = existingScenes.some((s: any) => s.mediaId === pano.id);
+            const registeredScene = existingScenes.find((s: any) => s.mediaId === pano.id);
+            const isRegistered = !!registeredScene;
+            
             return (
-              <div key={pano.id} className={`flex items-center gap-3 bg-white p-3 rounded-xl border ${isRegistered ? 'border-green-300 bg-green-50' : 'border-[#D6A34A]/50'} shadow-sm`}>
+              // PERBAIKAN: Membungkus setiap item dengan <form> secara independen
+              <form 
+                key={pano.id} 
+                action={createSceneAction} 
+                className={`flex items-center gap-3 bg-white p-3 rounded-xl border ${isRegistered ? 'border-green-300 bg-green-50' : 'border-[#D6A34A]/50'} shadow-sm`}
+              >
+                <input type="hidden" name="propertyId" value={property.id} />
+                
                 <div className="w-16 h-12 bg-gray-200 rounded-lg overflow-hidden shrink-0 relative">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`/api/media/${pano.id}`} alt="Thumb" className="w-full h-full object-cover" />
@@ -63,14 +70,17 @@ export default async function KelolaTurProperti(props: { params: Promise<{ id: s
                     </div>
                   )}
                 </div>
+                
                 <input 
                   type="text" 
                   name={`name_${pano.id}`} 
-                  placeholder={isRegistered ? "Sudah Terdaftar" : "Ketik Nama Ruangan..."} 
+                  placeholder="Ketik Nama Ruangan..." 
+                  defaultValue={isRegistered ? registeredScene.name : ""}
                   disabled={isRegistered} 
                   required={!isRegistered}
-                  className="w-full border-none focus:ring-0 text-sm bg-transparent font-bold text-[#281C15] placeholder-gray-400" 
+                  className="w-full border-none focus:ring-0 text-sm bg-transparent font-bold text-[#281C15] placeholder-gray-400 disabled:opacity-70" 
                 />
+                
                 <button 
                   type="submit" 
                   name="mediaId" 
@@ -78,18 +88,18 @@ export default async function KelolaTurProperti(props: { params: Promise<{ id: s
                   disabled={isRegistered} 
                   className="w-10 h-10 rounded-lg bg-[#4A2F1B] text-[#D6A34A] flex items-center justify-center hover:bg-[#281C15] disabled:bg-gray-200 disabled:text-gray-400 shrink-0 transition-colors"
                 >
-                  +
+                  {isRegistered ? '✔' : '+'}
                 </button>
-              </div>
+              </form>
             );
           })}
-        </form>
+        </div>
+
         {panoramas.length === 0 && (
           <p className="text-sm text-red-500 font-bold bg-white p-4 rounded-xl mt-4">Anda belum mengunggah media Panorama 360 di halaman edit properti.</p>
         )}
       </div>
 
-      {/* TAMPILKAN EDITOR HANYA JIKA ADA MINIMAL 1 RUANGAN YANG TERDAFTAR */}
       {existingScenes.length > 0 ? (
         <div className="mt-8 border-t border-gray-200 pt-8">
           <h2 className="text-xl font-bold text-[#4A2F1B] mb-6">2. Sambungkan Antar Ruangan (Hotspot)</h2>
@@ -101,7 +111,7 @@ export default async function KelolaTurProperti(props: { params: Promise<{ id: s
           />
         </div>
       ) : (
-        <div className="mt-8 border-t border-gray-200 pt-8 text-center text-gray-500">
+        <div className="mt-8 border-t border-gray-200 pt-8 text-center text-gray-500 font-medium">
           Daftarkan minimal satu ruangan di atas untuk mulai memunculkan Editor Tur 360°.
         </div>
       )}
