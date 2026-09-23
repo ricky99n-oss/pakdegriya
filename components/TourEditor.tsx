@@ -6,7 +6,6 @@ import { Crosshair, Target, Save, Trash2, Layers } from "lucide-react";
 import { 
   createHotspotAction, 
   deleteHotspotAction, 
-  updateSceneAudioAction,
   updateSceneNameAction,
   deleteSceneAction,
   setFirstSceneAction,
@@ -44,9 +43,14 @@ export default function TourEditor({
   const currentScene = existingScenes.find(s => s.id === activeSceneId);
   const sceneHotspots = allHotspots.filter(h => h.sceneId === activeSceneId);
 
-  // FUNGSI RENDER HOTSPOT KUSTOM UNTUK EDITOR
+  // Fungsi Render Kustom Hotspot Editor
   const renderCustomHotspot = (hotSpotDiv: HTMLElement, args: any) => {
     const { label, iconType, targetImage } = args;
+    
+    // Clear the div
+    hotSpotDiv.innerHTML = '';
+    hotSpotDiv.classList.add('pakde-hotspot-wrapper');
+
     const dot = document.createElement('div');
 
     if (iconType === 'thumbnail' && targetImage) {
@@ -66,6 +70,7 @@ export default function TourEditor({
     }
 
     hotSpotDiv.appendChild(dot);
+    
     const labelDiv = document.createElement('div');
     labelDiv.classList.add('door-label');
     labelDiv.innerHTML = label;
@@ -73,42 +78,40 @@ export default function TourEditor({
   };
 
   useEffect(() => {
+    if (!isReady || !viewerRef.current || !window.pannellum || !currentScene) return;
+
     if (viewerInstance.current) {
       try { viewerInstance.current.destroy(); } catch(e) {}
-      viewerInstance.current = null;
     }
 
-    if (isReady && viewerRef.current && window.pannellum && currentScene) {
-      
-      const mappedHotspots = sceneHotspots.map(h => {
-        const [rawLabel, iconType = "door"] = (h.label || "").split("|||");
-        const targetScene = existingScenes.find(s => s.id === h.targetSceneId);
-        const targetImage = targetScene ? `/api/media/${targetScene.mediaId}` : "";
+    const mappedHotspots = sceneHotspots.map(h => {
+      const [rawLabel, iconType = "door"] = (h.label || "").split("|||");
+      const targetScene = existingScenes.find(s => s.id === h.targetSceneId);
+      const targetImage = targetScene ? `/api/media/${targetScene.mediaId}` : "";
 
-        return {
-          pitch: h.pitch,
-          yaw: h.yaw,
-          type: "custom",
-          cssClass: "pakde-hotspot-wrapper",
-          createTooltipFunc: renderCustomHotspot,
-          createTooltipArgs: { label: rawLabel, iconType, targetImage }
-        };
-      });
+      return {
+        pitch: h.pitch,
+        yaw: h.yaw,
+        type: "custom",
+        createTooltipFunc: renderCustomHotspot,
+        createTooltipArgs: { label: rawLabel, iconType, targetImage }
+      };
+    });
 
-      viewerInstance.current = window.pannellum.viewer(viewerRef.current.id, {
-        type: "equirectangular",
-        panorama: `/api/media/${currentScene.mediaId}`,
-        autoLoad: true, 
-        hfov: 90, 
-        compass: false,
-        showControls: true,
-        hotSpots: mappedHotspots 
-      });
-    }
+    viewerInstance.current = window.pannellum.viewer(viewerRef.current.id, {
+      type: "equirectangular",
+      panorama: `/api/media/${currentScene.mediaId}`,
+      autoLoad: true, 
+      hfov: 90, 
+      compass: false,
+      showControls: true,
+      hotSpots: mappedHotspots 
+    });
 
     return () => {
       if (viewerInstance.current) {
         try { viewerInstance.current.destroy(); } catch(e) {}
+        viewerInstance.current = null;
       }
     };
   }, [isReady, activeSceneId, currentScene, sceneHotspots, existingScenes]);
@@ -130,6 +133,12 @@ export default function TourEditor({
     setPitch(""); setYaw(""); 
   };
 
+  const gantiRuangan = (id: string) => {
+    setActiveSceneId(id);
+    setPitch(""); 
+    setYaw("");
+  };
+
   if (existingScenes.length === 0) return null;
 
   return (
@@ -137,11 +146,12 @@ export default function TourEditor({
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
       
       <style>{`
-        .pakde-hotspot-wrapper { position: relative; display: flex; align-items: center; justify-content: center; width: 60px; height: 60px; pointer-events: none; }
-        .pakde-hotspot-dot { width: 44px; height: 44px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.8); background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .pakde-hotspot-thumbnail { width: 60px; height: 60px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.9); background-size: cover; background-position: center; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
+        .pakde-hotspot-wrapper { position: absolute; z-index: 2; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; margin-left: -25px; margin-top: -25px; }
+        .pakde-hotspot-dot { width: 44px; height: 44px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.8); background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: all 0.3s; }
+        .pakde-hotspot-thumbnail { width: 60px; height: 60px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.9); background-size: cover; background-position: center; box-shadow: 0 4px 15px rgba(0,0,0,0.6); transition: all 0.3s; margin-left: -5px; margin-top: -5px;}
+        .pakde-hotspot-wrapper:hover .pakde-hotspot-dot, .pakde-hotspot-wrapper:hover .pakde-hotspot-thumbnail { transform: scale(1.15); border-color: #D6A34A; }
         .door-icon { display: flex; align-items: center; justify-content: center; }
-        .door-label { position: absolute; bottom: 100%; margin-bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); }
+        .door-label { position: absolute; bottom: 100%; margin-bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); pointer-events: none;}
       `}</style>
 
       <Script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js" onLoad={() => setIsReady(true)} />
@@ -153,7 +163,7 @@ export default function TourEditor({
         {existingScenes.map((scene, idx) => (
           <button
             key={scene.id}
-            onClick={() => { setActiveSceneId(scene.id); setPitch(""); setYaw(""); }}
+            onClick={() => gantiRuangan(scene.id)}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${
               activeSceneId === scene.id
                 ? "bg-[#4A2F1B] text-[#D6A34A] border border-[#D6A34A]"
@@ -209,7 +219,7 @@ export default function TourEditor({
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                 <Crosshair className="text-[#D6A34A] drop-shadow-md" size={40} strokeWidth={2} />
               </div>
-              <div key={activeSceneId} id={`tour-canvas-${activeSceneId}`} ref={viewerRef} className="w-full h-full cursor-crosshair" />
+              <div key={activeSceneId} id={`tour-canvas-admin`} ref={viewerRef} className="w-full h-full cursor-crosshair" />
             </div>
 
             <div className="w-full xl:w-1/3 flex flex-col gap-4">
@@ -233,7 +243,7 @@ export default function TourEditor({
                   <input type="hidden" name="propertyId" value={propertyId} />
                   <input type="hidden" name="pitch" value={pitch === "" ? (currentScene.initialPitch || 0) : pitch} />
                   <input type="hidden" name="yaw" value={yaw === "" ? (currentScene.initialYaw || 0) : yaw} />
-                  <button type="submit" disabled={pitch === "" || yaw === ""} className="w-full text-xs px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-bold hover:bg-blue-200 transition-colors disabled:opacity-50">
+                  <button type="submit" disabled={pitch === ""} className="w-full text-xs px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-bold hover:bg-blue-200 transition-colors disabled:opacity-50">
                     Jadikan Pandangan Awal Kamera
                   </button>
                 </form>
@@ -277,7 +287,7 @@ export default function TourEditor({
                     <input type="text" name="label" required className="w-full border border-[#D6A34A]/50 p-2.5 rounded-lg bg-white text-[#281C15] text-sm focus:outline-none focus:ring-1 focus:ring-[#D6A34A]" placeholder="Mis: Menuju Dapur..." />
                   </div>
 
-                  <button type="submit" disabled={pitch === "" || yaw === ""} className="w-full flex items-center justify-center gap-2 bg-[#D6A34A] text-[#281C15] font-bold py-3 px-4 rounded-lg hover:bg-[#c2913b] transition-all shadow-md disabled:opacity-50 mt-2">
+                  <button type="submit" disabled={pitch === ""} className="w-full flex items-center justify-center gap-2 bg-[#D6A34A] text-[#281C15] font-bold py-3 px-4 rounded-lg hover:bg-[#c2913b] transition-all shadow-md disabled:opacity-50 mt-2">
                     <Save size={16} /> Simpan Titik Hotspot
                   </button>
                 </form>

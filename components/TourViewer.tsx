@@ -22,12 +22,10 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isAudioEnabledRef = useRef<boolean>(false);
   
-  // States
   const [isScriptReady, setIsScriptReady] = useState(false);
   const [tourState, setTourState] = useState<"pending" | "playing">("pending");
   const [currentSceneId, setCurrentSceneId] = useState<string>("");
   
-  // UI States
   const [showTools, setShowTools] = useState(true);
   const [showGallery, setShowGallery] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
@@ -35,6 +33,37 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
   const sceneIds = Object.keys(tourConfig?.scenes || {});
+
+  // FUNGSI RENDER HOTSPOT KUSTOM UNTUK VIEWER
+  const renderViewerHotspot = (hotSpotDiv: HTMLElement, args: any) => {
+    const { name, iconType, targetImage } = args;
+    
+    hotSpotDiv.innerHTML = '';
+    hotSpotDiv.classList.add('pakde-hotspot-wrapper', 'pointer-events-auto', 'cursor-pointer');
+
+    const dot = document.createElement('div');
+
+    if (iconType === 'thumbnail' && targetImage) {
+      dot.classList.add('pakde-hotspot-thumbnail');
+      dot.style.backgroundImage = `url(${targetImage})`;
+    } else {
+      dot.classList.add('pakde-hotspot-dot', 'pakde-door-hotspot');
+      const iconSpan = document.createElement('span');
+      iconSpan.classList.add('door-icon');
+      if (iconType === 'arrow') {
+        iconSpan.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
+      } else {
+        iconSpan.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 3a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12z"></path><path d="M10 9v6"></path><path d="M14 9v6"></path></svg>`;
+      }
+      dot.appendChild(iconSpan);
+    }
+    hotSpotDiv.appendChild(dot);
+    
+    const label = document.createElement('div');
+    label.classList.add('door-label');
+    label.innerHTML = name;
+    hotSpotDiv.appendChild(label);
+  };
 
   useEffect(() => {
     audioRef.current = new Audio();
@@ -77,53 +106,21 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
                 const targetRoom = hs.sceneId;
                 const rawLabel = hs.text || "";
                 
-                // Parsing trik label "Text|||IconType"
                 const parts = rawLabel.split("|||");
                 const displayName = parts[0] || tourConfig.scenes[hs.sceneId]?.title || "Pindah Ruangan";
                 const iconType = parts[1] || "door";
                 const targetImage = tourConfig.scenes[hs.sceneId]?.panorama || "";
 
                 hs.type = "custom";
-                hs.cssClass = "pakde-hotspot-wrapper pointer-events-auto cursor-pointer"; 
-                
-                hs.createTooltipFunc = (hotSpotDiv: HTMLElement, args: any) => {
-                  const dot = document.createElement('div');
-                  if (args.iconType === 'thumbnail' && args.targetImage) {
-                    dot.classList.add('pakde-hotspot-thumbnail');
-                    dot.style.backgroundImage = `url(${args.targetImage})`;
-                  } else {
-                    dot.classList.add('pakde-hotspot-dot', 'pakde-door-hotspot'); // Gunakan style animasi
-                    const iconSpan = document.createElement('span');
-                    iconSpan.classList.add('door-icon');
-                    if (args.iconType === 'arrow') {
-                      iconSpan.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
-                    } else {
-                      iconSpan.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 3a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12z"></path><path d="M10 9v6"></path><path d="M14 9v6"></path></svg>`;
-                    }
-                    dot.appendChild(iconSpan);
-                  }
-                  hotSpotDiv.appendChild(dot);
-                  
-                  const label = document.createElement('div');
-                  label.classList.add('door-label');
-                  label.innerHTML = args.name;
-                  hotSpotDiv.appendChild(label);
-                };
-                
+                hs.createTooltipFunc = renderViewerHotspot;
                 hs.createTooltipArgs = { name: displayName, iconType, targetImage };
                 
                 hs.clickHandlerFunc = () => {
                   const viewer = viewerInstance.current;
                   if (viewer) {
-                    let transitionTriggered = false;
-                    const eksekusiPindahRuangan = () => {
-                      if (!transitionTriggered) {
-                        transitionTriggered = true;
-                        viewer.loadScene(targetRoom);
-                      }
-                    };
-                    viewer.lookAt(hs.pitch, hs.yaw, 50, 800, eksekusiPindahRuangan);
-                    setTimeout(eksekusiPindahRuangan, 850);
+                    viewer.lookAt(hs.pitch, hs.yaw, 50, 800, () => {
+                      viewer.loadScene(targetRoom);
+                    });
                   }
                 };
               }
@@ -233,19 +230,19 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
       <Script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js" onLoad={() => setIsScriptReady(true)} />
 
       <style>{`
-        .pakde-hotspot-wrapper { position: relative; display: flex; align-items: center; justify-content: center; width: 60px; height: 60px; z-index: 20; }
-        .pakde-hotspot-dot { width: 44px; height: 44px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.8); background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .pakde-door-hotspot { cursor: pointer; transition: all 0.3s ease; animation: float-pulse 3s infinite ease-in-out; }
-        .pakde-door-hotspot:hover { transform: scale(1.1); background: rgba(214, 163, 74, 0.8); border-color: #D6A34A; animation: none; }
-        .pakde-hotspot-thumbnail { width: 60px; height: 60px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.9); background-size: cover; background-position: center; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: pointer; transition: transform 0.2s; }
-        .pakde-hotspot-thumbnail:hover { transform: scale(1.1); border-color: #D6A34A; }
+        .pakde-hotspot-wrapper { position: absolute; z-index: 20; display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; margin-left: -25px; margin-top: -25px;}
+        .pakde-hotspot-dot { width: 44px; height: 44px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.8); background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: all 0.3s ease;}
+        .pakde-door-hotspot { animation: float-pulse 3s infinite ease-in-out; }
+        .pakde-door-hotspot:hover { transform: scale(1.15); background: rgba(214, 163, 74, 0.8); border-color: #D6A34A; animation: none; }
+        .pakde-hotspot-thumbnail { width: 60px; height: 60px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.9); background-size: cover; background-position: center; box-shadow: 0 4px 15px rgba(0,0,0,0.6); transition: all 0.3s ease; margin-left: -5px; margin-top: -5px;}
+        .pakde-hotspot-thumbnail:hover { transform: scale(1.15); border-color: #D6A34A; }
         .door-icon { display: flex; align-items: center; justify-content: center; }
         .door-label { position: absolute; bottom: 100%; margin-bottom: 10px; left: 50%; transform: translateX(-50%) translateY(10px); background: rgba(0, 0, 0, 0.8); color: white; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; transition: all 0.3s ease; border: 1px solid rgba(255,255,255,0.2); }
         .pakde-hotspot-wrapper:hover .door-label { opacity: 1; transform: translateX(-50%) translateY(0); }
         @keyframes float-pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4); transform: translateY(0px); } 50% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); transform: translateY(-5px); } 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); transform: translateY(0px); } }
-        .planet-curtain { position: absolute; inset: 0; z-index: 50; background-color: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; transition: opacity 2.5s ease, transform 2.5s ease; }
-        .planet-curtain.hidden { opacity: 0; pointer-events: none; transform: scale(8); }
-        .planet-curtain.visible { opacity: 1; transform: scale(1); }
+        .planet-curtain { position: absolute; inset: 0; z-index: 50; background-color: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; transition: opacity 2.5s ease, visibility 2.5s ease; pointer-events: none;}
+        .planet-curtain.hidden { opacity: 0; visibility: hidden;}
+        .planet-curtain.visible { opacity: 1; visibility: visible;}
         .planet-img { width: 100vw; height: 100vh; object-fit: cover; animation: spin-planet 120s linear infinite; }
         @keyframes spin-planet { 0% { transform: scale(1.42) rotate(0deg); } 100% { transform: scale(1.42) rotate(360deg); } }
       `}</style>
@@ -255,18 +252,18 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
       </div>
 
       {tourState === "pending" && (
-        <div className="absolute inset-0 z-[60] bg-black/40 flex items-center justify-center p-6 backdrop-blur-sm transition-opacity duration-1000">
-          <div className="bg-[#111]/90 backdrop-blur-md max-w-sm w-full rounded-3xl p-8 text-center border border-[#D6A34A]/30 shadow-2xl">
+        <div className="absolute inset-0 z-[60] bg-black/40 flex items-center justify-center p-6 backdrop-blur-sm pointer-events-auto">
+          <div className="bg-[#111]/90 backdrop-blur-md max-w-sm w-full rounded-3xl p-8 text-center border border-[#D6A34A]/30 shadow-2xl relative z-[70]">
             <div className="w-16 h-16 bg-[#D6A34A]/20 rounded-full flex items-center justify-center text-[#D6A34A] mx-auto mb-6">
               <Sparkles size={32} />
             </div>
             <h2 className="text-2xl font-black text-white mb-2">Virtual Tour 360°</h2>
             <p className="text-gray-400 text-sm mb-8">Eksplorasi properti secara imersif. Aktifkan audio untuk pengalaman maksimal.</p>
             <div className="flex flex-col gap-3">
-              <button onClick={() => handleStartTour(true)} className="w-full flex items-center justify-center gap-2 bg-[#D6A34A] text-black font-bold py-3.5 rounded-full hover:bg-[#e8b65c] transition-all">
+              <button onClick={() => handleStartTour(true)} className="w-full flex items-center justify-center gap-2 bg-[#D6A34A] text-black font-bold py-3.5 rounded-full hover:bg-[#e8b65c] transition-all cursor-pointer">
                 <Volume2 size={20} /> Mulai Tour
               </button>
-              <button onClick={() => handleStartTour(false)} className="w-full text-gray-400 font-medium py-2 hover:text-white transition-all text-sm">
+              <button onClick={() => handleStartTour(false)} className="w-full text-gray-400 font-medium py-2 hover:text-white transition-all text-sm cursor-pointer">
                 Mulai Tanpa Audio
               </button>
             </div>
@@ -286,7 +283,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
 
           <button 
             onClick={() => setShowGuide(true)}
-            className="absolute bottom-6 left-6 z-20 w-12 h-12 rounded-full bg-black/60 hover:bg-black/90 border border-[#D6A34A]/50 text-[#D6A34A] flex items-center justify-center backdrop-blur-md transition-all shadow-lg hover:scale-110"
+            className="absolute bottom-6 left-6 z-20 w-12 h-12 rounded-full bg-black/60 hover:bg-black/90 border border-[#D6A34A]/50 text-[#D6A34A] flex items-center justify-center backdrop-blur-md transition-all shadow-lg hover:scale-110 cursor-pointer"
             title="Panduan Navigasi"
           >
             <Info size={22} />
@@ -294,7 +291,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
 
           <button 
             onClick={toggleAudio}
-            className="absolute bottom-6 right-6 z-20 w-12 h-12 rounded-full bg-black/60 hover:bg-black/90 border border-[#D6A34A]/50 text-[#D6A34A] flex items-center justify-center backdrop-blur-md transition-all shadow-lg hover:scale-110"
+            className="absolute bottom-6 right-6 z-20 w-12 h-12 rounded-full bg-black/60 hover:bg-black/90 border border-[#D6A34A]/50 text-[#D6A34A] flex items-center justify-center backdrop-blur-md transition-all shadow-lg hover:scale-110 cursor-pointer"
             title={isAudioPlaying ? "Matikan Suara" : "Nyalakan Suara"}
           >
             {isAudioPlaying ? <Volume2 size={22} /> : <VolumeX size={22} />}
@@ -302,27 +299,27 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
 
           <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-20 transition-all duration-500 ease-in-out ${showTools ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
             <div className="bg-black/80 backdrop-blur-md border border-[#D6A34A]/30 rounded-full px-4 md:px-6 py-3 flex items-center gap-4 md:gap-6 shadow-2xl">
-              <button onClick={goToPrevScene} className="text-[#D6A34A] hover:text-white hover:scale-110 transition-all p-1" title="Ruangan Sebelumnya">
+              <button onClick={goToPrevScene} className="text-[#D6A34A] hover:text-white hover:scale-110 transition-all p-1 cursor-pointer" title="Ruangan Sebelumnya">
                 <ChevronLeft size={28} />
               </button>
               
-              <button onClick={() => setShowGallery(true)} className="text-[#D6A34A] hover:text-white hover:scale-110 transition-all p-1" title="Pilih Ruangan (Galeri)">
+              <button onClick={() => setShowGallery(true)} className="text-[#D6A34A] hover:text-white hover:scale-110 transition-all p-1 cursor-pointer" title="Pilih Ruangan (Galeri)">
                 <LayoutGrid size={24} />
               </button>
 
               <div className="w-px h-6 bg-[#D6A34A]/30 mx-1 md:mx-2"></div>
 
-              <button onClick={() => setShowTools(false)} className="text-[#D6A34A] hover:text-white hover:scale-110 transition-all p-1" title="Sembunyikan Alat">
+              <button onClick={() => setShowTools(false)} className="text-[#D6A34A] hover:text-white hover:scale-110 transition-all p-1 cursor-pointer" title="Sembunyikan Alat">
                 <ChevronDown size={24} />
               </button>
 
               <div className="w-px h-6 bg-[#D6A34A]/30 mx-1 md:mx-2"></div>
 
-              <button onClick={toggleFullscreen} className="text-[#D6A34A] hover:text-white hover:scale-110 transition-all p-1" title="Layar Penuh">
+              <button onClick={toggleFullscreen} className="text-[#D6A34A] hover:text-white hover:scale-110 transition-all p-1 cursor-pointer" title="Layar Penuh">
                 {isFullscreen ? <Minimize size={22} /> : <Maximize size={22} />}
               </button>
 
-              <button onClick={goToNextScene} className="text-[#D6A34A] hover:text-white hover:scale-110 transition-all p-1" title="Ruangan Selanjutnya">
+              <button onClick={goToNextScene} className="text-[#D6A34A] hover:text-white hover:scale-110 transition-all p-1 cursor-pointer" title="Ruangan Selanjutnya">
                 <ChevronRight size={28} />
               </button>
             </div>
@@ -331,7 +328,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
           {!showTools && (
             <button 
               onClick={() => setShowTools(true)}
-              className="absolute bottom-0 left-1/2 -translate-x-1/2 z-20 bg-black/80 text-[#D6A34A] px-6 py-1 rounded-t-xl border-t border-x border-[#D6A34A]/30 hover:bg-black transition-all shadow-[0_-4px_10px_rgba(0,0,0,0.5)]"
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 z-20 bg-black/80 text-[#D6A34A] px-6 py-1 rounded-t-xl border-t border-x border-[#D6A34A]/30 hover:bg-black transition-all shadow-[0_-4px_10px_rgba(0,0,0,0.5)] cursor-pointer"
               title="Tampilkan Alat"
             >
               <ChevronUp size={24} />
@@ -340,7 +337,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
 
           {showGallery && (
             <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-4 md:p-10 animate-in fade-in duration-300">
-              <button onClick={() => setShowGallery(false)} className="absolute top-6 right-6 text-white hover:text-[#D6A34A] transition-colors p-2 bg-white/10 rounded-full">
+              <button onClick={() => setShowGallery(false)} className="absolute top-6 right-6 text-white hover:text-[#D6A34A] transition-colors p-2 bg-white/10 rounded-full cursor-pointer">
                 <X size={32} />
               </button>
               
@@ -354,7 +351,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
                     <button 
                       key={id} 
                       onClick={() => changeScene(id)}
-                      className={`relative group rounded-xl overflow-hidden aspect-video border-2 transition-all ${isActive ? 'border-[#D6A34A] scale-105 shadow-[0_0_15px_rgba(214,163,74,0.5)]' : 'border-transparent hover:border-white/50'}`}
+                      className={`relative group rounded-xl overflow-hidden aspect-video border-2 transition-all cursor-pointer ${isActive ? 'border-[#D6A34A] scale-105 shadow-[0_0_15px_rgba(214,163,74,0.5)]' : 'border-transparent hover:border-white/50'}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={s.panorama} alt={s.title} className="w-full h-full object-cover" />
@@ -371,7 +368,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
           {showGuide && (
             <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowGuide(false)}>
               <div className="bg-[#111]/95 border border-[#D6A34A]/30 rounded-3xl p-8 max-w-2xl w-full text-center relative" onClick={e => e.stopPropagation()}>
-                <button onClick={() => setShowGuide(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <button onClick={() => setShowGuide(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white cursor-pointer">
                   <X size={24} />
                 </button>
                 
@@ -403,7 +400,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
                   </div>
                 </div>
 
-                <button onClick={() => setShowGuide(false)} className="mt-10 px-8 py-3 bg-[#D6A34A] text-black font-bold rounded-full hover:bg-[#e8b65c] transition-colors">
+                <button onClick={() => setShowGuide(false)} className="mt-10 px-8 py-3 bg-[#D6A34A] text-black font-bold rounded-full hover:bg-[#e8b65c] transition-colors cursor-pointer">
                   Mengerti
                 </button>
               </div>
