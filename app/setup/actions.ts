@@ -5,7 +5,6 @@ import { users, sessions } from "../../db/schema";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import crypto from "crypto";
 
 export async function createSuperadmin(formData: FormData) {
   const name = formData.get("name") as string;
@@ -16,7 +15,6 @@ export async function createSuperadmin(formData: FormData) {
     return { error: "Semua data wajib diisi" };
   }
 
-  // Cek apakah tabel users masih kosong
   const existingUsers = await db.select().from(users);
   if (existingUsers.length > 0) {
     return { error: "Super Admin sudah terdaftar! Setup ini tidak dapat digunakan lagi." };
@@ -24,9 +22,8 @@ export async function createSuperadmin(formData: FormData) {
 
   try {
     const passwordHash = await bcrypt.hash(password, 10);
-    const userId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : (globalThis as any).crypto.randomUUID();
+    const userId = crypto.randomUUID();
 
-    // Buat User Superadmin
     await db.insert(users).values({
       id: userId,
       email,
@@ -35,9 +32,8 @@ export async function createSuperadmin(formData: FormData) {
       role: "superadmin" as any, 
     });
 
-    // BIKIN SESI MANUAL
-    const sessionId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : (globalThis as any).crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); // 1 Hari
+    const sessionId = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); 
     
     await db.insert(sessions).values({
       id: sessionId,

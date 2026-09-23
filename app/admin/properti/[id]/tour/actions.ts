@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { scenes, hotspots } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { randomUUID } from "crypto";
 
 export async function createSceneAction(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
@@ -16,7 +15,7 @@ export async function createSceneAction(formData: FormData) {
   const isFirst = existingScenes.length === 0;
 
   await db.insert(scenes).values({
-    id: randomUUID(),
+    id: crypto.randomUUID(),
     propertyId,
     mediaId,
     name: name.trim(),
@@ -26,7 +25,6 @@ export async function createSceneAction(formData: FormData) {
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
 
-// 1. DIUBAH MENJADI createHotspotAction SESUAI PERMINTAAN KOMPONEN
 export async function createHotspotAction(formData: FormData) {
   const sceneId = formData.get("sceneId") as string;
   const targetSceneId = formData.get("targetSceneId") as string;
@@ -36,7 +34,7 @@ export async function createHotspotAction(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
 
   await db.insert(hotspots).values({
-    id: randomUUID(),
+    id: crypto.randomUUID(),
     sceneId,
     targetSceneId,
     pitch,
@@ -77,7 +75,6 @@ export async function setFirstSceneAction(formData: FormData) {
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
 
-// 2. FUNGSI BARU: UPDATE NAMA RUANGAN
 export async function updateSceneNameAction(formData: FormData) {
   const sceneId = formData.get("sceneId") as string;
   const propertyId = formData.get("propertyId") as string;
@@ -87,7 +84,6 @@ export async function updateSceneNameAction(formData: FormData) {
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
 
-// 3. FUNGSI BARU: UPDATE AUDIO RUANGAN
 export async function updateSceneAudioAction(formData: FormData) {
   const sceneId = formData.get("sceneId") as string;
   const propertyId = formData.get("propertyId") as string;
@@ -100,12 +96,10 @@ export async function updateSceneAudioAction(formData: FormData) {
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
 
-// 4. FUNGSI BARU: MENYIMPAN TITIK PANDANG AWAL (PITCH/YAW)
 export async function setInitialViewAction(formData: FormData) {
   const sceneId = formData.get("sceneId") as string;
   const propertyId = formData.get("propertyId") as string;
   
-  // Deteksi cerdas: membaca input bernama "pitch" atau "initialPitch"
   const pitch = formData.get("pitch") || formData.get("initialPitch");
   const yaw = formData.get("yaw") || formData.get("initialYaw");
 
