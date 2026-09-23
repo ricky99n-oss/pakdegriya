@@ -56,26 +56,18 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
     if (isScriptReady && viewerRef.current && window.pannellum && !viewerInstance.current) {
       const config = JSON.parse(JSON.stringify(tourConfig));
 
-      // PENGATURAN PANNELLUM CUSTOM (FIX DISTORSI & ZOOM OTOMATIS)
-      // 1. Matikan putaran otomatis agar tidak zoom sendiri
       config.default.autoRotate = 0; 
-      // 2. Set HFOV (sudut pandang) awal ke 90 agar tidak distorsi/tertarik di pinggir
       config.default.hfov = 90;
       config.default.sceneFadeDuration = 1000; 
-      
-      // MATIKAN UI DEFAULT BAWAAN PANNELLUM
       config.default.showControls = false;
       config.default.showZoomCtrl = false;
       config.default.showFullscreenCtrl = false;
-      config.default.title = ""; // Hapus teks ganda bawaan
+      config.default.title = ""; 
 
       if (config.scenes) {
         Object.keys(config.scenes).forEach(sceneKey => {
           const scene = config.scenes[sceneKey];
-          // Hapus juga judul bawaan di tiap scene
           scene.title = ""; 
-          
-          // Batasi rentang HFOV tiap ruangan agar user tidak bisa zoom out sampai rusak
           scene.minHfov = 50;
           scene.maxHfov = 110; 
 
@@ -83,27 +75,42 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
             scene.hotSpots.forEach((hs: any) => {
               if (hs.type === "scene" && hs.sceneId) {
                 const targetRoom = hs.sceneId;
-                const targetRoomTitle = tourConfig.scenes[hs.sceneId]?.title || "Ke Ruangan Selanjutnya";
+                const rawLabel = hs.text || "";
+                
+                // Parsing trik label "Text|||IconType"
+                const parts = rawLabel.split("|||");
+                const displayName = parts[0] || tourConfig.scenes[hs.sceneId]?.title || "Pindah Ruangan";
+                const iconType = parts[1] || "door";
+                const targetImage = tourConfig.scenes[hs.sceneId]?.panorama || "";
 
                 hs.type = "custom";
-                // Gunakan class baru untuk desain pintu
-                hs.cssClass = "pakde-door-hotspot"; 
+                hs.cssClass = "pakde-hotspot-wrapper pointer-events-auto cursor-pointer"; 
                 
-                hs.createTooltipFunc = (hotSpotDiv: HTMLElement, args: string) => {
-                  // Membuat ikon pintu (menggunakan icon bawaan Pannellum/font-awesome)
-                  const iconSpan = document.createElement('span');
-                  iconSpan.classList.add('door-icon');
-                  // SVG Sederhana berbentuk pintu terbuka
-                  iconSpan.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><path d="M18 3a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12z"></path><path d="M10 9v6"></path><path d="M14 9v6"></path></svg>`;
-                  hotSpotDiv.appendChild(iconSpan);
+                hs.createTooltipFunc = (hotSpotDiv: HTMLElement, args: any) => {
+                  const dot = document.createElement('div');
+                  if (args.iconType === 'thumbnail' && args.targetImage) {
+                    dot.classList.add('pakde-hotspot-thumbnail');
+                    dot.style.backgroundImage = `url(${args.targetImage})`;
+                  } else {
+                    dot.classList.add('pakde-hotspot-dot', 'pakde-door-hotspot'); // Gunakan style animasi
+                    const iconSpan = document.createElement('span');
+                    iconSpan.classList.add('door-icon');
+                    if (args.iconType === 'arrow') {
+                      iconSpan.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
+                    } else {
+                      iconSpan.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 3a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12z"></path><path d="M10 9v6"></path><path d="M14 9v6"></path></svg>`;
+                    }
+                    dot.appendChild(iconSpan);
+                  }
+                  hotSpotDiv.appendChild(dot);
                   
-                  // Label Tooltip
                   const label = document.createElement('div');
                   label.classList.add('door-label');
-                  label.innerHTML = args;
+                  label.innerHTML = args.name;
                   hotSpotDiv.appendChild(label);
                 };
-                hs.createTooltipArgs = targetRoomTitle;
+                
+                hs.createTooltipArgs = { name: displayName, iconType, targetImage };
                 
                 hs.clickHandlerFunc = () => {
                   const viewer = viewerInstance.current;
@@ -156,7 +163,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
     };
   }, [isScriptReady, tourConfig]);
 
-  // --- ACTIONS ---
   const handleStartTour = (withAudio: boolean) => {
     setTourState("playing");
     isAudioEnabledRef.current = withAudio;
@@ -165,9 +171,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
     if (viewerInstance.current) {
       const currentPitch = viewerInstance.current.getPitch();
       const currentYaw = viewerInstance.current.getYaw();
-      // Efek intro planet sedikit lebih dekat agar tidak distorsi (130)
       viewerInstance.current.setHfov(130);
-      // Kembali ke HFOV 90 (normal tanpa distorsi)
       viewerInstance.current.lookAt(currentPitch, currentYaw, 90, 2000);
     }
 
@@ -228,69 +232,17 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
       <Script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js" onLoad={() => setIsScriptReady(true)} />
 
-      {/* STYLE BAWAAN PANNELLUM CUSTOM */}
       <style>{`
-        /* --- DESAIN HOTSPOT PINTU MINIMALIS --- */
-        .pakde-door-hotspot {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 50px;
-          height: 50px;
-          border-radius: 50%;
-          border: 3px solid rgba(255, 255, 255, 0.8);
-          background: rgba(0, 0, 0, 0.4);
-          cursor: pointer;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-          animation: float-pulse 3s infinite ease-in-out;
-        }
-        
-        .pakde-door-hotspot:hover {
-          transform: scale(1.1);
-          background: rgba(214, 163, 74, 0.8); /* Warna emas saat hover */
-          border-color: #D6A34A;
-          animation: none;
-        }
-
-        .door-icon {
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .door-label {
-          position: absolute;
-          bottom: 60px;
-          left: 50%;
-          transform: translateX(-50%) translateY(10px);
-          background: rgba(0, 0, 0, 0.8);
-          color: white;
-          padding: 6px 14px;
-          border-radius: 6px;
-          font-size: 13px;
-          font-weight: 500;
-          white-space: nowrap;
-          opacity: 0;
-          pointer-events: none;
-          transition: all 0.3s ease;
-          border: 1px solid rgba(255,255,255,0.2);
-        }
-
-        .pakde-door-hotspot:hover .door-label {
-          opacity: 1;
-          transform: translateX(-50%) translateY(0);
-        }
-
-        @keyframes float-pulse {
-          0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4); transform: translateY(0px); }
-          50% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); transform: translateY(-5px); }
-          100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); transform: translateY(0px); }
-        }
-        
-        /* --- TIRAI LITTLE PLANET --- */
+        .pakde-hotspot-wrapper { position: relative; display: flex; align-items: center; justify-content: center; width: 60px; height: 60px; z-index: 20; }
+        .pakde-hotspot-dot { width: 44px; height: 44px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.8); background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .pakde-door-hotspot { cursor: pointer; transition: all 0.3s ease; animation: float-pulse 3s infinite ease-in-out; }
+        .pakde-door-hotspot:hover { transform: scale(1.1); background: rgba(214, 163, 74, 0.8); border-color: #D6A34A; animation: none; }
+        .pakde-hotspot-thumbnail { width: 60px; height: 60px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.9); background-size: cover; background-position: center; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: pointer; transition: transform 0.2s; }
+        .pakde-hotspot-thumbnail:hover { transform: scale(1.1); border-color: #D6A34A; }
+        .door-icon { display: flex; align-items: center; justify-content: center; }
+        .door-label { position: absolute; bottom: 100%; margin-bottom: 10px; left: 50%; transform: translateX(-50%) translateY(10px); background: rgba(0, 0, 0, 0.8); color: white; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; transition: all 0.3s ease; border: 1px solid rgba(255,255,255,0.2); }
+        .pakde-hotspot-wrapper:hover .door-label { opacity: 1; transform: translateX(-50%) translateY(0); }
+        @keyframes float-pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4); transform: translateY(0px); } 50% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); transform: translateY(-5px); } 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); transform: translateY(0px); } }
         .planet-curtain { position: absolute; inset: 0; z-index: 50; background-color: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; transition: opacity 2.5s ease, transform 2.5s ease; }
         .planet-curtain.hidden { opacity: 0; pointer-events: none; transform: scale(8); }
         .planet-curtain.visible { opacity: 1; transform: scale(1); }
@@ -298,12 +250,10 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
         @keyframes spin-planet { 0% { transform: scale(1.42) rotate(0deg); } 100% { transform: scale(1.42) rotate(360deg); } }
       `}</style>
 
-      {/* LAYER 1: Intro Planet */}
       <div className={`planet-curtain ${tourState === "pending" ? "visible" : "hidden"}`}>
         {introPlanetUrl && <img src={introPlanetUrl} alt="Intro Planet" className="planet-img" />}
       </div>
 
-      {/* LAYER 2: Mulai Dialog */}
       {tourState === "pending" && (
         <div className="absolute inset-0 z-[60] bg-black/40 flex items-center justify-center p-6 backdrop-blur-sm transition-opacity duration-1000">
           <div className="bg-[#111]/90 backdrop-blur-md max-w-sm w-full rounded-3xl p-8 text-center border border-[#D6A34A]/30 shadow-2xl">
@@ -324,13 +274,10 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
         </div>
       )}
       
-      {/* LAYER 3: PANNELLUM VIEWER */}
       <div id="public-tour-container" ref={viewerRef} className="w-full h-full cursor-move z-0" />
 
-      {/* LAYER 4: CUSTOM UI CONTROLS */}
       {tourState === "playing" && (
         <>
-          {/* Judul Ruangan Kiri Atas - Kini menjadi satu-satunya judul */}
           <div className="absolute top-6 left-6 z-20 pointer-events-none">
             <h1 className="text-white text-2xl md:text-3xl font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
               {tourConfig?.scenes[currentSceneId]?.title || "Memuat..."}
@@ -353,7 +300,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
             {isAudioPlaying ? <Volume2 size={22} /> : <VolumeX size={22} />}
           </button>
 
-          {/* PILL CONTROLS */}
           <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-20 transition-all duration-500 ease-in-out ${showTools ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
             <div className="bg-black/80 backdrop-blur-md border border-[#D6A34A]/30 rounded-full px-4 md:px-6 py-3 flex items-center gap-4 md:gap-6 shadow-2xl">
               <button onClick={goToPrevScene} className="text-[#D6A34A] hover:text-white hover:scale-110 transition-all p-1" title="Ruangan Sebelumnya">
@@ -392,7 +338,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
             </button>
           )}
 
-          {/* OVERLAY: GALLERY THUMBNAILS */}
           {showGallery && (
             <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-4 md:p-10 animate-in fade-in duration-300">
               <button onClick={() => setShowGallery(false)} className="absolute top-6 right-6 text-white hover:text-[#D6A34A] transition-colors p-2 bg-white/10 rounded-full">
@@ -423,7 +368,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
             </div>
           )}
 
-          {/* OVERLAY: USER GUIDE */}
           {showGuide && (
             <div className="absolute inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={() => setShowGuide(false)}>
               <div className="bg-[#111]/95 border border-[#D6A34A]/30 rounded-3xl p-8 max-w-2xl w-full text-center relative" onClick={e => e.stopPropagation()}>

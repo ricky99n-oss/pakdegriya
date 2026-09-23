@@ -81,10 +81,7 @@ export default function TourEditor({
     if (isReady && viewerRef.current && window.pannellum && currentScene) {
       
       const mappedHotspots = sceneHotspots.map(h => {
-        // Mengekstrak label dan tipe ikon dari trik pemisah "|||"
         const [rawLabel, iconType = "door"] = (h.label || "").split("|||");
-        
-        // Cari gambar ruangan tujuan untuk mode thumbnail
         const targetScene = existingScenes.find(s => s.id === h.targetSceneId);
         const targetImage = targetScene ? `/api/media/${targetScene.mediaId}` : "";
 
@@ -102,7 +99,7 @@ export default function TourEditor({
         type: "equirectangular",
         panorama: `/api/media/${currentScene.mediaId}`,
         autoLoad: true, 
-        hfov: 90, // Fix Distorsi (Dari 120 turun ke 90)
+        hfov: 90, 
         compass: false,
         showControls: true,
         hotSpots: mappedHotspots 
@@ -123,16 +120,14 @@ export default function TourEditor({
     }
   };
 
-  // Intercept form submission untuk menyisipkan gaya ikon ke dalam field label
   const handleHotspotSubmit = async (formData: FormData) => {
     const label = formData.get("label") as string;
     const iconType = formData.get("iconType") as string;
     
-    // Gabungkan label dan tipe ikon agar tersimpan di DB tanpa merombak schema
     formData.set("label", `${label}|||${iconType}`);
     await createHotspotAction(formData);
     
-    setPitch(""); setYaw(""); // Reset koordinat setelah simpan
+    setPitch(""); setYaw(""); 
   };
 
   if (existingScenes.length === 0) return null;
@@ -141,7 +136,6 @@ export default function TourEditor({
     <div className="space-y-6">
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
       
-      {/* Memasukkan style hotspot yang sama persis dengan viewer pengunjung */}
       <style>{`
         .pakde-hotspot-wrapper { position: relative; display: flex; align-items: center; justify-content: center; width: 60px; height: 60px; pointer-events: none; }
         .pakde-hotspot-dot { width: 44px; height: 44px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.8); background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
@@ -297,11 +291,12 @@ export default function TourEditor({
                   <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                     {sceneHotspots.map(hs => {
                       const [realLabel, iconType = "door"] = (hs.label || "").split("|||");
+                      const targetSceneName = existingScenes.find(s => s.id === hs.targetSceneId)?.name || "Unknown";
                       return (
                         <div key={hs.id} className="flex items-center justify-between bg-gray-50 p-2.5 rounded-lg border border-gray-100 text-xs shadow-sm hover:border-[#D6A34A]/50 transition-colors">
                           <div>
-                            <p className="font-bold text-[#4A2F1B]">{realLabel}</p>
-                            <p className="text-[10px] text-gray-500 uppercase mt-0.5">Style: {iconType}</p>
+                            <p className="font-bold text-[#4A2F1B]">{targetSceneName}</p>
+                            <p className="text-[10px] text-gray-500 uppercase mt-0.5">Style: {iconType} | {realLabel}</p>
                           </div>
                           <form action={deleteHotspotAction}>
                             <input type="hidden" name="hotspotId" value={hs.id} />
