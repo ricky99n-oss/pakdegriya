@@ -16,7 +16,7 @@ export async function createPropertyAction(formData: FormData) {
 
   // Validasi dasar
   if (!title || !slug || !code) {
-    throw new Error("Kode, Judul, dan Slug wajib diisi!");
+    return { error: "Kode, Judul, dan Slug wajib diisi!" };
   }
 
   try {
@@ -28,21 +28,21 @@ export async function createPropertyAction(formData: FormData) {
       slug: slug.trim().toLowerCase(),
       price: isNaN(price) ? 0 : price,
       generalLocation: generalLocation.trim(),
-      
-      // PERBAIKAN: Menambahkan 'as any' untuk mencegah TS Overload Error 
-      // karena ketidakcocokan tipe String biasa dengan String Enum bawaan Drizzle
       transactionType: transactionType as any,
       propertyType: propertyType as any,
       publishStatus: "draft" as any, 
     });
 
-    // Refresh cache halaman admin agar data baru langsung muncul
+    // Refresh cache
     revalidatePath("/admin/properti");
     revalidatePath("/");
     
+    // Kembalikan status sukses
+    return { success: true };
+    
   } catch (error: any) {
     console.error("Error DB Insert:", error);
-    // Error ini biasanya terjadi jika SLUG atau KODE PROPERTI sudah ada yang pakai (Unique Constraint)
-    throw new Error("Gagal menyimpan properti. Pastikan Kode Properti atau Slug URL belum digunakan oleh properti lain.");
+    // Kembalikan pesan error yang ramah (Bukan throw Error)
+    return { error: "Gagal menyimpan properti. Kemungkinan besar Kode Properti atau Slug URL tersebut sudah pernah digunakan." };
   }
 }

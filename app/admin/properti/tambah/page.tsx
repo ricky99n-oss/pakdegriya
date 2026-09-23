@@ -26,19 +26,24 @@ export default function TambahPropertiPage() {
     
     try {
       const formData = new FormData(e.currentTarget);
-      await createPropertyAction(formData);
+      
+      // Menunggu respons dari server action
+      const result = await createPropertyAction(formData);
+      
+      // Jika server mengembalikan objek berisi error, hentikan proses dan tampilkan pesan
+      if (result?.error) {
+        setErrorMsg(result.error);
+        setIsLoading(false);
+        return;
+      }
+
+      // Jika berhasil
       router.push("/admin/properti");
       router.refresh();
-    } catch (err: unknown) {
-      // PERBAIKAN ERROR #441:
-      // Memastikan pesan error yang disetel ke state benar-benar sebuah string mentah.
-      if (err instanceof Error) {
-        setErrorMsg(err.message);
-      } else if (typeof err === "string") {
-        setErrorMsg(err);
-      } else {
-        setErrorMsg("Terjadi kesalahan sistem saat menyimpan properti.");
-      }
+      
+    } catch (err) {
+      // Menangkap error jika koneksi terputus total
+      setErrorMsg("Koneksi ke server terputus. Silakan coba lagi.");
       setIsLoading(false);
     }
   };
