@@ -1,17 +1,13 @@
 import { db } from "@/db";
 import { properties, propertyMedia, scenes, hotspots } from "@/db/schema";
-// PERBAIKAN IMPORT: Menambahkan "and" dari drizzle-orm
-import { eq, and } from "drizzle-orm"; 
+import { eq, and } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Map } from "lucide-react";
 import { createSceneAction } from "./actions";
 
-import dynamic from "next/dynamic";
-const TourEditor = dynamic(() => import("@/components/TourEditor"), {
-  ssr: false, 
-  loading: () => <div className="w-full h-[500px] flex items-center justify-center bg-gray-100 rounded-2xl animate-pulse"><p className="text-gray-500 font-bold">Memuat Editor 3D...</p></div>
-});
+// IMPORT KOMPONEN WRAPPER YANG BARU (Bukan TourEditor langsung)
+import TourEditorWrapper from "@/components/TourEditorWrapper";
 
 export default async function KelolaTurProperti(props: { params: Promise<{ id: string }> | { id: string } }) {
   const resolvedParams = await Promise.resolve(props.params);
@@ -66,7 +62,8 @@ export default async function KelolaTurProperti(props: { params: Promise<{ id: s
         )}
       </div>
 
-      <TourEditor 
+      {/* PANGGIL KOMPONEN WRAPPER DI SINI */}
+      <TourEditorWrapper 
         existingScenes={existingScenes} 
         propertyId={property.id} 
         allHotspots={allHotspots}
