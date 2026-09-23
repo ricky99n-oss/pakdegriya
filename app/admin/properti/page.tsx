@@ -1,5 +1,5 @@
-import { db } from "@/db"; 
-import { properties } from "@/db/schema"; 
+import { db } from "@/db"; // Kembali menggunakan alias standar Next.js
+import { properties } from "@/db/schema"; // Kembali menggunakan alias standar Next.js
 import { desc } from "drizzle-orm";
 import Link from "next/link";
 import { Plus, Building2, Edit2, Trash2 } from "lucide-react";
@@ -77,7 +77,7 @@ export default async function DaftarPropertiPage() {
                           <Edit2 size={16} />
                         </Link>
                         
-                        <form action={hapusPropertiAction} onSubmit={(e) => { if(!confirm("Yakin ingin menghapus properti ini beserta semua medianya?")) e.preventDefault(); }}>
+                        <form action={hapusPropertiAction}>
                           <input type="hidden" name="propertyId" value={item.id} />
                           <button type="submit" className="inline-block p-2 text-red-500 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 shadow-sm cursor-pointer" title="Hapus Properti">
                             <Trash2 size={16} />
