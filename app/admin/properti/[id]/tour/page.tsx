@@ -5,8 +5,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Map } from "lucide-react";
 import { createSceneAction } from "./actions";
-
-// IMPORT KOMPONEN WRAPPER YANG BARU (Bukan TourEditor langsung)
 import TourEditorWrapper from "@/components/TourEditorWrapper";
 
 export default async function KelolaTurProperti(props: { params: Promise<{ id: string }> | { id: string } }) {
@@ -37,20 +35,42 @@ export default async function KelolaTurProperti(props: { params: Promise<{ id: s
         </div>
       </div>
 
-      <div className="bg-[#FFF7E8] p-6 rounded-2xl border border-[#D6A34A]/30">
-        <h2 className="text-xl font-bold text-[#4A2F1B] mb-4">Daftarkan Ruangan Baru</h2>
+      <div className="bg-[#FFF7E8] p-6 rounded-2xl border border-[#D6A34A]/30 shadow-sm">
+        <h2 className="text-xl font-bold text-[#4A2F1B] mb-4">1. Daftarkan Ruangan Baru</h2>
+        <p className="text-sm text-[#4A2F1B]/70 mb-4">
+          Pilih file Panorama 360 yang sudah Anda unggah, beri nama ruangan (misal: Ruang Tamu), lalu klik tombol "+" untuk memasukkannya ke dalam Tur.
+        </p>
+
         <form action={createSceneAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input type="hidden" name="propertyId" value={property.id} />
           {panoramas.map(pano => {
             const isRegistered = existingScenes.some(s => s.mediaId === pano.id);
             return (
-              <div key={pano.id} className={`flex items-center gap-3 bg-white p-3 rounded-xl border ${isRegistered ? 'border-green-300 opacity-60' : 'border-[#D6A34A]/50'} shadow-sm`}>
-                <div className="w-16 h-12 bg-gray-200 rounded-lg overflow-hidden shrink-0">
+              <div key={pano.id} className={`flex items-center gap-3 bg-white p-3 rounded-xl border ${isRegistered ? 'border-green-300 bg-green-50' : 'border-[#D6A34A]/50'} shadow-sm`}>
+                <div className="w-16 h-12 bg-gray-200 rounded-lg overflow-hidden shrink-0 relative">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`/api/media/${pano.id}`} alt="Thumb" className="w-full h-full object-cover" />
+                  {isRegistered && (
+                    <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+                      <span className="text-green-800 text-xs font-bold">✔</span>
+                    </div>
+                  )}
                 </div>
-                <input type="text" name={`name_${pano.id}`} placeholder="Nama Ruangan..." disabled={isRegistered} className="w-full border-none focus:ring-0 text-sm bg-transparent font-bold text-[#281C15]" />
-                <button type="submit" name="mediaId" value={pano.id} disabled={isRegistered} className="w-10 h-10 rounded-lg bg-[#4A2F1B] text-[#D6A34A] flex items-center justify-center hover:bg-[#281C15] disabled:bg-gray-200 disabled:text-gray-400 shrink-0 transition-colors">
+                <input 
+                  type="text" 
+                  name={`name_${pano.id}`} 
+                  placeholder={isRegistered ? "Sudah Terdaftar" : "Ketik Nama Ruangan..."} 
+                  disabled={isRegistered} 
+                  required={!isRegistered}
+                  className="w-full border-none focus:ring-0 text-sm bg-transparent font-bold text-[#281C15] placeholder-gray-400" 
+                />
+                <button 
+                  type="submit" 
+                  name="mediaId" 
+                  value={pano.id} 
+                  disabled={isRegistered} 
+                  className="w-10 h-10 rounded-lg bg-[#4A2F1B] text-[#D6A34A] flex items-center justify-center hover:bg-[#281C15] disabled:bg-gray-200 disabled:text-gray-400 shrink-0 transition-colors"
+                >
                   +
                 </button>
               </div>
@@ -58,17 +78,26 @@ export default async function KelolaTurProperti(props: { params: Promise<{ id: s
           })}
         </form>
         {panoramas.length === 0 && (
-          <p className="text-sm text-red-500 font-bold bg-white p-4 rounded-xl">Anda belum mengunggah media Panorama 360 di halaman sebelumnya.</p>
+          <p className="text-sm text-red-500 font-bold bg-white p-4 rounded-xl mt-4">Anda belum mengunggah media Panorama 360 di halaman edit properti.</p>
         )}
       </div>
 
-      {/* PANGGIL KOMPONEN WRAPPER DI SINI */}
-      <TourEditorWrapper 
-        existingScenes={existingScenes} 
-        propertyId={property.id} 
-        allHotspots={allHotspots}
-        availableAudios={audios}
-      />
+      {/* TAMPILKAN EDITOR HANYA JIKA ADA MINIMAL 1 RUANGAN YANG TERDAFTAR */}
+      {existingScenes.length > 0 ? (
+        <div className="mt-8 border-t border-gray-200 pt-8">
+          <h2 className="text-xl font-bold text-[#4A2F1B] mb-6">2. Sambungkan Antar Ruangan (Hotspot)</h2>
+          <TourEditorWrapper 
+            existingScenes={existingScenes} 
+            propertyId={property.id} 
+            allHotspots={allHotspots}
+            availableAudios={audios}
+          />
+        </div>
+      ) : (
+        <div className="mt-8 border-t border-gray-200 pt-8 text-center text-gray-500">
+          Daftarkan minimal satu ruangan di atas untuk mulai memunculkan Editor Tur 360°.
+        </div>
+      )}
 
     </div>
   );
