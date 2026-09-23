@@ -1,7 +1,7 @@
 "use server";
+
 import { db } from "../../db";
-import { users } from "../../db/schema";
-import { lucia } from "../../lib/auth";
+import { users, sessions } from "../../db/schema";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -12,25 +12,52 @@ export async function createSuperadmin(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
-  // Enkripsi password sebelum disimpan (wajib)
-  const passwordHash = await bcrypt.hash(password, 10);
-  const userId = crypto.randomUUID();
+  if (!name || !email || !password) {
+    return { error: "Semua data wajib diisi" };
+  }
 
-  // Simpan data ke database
-  await db.insert(users).values({
-    id: userId,
-    email,
-    name,
-    passwordHash,
-    role: "superadmin",
-  });
+  // Cek apakah tabel users masih kosong
+  const existingUsers = await db.select().from(users);
+  if (existingUsers.length > 0) {
+    return { error: "Super Admin sudah terdaftar! Setup ini tidak dapat digunakan lagi." };
+  }
 
-  // Buat session dan tanamkan cookie login ke browser pengguna
-  const session = await lucia.createSession(userId, {});
-  const sessionCookie = lucia.createSessionCookie(session.id);
-  const cookieStore = await cookies();
-  cookieStore.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    const userId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : (globalThis as any).crypto.randomUUID();
 
-  // Arahkan ke dashboard admin
-  redirect("/admin/dashboard");
+    // Buat User Superadmin
+    await db.insert(users).values({
+      id: userId,
+      email,
+      name,
+      passwordHash,
+      role: "superadmin" as any, 
+    });
+
+    // BIKIN SESI MANUAL
+    const sessionId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : (globalThis as any).crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); // 1 Hari
+    
+    await db.insert(sessions).values({
+      id: sessionId,
+      userId: userId,
+      expiresAt,
+    });
+
+    const cookieStore = await cookies();
+    cookieStore.set("auth_session", sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      expires: expiresAt
+    });
+
+    return { success: true };
+    
+  } catch (error: any) {
+    console.error("Gagal Setup:", error);
+    return { error: "Terjadi kesalahan sistem saat membuat akun Super Admin" };
+  }
 }

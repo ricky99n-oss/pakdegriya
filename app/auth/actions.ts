@@ -1,87 +1,71 @@
 "use server";
 
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, sessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { lucia, validateRequest } from "@/lib/auth"; // Sesuai setup Lucia Anda
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
-export async function daftarMemberAction(formData: FormData) {
-  const name = formData.get("name") as string;
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+export async function loginAction(formData: FormData) {
+  const email = formData.get("email");
+  const password = formData.get("password");
 
-  // Cek apakah email sudah dipakai
-  const existingUser = await db.select().from(users).where(eq(users.email, email));
-  if (existingUser.length > 0) {
-    redirect("/auth/daftar?error=email_terpakai");
+  if (typeof email !== "string" || typeof password !== "string") {
+    return { error: "Email dan Password wajib diisi." };
   }
 
-  // Enkripsi password & buat ID
-  const passwordHash = await bcrypt.hash(password, 10);
-  const userId = crypto.randomUUID();
+  // 1. Cari user berdasarkan email
+  const existingUsers = await db.select().from(users).where(eq(users.email, email));
+  if (existingUsers.length === 0) {
+    return { error: "Email tidak ditemukan atau password salah." };
+  }
+  const user = existingUsers[0];
 
-  // Masukkan ke database dengan peran default "member"
-  await db.insert(users).values({
-    id: userId,
-    email,
-    name,
-    passwordHash,
-    role: "member",
+  // 2. Verifikasi Password
+  if (!user.passwordHash) {
+    return { error: "Email tidak valid." };
+  }
+  const validPassword = await bcrypt.compare(password, user.passwordHash);
+  if (!validPassword) {
+    return { error: "Email tidak ditemukan atau password salah." };
+  }
+
+  // 3. BUAT SESI MANUAL (Menggantikan Lucia)
+  // Gunakan randomUUID dari crypto jika menggunakan Node.js (untuk Edge, gunakan global crypto)
+  const sessionId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : (globalThis as any).crypto.randomUUID();
+  
+  // Set expired 1 hari dari sekarang
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); 
+
+  await db.insert(sessions).values({
+    id: sessionId,
+    userId: user.id,
+    expiresAt,
   });
 
-  // Langsung buat sesi (Otomatis Login)
-  const session = await lucia.createSession(userId, {});
-  const sessionCookie = lucia.createSessionCookie(session.id);
+  // 4. Set Cookie di Browser
   const cookieStore = await cookies();
-  cookieStore.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
+  cookieStore.set("auth_session", sessionId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    expires: expiresAt
+  });
 
-  // Arahkan kembali ke beranda
-  redirect("/");
-}
-
-export async function masukAction(formData: FormData) {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-
-  const userRecord = await db.select().from(users).where(eq(users.email, email));
-  if (userRecord.length === 0) {
-    redirect("/auth/masuk?error=tidak_ditemukan");
-  }
-  
-  const user = userRecord[0];
-  
-  // Cocokkan password
-  const isValidPassword = await bcrypt.compare(password, user.passwordHash!);
-  if (!isValidPassword) {
-    redirect("/auth/masuk?error=password_salah");
-  }
-
-  // Buat Sesi Login
-  const session = await lucia.createSession(user.id, {});
-  const sessionCookie = lucia.createSessionCookie(session.id);
-  const cookieStore = await cookies();
-  cookieStore.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
-
-  // Jika admin arahkan ke dashboard admin, jika member arahkan ke beranda
-  if (user.role === "superadmin" || user.role === "admin") {
-    redirect("/admin/dashboard");
-  } else {
-    redirect("/");
-  }
+  return redirect("/admin/dashboard");
 }
 
 export async function keluarAction() {
-  const { session } = await validateRequest();
-  if (!session) redirect("/");
-  
-  await lucia.invalidateSession(session.id);
-  const sessionCookie = lucia.createBlankSessionCookie();
   const cookieStore = await cookies();
-  cookieStore.set(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
+  const sessionId = cookieStore.get("auth_session")?.value;
   
-  redirect("/");
+  if (sessionId) {
+    await db.delete(sessions).where(eq(sessions.id, sessionId));
+    cookieStore.delete("auth_session");
+  }
+
+  return redirect("/auth/masuk"); // Sesuaikan dengan route login Anda
 }
