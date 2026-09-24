@@ -7,9 +7,9 @@ import { ArrowLeft, Map } from "lucide-react";
 import { createSceneAction } from "./actions";
 import TourEditorWrapper from "@/components/TourEditorWrapper";
 
-export default async function KelolaTurProperti(props: { params: Promise<{ id: string }> | { id: string } }) {
-  const resolvedParams = await Promise.resolve(props.params);
-  const id = resolvedParams.id;
+export default async function KelolaTurProperti({ params }: { params: Promise<{ id: string }> }) {
+  // 1. Wajib di-await untuk Next.js 15+
+  const { id } = await params;
 
   const propertyRecord = await db.select().from(properties).where(eq(properties.id, id));
   if (propertyRecord.length === 0) notFound();
@@ -45,15 +45,12 @@ export default async function KelolaTurProperti(props: { params: Promise<{ id: s
           Pilih file Panorama 360 yang sudah Anda unggah, beri nama ruangan (misal: Ruang Tamu), lalu klik tombol "+" untuk memasukkannya ke dalam Tur.
         </p>
 
-        {/* PERBAIKAN: Mengganti tag <form> raksasa menjadi <div> biasa */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
           {panoramas.map((pano: any) => {
             const registeredScene = existingScenes.find((s: any) => s.mediaId === pano.id);
             const isRegistered = !!registeredScene;
             
             return (
-              // PERBAIKAN: Membungkus setiap item dengan <form> secara independen
               <form 
                 key={pano.id} 
                 action={createSceneAction} 

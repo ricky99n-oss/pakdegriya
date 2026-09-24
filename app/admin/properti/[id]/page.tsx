@@ -1,20 +1,17 @@
-import { db } from "../../../../db";
-import { properties, propertyMedia } from "../../../../db/schema";
+import { db } from "@/db";
+import { properties, propertyMedia } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ImagePlus, Lock, Globe, Save, Trash2, Music, Sparkles } from "lucide-react";
 
-// PERBAIKAN IMPORT: Diambil dari folder luar (../actions)
 import { togglePublishStatus, updatePropertyAction } from "../actions";
-// Diambil dari folder saat ini (./actions)
 import { deleteMediaAction } from "./actions"; 
-
 import UploadMediaForm from "./UploadMediaForm";
 
-export default async function KelolaMediaProperti(props: { params: Promise<{ id: string }> | { id: string } }) {
-  const resolvedParams = await Promise.resolve(props.params);
-  const id = resolvedParams.id;
+export default async function KelolaMediaProperti({ params }: { params: Promise<{ id: string }> }) {
+  // 1. Wajib di-await untuk Next.js 15+ (Cloudflare Edge)
+  const { id } = await params;
 
   const propertyRecord = await db.select().from(properties).where(eq(properties.id, id));
   if (propertyRecord.length === 0) redirect("/admin/properti");

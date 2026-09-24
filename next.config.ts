@@ -1,16 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Mode standalone untuk kemudahan deploy ke cPanel yang sudah kita buat
-  output: 'standalone',
-  
-  // Memberitahu Next.js bahwa Sharp adalah paket backend murni
-  serverExternalPackages: ['sharp'],
-  
+  // HAPUS output standalone dan external packages (sharp) 
+  // karena tidak digunakan/didukung di Edge Runtime Cloudflare
+
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co', // Wajib: Mengizinkan Next.js memuat gambar dari Supabase
+      },
+    ],
+  },
   experimental: {
     serverActions: {
-      // Menaikkan batas ukuran upload menjadi 50MB (default hanya 1MB)
-      bodySizeLimit: '50mb',
+      bodySizeLimit: '50mb', // Pertahankan untuk upload panorama yang besar
     },
   },
 };

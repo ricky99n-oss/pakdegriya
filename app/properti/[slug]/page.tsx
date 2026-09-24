@@ -11,9 +11,9 @@ import Footer from "@/components/Footer";
 
 export const dynamic = "force-dynamic";
 
-export default async function DetailPropertiPage(props: { params: Promise<{ slug: string }> | { slug: string } }) {
-  const resolvedParams = await Promise.resolve(props.params);
-  const slug = resolvedParams.slug;
+export default async function DetailPropertiPage({ params }: { params: Promise<{ slug: string }> }) {
+  // 1. Wajib di-await untuk Next.js 15+
+  const { slug } = await params;
 
   const { user } = await validateRequest();
 
@@ -24,7 +24,6 @@ export default async function DetailPropertiPage(props: { params: Promise<{ slug
   const allMedia = await db.select().from(propertyMedia).where(eq(propertyMedia.propertyId, property.id));
   
   const coverImage = allMedia.find(m => m.fileType === "cover_public");
-  // Galeri sekarang bersifat publik
   const galleryImages = allMedia.filter(m => m.fileType === "gallery_private" || m.fileType === "cover_public");
   const hasVirtualTour = allMedia.some(m => m.fileType === "panorama_private");
 
@@ -62,7 +61,6 @@ export default async function DetailPropertiPage(props: { params: Promise<{ slug
         </div>
       </header>
 
-      {/* Gunakan flex-grow agar main mengisi sisa tinggi layar sebelum footer */}
       <main className="flex-grow max-w-4xl w-full mx-auto px-4 mt-6 md:mt-8 space-y-6 md:space-y-8 relative z-10 pb-16 md:pb-24">
         
         <div>
@@ -183,7 +181,6 @@ export default async function DetailPropertiPage(props: { params: Promise<{ slug
 
       </main>
 
-      {/* FOOTER DIPASTIKAN BERADA DI PALING BAWAH */}
       <div className="mt-auto">
         <Footer />
       </div>
