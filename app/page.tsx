@@ -8,19 +8,15 @@ import Footer from "@/components/Footer";
 import { headers } from "next/headers";
 import { getSupabase } from "@/lib/supabase"; 
 
-// PASTIKAN TIDAK ADA export const runtime = "edge" DI SINI
 export const dynamic = "force-dynamic";
 
 export default async function BerandaPublik() {
-  // PENGAMAN UTAMA: Memaksa Next.js melewati proses render saat kompilasi (build).
-  // Ini mencegah server build Cloudflare hang 13 menit.
   headers();
 
   try {
     const { user } = await validateRequest();
     const supabase = getSupabase();
 
-    // 1. Ambil data properti menggunakan Supabase REST Client (HTTP)
     const { data: publikProperti, error: propError } = await supabase
       .from("properties")
       .select(`
@@ -49,19 +45,28 @@ export default async function BerandaPublik() {
 
     if (propError) throw new Error(propError.message);
 
-    // 2. Ambil data cover untuk masing-masing properti
+    // URL fallback jika environment variable tidak terbaca
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://lfqobyxyuurpzepjyzjw.supabase.co";
+
+    // 2. Ambil data cover dan LANGSUNG buat URL publiknya
     const propertiDenganCover = await Promise.all(
       (publikProperti || []).map(async (prop) => {
         const { data: cover } = await supabase
           .from("property_media")
-          .select("id")
+          .select("id, file_name") // Minta file_name langsung
           .eq("property_id", prop.id)
           .eq("file_type", "cover_public")
           .limit(1);
 
+        let coverUrl = null;
+        if (cover && cover.length > 0 && cover[0].file_name) {
+          // Buat URL langsung ke CDN Supabase (bypass API Media dan cegah error Firefox)
+          coverUrl = `${supabaseUrl}/storage/v1/object/public/pakdegriya-media/${cover[0].file_name}`;
+        }
+
         return {
           ...prop,
-          coverId: cover && cover.length > 0 ? cover[0].id : null,
+          coverUrl, // Simpan URL yang sudah jadi
         };
       })
     );
@@ -69,7 +74,6 @@ export default async function BerandaPublik() {
     return (
       <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] flex flex-col relative overflow-hidden">
         
-        {/* Latar Belakang Pola */}
         <div 
           className="fixed inset-0 z-0 opacity-5 pointer-events-none"
           style={{
@@ -187,10 +191,11 @@ export default async function BerandaPublik() {
                     
                     <div className="relative aspect-[16/10] bg-gray-200 overflow-hidden block">
                       <Link href={`/properti/${item.slug}`} prefetch={false} className="absolute inset-0 z-10"></Link>
-                      {item.coverId ? (
+                      
+                      {item.coverUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img 
-                          src={`/api/media/${item.coverId}`} 
+                          src={item.coverUrl} 
                           alt={item.title} 
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                         />
