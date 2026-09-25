@@ -1,20 +1,17 @@
 "use server";
 
-import { db } from "@/db";
-import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
-// --- FUNGSI 1: LOGIN (SUPABASE AUTH) ---
+// --- FUNGSI 1: LOGIN EMAIL (SUPABASE AUTH) ---
 export async function masukAction(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
   if (!email || !password) return { error: "Email dan Password wajib diisi." };
 
-  // Verifikasi ke Supabase
+  const supabase = getSupabase();
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -24,7 +21,6 @@ export async function masukAction(formData: FormData) {
     return { error: "Email tidak ditemukan atau password salah." };
   }
 
-  // Simpan Access Token ke Cookie Browser
   const cookieStore = await cookies();
   cookieStore.set("supabase_access_token", data.session.access_token, {
     httpOnly: true, 
@@ -41,6 +37,7 @@ export async function masukAction(formData: FormData) {
 export async function keluarAction() {
   const cookieStore = await cookies();
   cookieStore.delete("supabase_access_token");
+  const supabase = getSupabase();
   await supabase.auth.signOut();
   
   return redirect("/auth/masuk");
@@ -54,10 +51,16 @@ export async function daftarMemberAction(formData: FormData) {
 
   if (!name || !email || !password) return { error: "Semua data wajib diisi" };
 
-  // 1. Buat akun di sistem keamanan Supabase
+  const supabase = getSupabase();
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        // Penting: Disisipkan agar SQL Trigger bisa membaca nama user baru
+        full_name: name, 
+      }
+    }
   });
 
   if (error) {
@@ -67,36 +70,19 @@ export async function daftarMemberAction(formData: FormData) {
     return { error: `Gagal mendaftar: ${error.message}` };
   }
 
-  // 2. Daftarkan juga profilnya ke tabel database kita agar web berjalan normal
-  if (data.user) {
-    const existingUsers = await db.select().from(users).where(eq(users.email, email));
-    if (existingUsers.length === 0) {
-      await db.insert(users).values({
-        id: data.user.id, // Gunakan ID asli dari Supabase
-        email, 
-        name, 
-        passwordHash: "supabase_managed", // Password dikelola Supabase, ini hanya formalitas tabel
-        role: "member" as any, 
-      });
-    }
-  }
+  // Catatan: Insert ke tabel public.users sudah diurus otomatis oleh SQL Trigger
 
   return redirect("/auth/masuk");
 }
-// --- FUNGSI 4: LOGIN / DAFTAR DENGAN GOOGLE ---
-export async function loginWithGoogleAction(origin: string) {
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: `${origin}/auth/callback`,
-    },
-  });
 
-  // Next.js tidak mengizinkan redirect di dalam try/catch, 
-  // jadi kita kembalikan URL-nya untuk dieksekusi oleh Client
-  if (data.url) {
-    return { url: data.url };
-  }
-  
-  return { error: "Gagal menginisiasi layanan Google" };
+// --- FUNGSI 4: PENYIMPAN COOKIE (DIPANGGIL OLEH CALLBACK) ---
+export async function setSessionCookieAction(accessToken: string, expiresIn: number) {
+  const cookieStore = await cookies();
+  cookieStore.set("supabase_access_token", accessToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: expiresIn
+  });
 }

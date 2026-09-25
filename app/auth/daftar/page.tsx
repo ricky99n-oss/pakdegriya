@@ -3,11 +3,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { daftarMemberAction } from "../actions"; // loginWithGoogleAction dihapus dari import
-import { UserPlus } from "lucide-react";
+import { daftarMemberAction } from "../actions";
+import { UserPlus, CheckCircle2 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
-// Inisiasi Supabase Client untuk Client-Side
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -15,12 +14,13 @@ const supabase = createClient(
 
 export default function HalamanDaftar() {
   const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // FUNGSI DAFTAR/LOGIN GOOGLE MENGGUNAKAN SUPABASE CLIENT
   const handleGoogle = async () => {
     setIsLoading(true);
     setErrorMsg("");
+    setSuccessMsg("");
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -39,14 +39,19 @@ export default function HalamanDaftar() {
     e.preventDefault();
     setIsLoading(true);
     setErrorMsg("");
+    setSuccessMsg("");
 
     const formData = new FormData(e.currentTarget);
     const res = await daftarMemberAction(formData);
 
     if (res?.error) {
       setErrorMsg(res.error);
-      setIsLoading(false);
+    } else {
+      // Menampilkan pesan sukses dan mengosongkan form
+      setSuccessMsg("Pendaftaran berhasil! Akun Anda telah dibuat.");
+      e.currentTarget.reset();
     }
+    setIsLoading(false);
   };
 
   return (
@@ -60,11 +65,18 @@ export default function HalamanDaftar() {
             <p className="text-[#281C15]/70 mt-2 font-medium">Buka akses eksklusif ke Virtual Tour 360° dan galeri properti lengkap.</p>
           </div>
 
+          {/* NOTIFIKASI ERROR */}
           {errorMsg && (
             <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-bold mb-6 text-center border border-red-200 shadow-sm">{errorMsg}</div>
           )}
 
-          {/* TOMBOL GOOGLE */}
+          {/* NOTIFIKASI SUKSES */}
+          {successMsg && (
+            <div className="bg-green-50 text-green-700 p-4 rounded-xl text-sm font-bold mb-6 text-center border border-green-200 shadow-sm flex items-center justify-center gap-2">
+              <CheckCircle2 size={18} /> {successMsg}
+            </div>
+          )}
+
           <button type="button" onClick={handleGoogle} disabled={isLoading} className="w-full flex justify-center items-center gap-3 bg-white text-gray-700 font-bold py-3.5 rounded-xl border border-gray-300 hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50">
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
