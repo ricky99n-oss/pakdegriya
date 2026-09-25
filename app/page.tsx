@@ -262,9 +262,14 @@ export default async function BerandaPublik() {
             <span className="text-4xl font-black">!</span>
           </div>
           <h1 className="text-2xl font-black text-[#4A2F1B] mb-3">Terjadi Gangguan Sistem</h1>
-          <p className="text-gray-600 font-medium mb-8">Kami tidak dapat memuat data properti saat ini karena kendala koneksi database.</p>
+          <p className="text-gray-600 font-medium mb-4">Kami tidak dapat memuat data properti saat ini karena kendala koneksi database.</p>
           
-          {/* PERBAIKAN: Menggunakan tag <a href> alih-alih onClick agar valid di Server Component */}
+          {/* --- PELACAK ERROR --- */}
+          <div className="bg-red-50 text-red-800 p-4 rounded-lg text-xs font-mono text-left mb-8 overflow-auto max-h-40 border border-red-200">
+            <strong>Detail Error (Beri tahu tim IT):</strong><br/>
+            {error?.message || String(error)}
+          </div>
+          
           <a 
             href="/" 
             className="inline-block bg-[#D6A34A] text-[#4A2F1B] px-8 py-3 rounded-xl font-bold hover:bg-[#c2913b] transition-colors"
