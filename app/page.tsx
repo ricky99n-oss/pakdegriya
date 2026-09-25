@@ -8,11 +8,16 @@ import { validateRequest } from "@/lib/auth";
 import { keluarAction } from "@/app/auth/actions";
 import ShareButton from "@/components/ShareButton";
 import Footer from "@/components/Footer";
+import { headers } from "next/headers"; // <-- TAMBAHAN WAJIB
 
-export const runtime = "edge";
+// PASTIKAN TIDAK ADA export const runtime = "edge" DI SINI
 export const dynamic = "force-dynamic";
 
 export default async function BerandaPublik() {
+  // PENGAMAN UTAMA: Memaksa Next.js melewati proses render saat kompilasi (build).
+  // Ini mencegah server build Cloudflare hang 13 menit.
+  headers();
+
   try {
     const { user } = await validateRequest();
 

@@ -22,8 +22,7 @@ const getDbInstance = () => {
     // Diabaikan saat proses kompilasi
   }
 
-  const isBuildPhase = !currentUrl;
-  if (isBuildPhase) {
+  if (!currentUrl) {
     currentUrl = "postgresql://postgres:dummy@localhost:5432/dummy";
   }
 
@@ -31,10 +30,8 @@ const getDbInstance = () => {
     const client = postgres(currentUrl, { 
       prepare: false,
       ssl: isHyperdrive ? false : "require",
-      // MENCEGAH HANG: Paksa gagal dalam 2 detik jika ini adalah proses build
-      connect_timeout: isBuildPhase ? 2 : 10,
-      idle_timeout: isBuildPhase ? 2 : 10,
-      max: 1 // Batasi koneksi dummy
+      // PENGAMAN KEDUA: Paksa batal dalam 3 detik agar build tidak pernah hang lagi
+      connect_timeout: 3 
     });
     cachedDb = drizzle(client, { schema });
     cachedUrl = currentUrl;
