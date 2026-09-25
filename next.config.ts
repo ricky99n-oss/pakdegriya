@@ -1,20 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // HAPUS output standalone dan external packages (sharp) 
-  // karena tidak digunakan/didukung di Edge Runtime Cloudflare
-
   images: {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**.supabase.co', // Wajib: Mengizinkan Next.js memuat gambar dari Supabase
+        hostname: '**.supabase.co',
       },
     ],
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: '50mb', // Pertahankan untuk upload panorama yang besar
+      bodySizeLimit: '50mb',
     },
   },
   webpack: (config, { isServer }) => {
@@ -26,6 +23,7 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
+  turbopack: {}, // <-- Tambahkan baris ini untuk mengatasi error Turbopack Next.js 16
 };
 
 export default nextConfig;
