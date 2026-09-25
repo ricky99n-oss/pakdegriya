@@ -16,13 +16,11 @@ export default function UploadMediaForm({ propertyId }: { propertyId: string }) 
     const formData = new FormData(e.currentTarget);
     
     try {
-      // Deklarasi tipe eksplisit agar TypeScript tidak error "never"
       const res = (await uploadMediaAction(formData)) as { error?: string; success?: boolean };
       
       if (res?.error) {
         setErrorMsg(res.error);
       } else {
-        // Jika sukses, bersihkan form
         (e.target as HTMLFormElement).reset();
       }
     } catch (err) {
