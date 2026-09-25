@@ -1,34 +1,27 @@
-import { db } from "@/db";
-import { sessions, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { supabase } from "./supabase";
 import { cookies } from "next/headers";
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function validateRequest() {
   const cookieStore = await cookies();
-  const sessionId = cookieStore.get("auth_session")?.value;
+  const accessToken = cookieStore.get("supabase_access_token")?.value;
 
-  if (!sessionId) {
-    return { user: null, session: null };
+  // Jika tidak ada token di cookie, tolak akses
+  if (!accessToken) return { user: null };
+
+  // Validasi token langsung ke Supabase Auth
+  const { data, error } = await supabase.auth.getUser(accessToken);
+
+  if (error || !data.user) {
+    return { user: null };
   }
 
-  // Cocokkan sesi di database Postgres
-  const result = await db.select({ user: users, session: sessions })
-    .from(sessions)
-    .innerJoin(users, eq(sessions.userId, users.id))
-    .where(eq(sessions.id, sessionId));
+  // Ambil profil lengkap user dari tabel public.users kita 
+  const userRecords = await db.select().from(users).where(eq(users.email, data.user.email!));
+  
+  if (userRecords.length === 0) return { user: null };
 
-  if (result.length === 0) {
-    return { user: null, session: null };
-  }
-
-  const { user, session } = result[0];
-
-  // PROTEKSI 1 HARI: Jika waktu saat ini melebih batas expiresAt
-  if (Date.now() >= session.expiresAt.getTime()) {
-    // Hapus sesi dari database
-    await db.delete(sessions).where(eq(sessions.id, session.id));
-    return { user: null, session: null };
-  }
-
-  return { user, session };
+  return { user: userRecords[0] };
 }

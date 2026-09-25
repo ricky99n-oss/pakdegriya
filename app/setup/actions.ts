@@ -1,10 +1,9 @@
 "use server";
 
 import { db } from "../../db";
-import { users, sessions } from "../../db/schema";
-import bcrypt from "bcryptjs";
+import { users } from "../../db/schema";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export async function createSuperadmin(formData: FormData) {
   const name = formData.get("name") as string;
@@ -21,39 +20,45 @@ export async function createSuperadmin(formData: FormData) {
   }
 
   try {
-    const passwordHash = await bcrypt.hash(password, 10);
-    const userId = crypto.randomUUID();
+    // 1. Buat akun di Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
 
+    if (error) throw error;
+    if (!data.user) throw new Error("Gagal membuat user di Supabase");
+
+    // 2. Simpan profil di tabel users public
     await db.insert(users).values({
-      id: userId,
+      id: data.user.id,
       email,
       name,
-      passwordHash,
+      passwordHash: "supabase_managed",
       role: "superadmin" as any, 
     });
 
-    const sessionId = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); 
-    
-    await db.insert(sessions).values({
-      id: sessionId,
-      userId: userId,
-      expiresAt,
+    // 3. Login otomatis setelah setup
+    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
 
+    if (loginError || !loginData.session) throw new Error("Gagal login otomatis");
+
     const cookieStore = await cookies();
-    cookieStore.set("auth_session", sessionId, {
+    cookieStore.set("supabase_access_token", loginData.session.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      expires: expiresAt
+      maxAge: loginData.session.expires_in
     });
 
     return { success: true };
     
   } catch (error: any) {
     console.error("Gagal Setup:", error);
-    return { error: "Terjadi kesalahan sistem saat membuat akun Super Admin" };
+    return { error: error.message || "Terjadi kesalahan sistem saat membuat akun Super Admin" };
   }
 }
