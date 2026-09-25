@@ -1,12 +1,14 @@
 import { defineConfig } from 'drizzle-kit';
-import * as dotenv from 'dotenv';
-dotenv.config();
+import { config } from 'dotenv';
+
+// Pastikan membaca tepat dari file .env di root folder
+config({ path: '.env' });
 
 export default defineConfig({
   schema: './db/schema.ts',
   out: './drizzle',
-  dialect: 'postgresql', // <-- Ubah ke postgresql
+  dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    url: process.env.DATABASE_URL as string,
   },
 });

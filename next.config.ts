@@ -17,6 +17,15 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '50mb', // Pertahankan untuk upload panorama yang besar
     },
   },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        "node:util/types": false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
