@@ -5,8 +5,8 @@ import { validateRequest } from "@/lib/auth";
 import { keluarAction } from "@/app/auth/actions";
 import ShareButton from "@/components/ShareButton";
 import Footer from "@/components/Footer";
-import { headers } from "next/headers"; // <-- TAMBAHAN WAJIB
-import { getSupabase } from "@/lib/supabase"; // <-- IMPORT SUPABASE CLIENT
+import { headers } from "next/headers";
+import { getSupabase } from "@/lib/supabase"; 
 
 // PASTIKAN TIDAK ADA export const runtime = "edge" DI SINI
 export const dynamic = "force-dynamic";
@@ -21,8 +21,6 @@ export default async function BerandaPublik() {
     const supabase = getSupabase();
 
     // 1. Ambil data properti menggunakan Supabase REST Client (HTTP)
-    // Alias kolom snake_case ke camelCase (contoh: propertyType:property_type) 
-    // agar kompatibel dengan UI yang sudah ada.
     const { data: publikProperti, error: propError } = await supabase
       .from("properties")
       .select(`
@@ -106,7 +104,7 @@ export default async function BerandaPublik() {
                   </div>
                   
                   {(user.role === 'superadmin' || user.role === 'admin') && (
-                    <Link href="/admin/dashboard" className="text-xs bg-[#4A2F1B] text-[#D6A34A] px-4 py-2.5 rounded-xl hover:bg-[#281C15] transition-all font-bold shadow-md">
+                    <Link href="/admin/dashboard" prefetch={false} className="text-xs bg-[#4A2F1B] text-[#D6A34A] px-4 py-2.5 rounded-xl hover:bg-[#281C15] transition-all font-bold shadow-md">
                       Panel Admin
                     </Link>
                   )}
@@ -119,8 +117,8 @@ export default async function BerandaPublik() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3 pl-4 border-l border-[#D6A34A]/30">
-                  <Link href="/auth/masuk" className="text-sm font-bold text-[#4A2F1B] hover:text-[#D6A34A] transition-colors">Masuk</Link>
-                  <Link href="/auth/daftar" className="text-xs bg-[#D6A34A] text-[#281C15] px-5 py-2.5 rounded-xl hover:bg-[#c2913b] transition-all font-bold shadow-md">
+                  <Link href="/auth/masuk" prefetch={false} className="text-sm font-bold text-[#4A2F1B] hover:text-[#D6A34A] transition-colors">Masuk</Link>
+                  <Link href="/auth/daftar" prefetch={false} className="text-xs bg-[#D6A34A] text-[#281C15] px-5 py-2.5 rounded-xl hover:bg-[#c2913b] transition-all font-bold shadow-md">
                     Daftar Member
                   </Link>
                 </div>
@@ -130,7 +128,6 @@ export default async function BerandaPublik() {
         </header>
 
         <main className="flex-grow z-10">
-          {/* Bagian Hero */}
           <section className="py-20 px-6 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
               <span className="inline-flex items-center gap-2 bg-[#D6A34A]/10 text-[#4A2F1B] px-4 py-1.5 rounded-full text-xs font-bold border border-[#D6A34A]/30">
@@ -170,7 +167,6 @@ export default async function BerandaPublik() {
             </div>
           </section>
 
-          {/* Bagian Listing Properti */}
           <section id="properti" className="py-16 px-6 max-w-7xl mx-auto">
             <div className="flex justify-between items-end mb-10">
               <div>
@@ -190,7 +186,7 @@ export default async function BerandaPublik() {
                   <div key={item.id} className="bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 border border-[#D6A34A]/20 flex flex-col group relative">
                     
                     <div className="relative aspect-[16/10] bg-gray-200 overflow-hidden block">
-                      <Link href={`/properti/${item.slug}`} className="absolute inset-0 z-10"></Link>
+                      <Link href={`/properti/${item.slug}`} prefetch={false} className="absolute inset-0 z-10"></Link>
                       {item.coverId ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img 
@@ -214,13 +210,13 @@ export default async function BerandaPublik() {
                     <div className="p-6 flex-1 flex flex-col justify-between space-y-4 relative z-20 bg-white">
                       <div>
                         <p className="text-[10px] text-[#D6A34A] font-black uppercase tracking-widest">{item.generalLocation}</p>
-                        <Link href={`/properti/${item.slug}`} className="block mt-2 hover:text-[#D6A34A] transition-colors">
+                        <Link href={`/properti/${item.slug}`} prefetch={false} className="block mt-2 hover:text-[#D6A34A] transition-colors">
                           <h3 className="text-xl font-bold text-[#281C15] line-clamp-2 leading-tight">{item.title}</h3>
                         </Link>
                         <p className="text-2xl font-black text-[#4A2F1B] mt-3">Rp {item.price.toLocaleString('id-ID')}</p>
                       </div>
 
-                      <Link href={`/properti/${item.slug}`} className="w-full block text-center bg-[#FFF7E8] text-[#4A2F1B] border border-[#D6A34A]/40 font-bold py-3.5 rounded-xl hover:bg-[#4A2F1B] hover:text-[#D6A34A] transition-colors shadow-sm">
+                      <Link href={`/properti/${item.slug}`} prefetch={false} className="w-full block text-center bg-[#FFF7E8] text-[#4A2F1B] border border-[#D6A34A]/40 font-bold py-3.5 rounded-xl hover:bg-[#4A2F1B] hover:text-[#D6A34A] transition-colors shadow-sm">
                         Lihat Detail
                       </Link>
                     </div>
@@ -230,7 +226,6 @@ export default async function BerandaPublik() {
             )}
           </section>
 
-          {/* Bagian Bawah (Marketing) */}
           <section className="container mx-auto px-6 mt-16 mb-32 space-y-32 max-w-7xl">
             <div className="flex flex-col md:flex-row items-center gap-10">
               <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
@@ -294,7 +289,6 @@ export default async function BerandaPublik() {
           <h1 className="text-2xl font-black text-[#4A2F1B] mb-3">Terjadi Gangguan Sistem</h1>
           <p className="text-gray-600 font-medium mb-4">Kami tidak dapat memuat data properti saat ini karena kendala koneksi database.</p>
           
-          {/* --- PELACAK ERROR SUPER DETAIL --- */}
           <div className="bg-red-50 text-red-800 p-4 rounded-lg text-xs font-mono text-left mb-8 overflow-auto max-h-60 border border-red-200">
             <strong>Detail Error (Beri tahu tim IT):</strong><br/>
             {error?.message || String(error)}<br/>
