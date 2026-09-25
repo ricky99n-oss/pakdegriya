@@ -3,34 +3,40 @@ import postgres from "postgres";
 import * as schema from "./schema";
 import { getRequestContext } from "@cloudflare/next-on-pages";
 
+// Simpan instance Drizzle agar tidak membuat koneksi baru setiap kali dipanggil
 let cachedDb: ReturnType<typeof drizzle> | null = null;
 let cachedUrl: string = "";
 
 const getDbInstance = () => {
+  // 1. Ambil dari process.env (Berlaku untuk lokal / npm run dev / npm run db:push)
   let currentUrl = process.env.DATABASE_URL || "";
 
   try {
-    const env = getRequestContext().env as any;
-    // Prioritas 1: Hyperdrive
+    // 2. Ambil dari environment Cloudflare (Hanya tersedia saat berjalan di Edge)
+    const env = getRequestContext().env as Record<string, any>;
+    
+    // Prioritas 1: Gunakan Hyperdrive jika diaktifkan di menu Bindings Cloudflare
     if (env?.HYPERDRIVE?.connectionString) {
       currentUrl = env.HYPERDRIVE.connectionString;
     } 
-    // Prioritas 2: Fallback ke variabel environment
+    // Prioritas 2: Fallback ke variabel teks biasa di Cloudflare Settings
     else if (env?.DATABASE_URL) {
       currentUrl = env.DATABASE_URL;
     }
   } catch (error) {
-    // Diabaikan saat proses 'next build'
+    // Abaikan error di sini. getRequestContext() memang akan gagal saat proses 'next build' 
+    // karena konteks Edge belum tersedia.
   }
 
-  // Fallback terakhir agar build tidak crash
+  // 3. Fallback dummy mutlak agar proses kompilasi (build) di Cloudflare tidak crash
   if (!currentUrl) {
     currentUrl = "postgresql://postgres:dummy@localhost:5432/dummy";
   }
 
-  // Hanya buat koneksi baru jika URL berubah atau cache kosong
+  // 4. Inisialisasi hanya jika cache kosong atau URL berubah
   if (!cachedDb || cachedUrl !== currentUrl) {
-    // prepare: false wajib untuk Hyperdrive & Supabase
+    // WAJIB: prepare: false sangat dibutuhkan untuk Supabase Transaction Pooler dan Hyperdrive
+    // agar koneksi tidak mengalami deadlock
     const client = postgres(currentUrl, { prepare: false });
     cachedDb = drizzle(client, { schema });
     cachedUrl = currentUrl;
@@ -39,7 +45,9 @@ const getDbInstance = () => {
   return cachedDb;
 };
 
-// Ekspor Proxy agar db bisa dipanggil normal di seluruh komponen
+// Ekspor menggunakan Proxy:
+// Ini adalah trik andalan di Cloudflare Pages agar fungsi getDbInstance()
+// DIEKSEKUSI SAAT REQUEST MASUK, bukan saat file ini pertama kali dibaca sistem.
 export const db = new Proxy({} as ReturnType<typeof drizzle>, {
   get: (_, prop) => {
     const instance = getDbInstance();
