@@ -9,8 +9,8 @@ import { keluarAction } from "@/app/auth/actions";
 import ShareButton from "@/components/ShareButton";
 import Footer from "@/components/Footer";
 
-// Wajib untuk Cloudflare Pages agar tidak di-cache secara statis
-export const runtime = "edge";
+// PERBAIKAN UTAMA: export const runtime = "edge" TELAH DIHAPUS.
+// Kita menggunakan runtime Node.js bawaan yang didukung penuh oleh Cloudflare.
 export const dynamic = "force-dynamic";
 
 export default async function BerandaPublik() {
@@ -264,10 +264,13 @@ export default async function BerandaPublik() {
           <h1 className="text-2xl font-black text-[#4A2F1B] mb-3">Terjadi Gangguan Sistem</h1>
           <p className="text-gray-600 font-medium mb-4">Kami tidak dapat memuat data properti saat ini karena kendala koneksi database.</p>
           
-          {/* --- PELACAK ERROR --- */}
-          <div className="bg-red-50 text-red-800 p-4 rounded-lg text-xs font-mono text-left mb-8 overflow-auto max-h-40 border border-red-200">
+          {/* --- PELACAK ERROR SUPER DETAIL --- */}
+          <div className="bg-red-50 text-red-800 p-4 rounded-lg text-xs font-mono text-left mb-8 overflow-auto max-h-60 border border-red-200">
             <strong>Detail Error (Beri tahu tim IT):</strong><br/>
-            {error?.message || String(error)}
+            {error?.message || String(error)}<br/>
+            <pre className="mt-2 text-[10px] whitespace-pre-wrap">
+              {JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}
+            </pre>
           </div>
           
           <a 
