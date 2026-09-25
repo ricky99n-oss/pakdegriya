@@ -1,9 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // 1. KUNCI UTAMA: Cegah Next.js merusak library postgres dengan memblokir bundling-nya
-  serverExternalPackages: ["postgres"],
-  
   images: {
     remotePatterns: [
       {
@@ -17,12 +14,21 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '50mb',
     },
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, nextRuntime }) => {
     if (isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         "node:util/types": false,
       };
+
+      // KUNCI UTAMA: Jika Next.js memaksa kompilasi Edge, 
+      // paksa Webpack untuk membiarkan modul jaringan lolos tanpa dibajak.
+      if (nextRuntime === "edge") {
+        if (!Array.isArray(config.externals)) {
+          config.externals = config.externals ? [config.externals] : [];
+        }
+        config.externals.push("net", "tls", "node:net", "node:tls");
+      }
     }
     return config;
   },
