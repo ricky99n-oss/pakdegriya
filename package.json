@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@lucia-auth/adapter-drizzle": "^1.1.0",
-    "@supabase/supabase-js": "^2.117.1",
+    "@supabase/supabase-js": "^2.117.2",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.2",
     "lucia": "^3.2.2",

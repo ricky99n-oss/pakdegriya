@@ -1,6 +1,3 @@
-import { db } from "@/db";
-import { properties, propertyMedia } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
 import Link from "next/link";
 import Image from "next/image";
 import { Building2, Compass, MessageCircle, ShieldCheck, Sparkles, LogOut } from "lucide-react";
@@ -9,6 +6,7 @@ import { keluarAction } from "@/app/auth/actions";
 import ShareButton from "@/components/ShareButton";
 import Footer from "@/components/Footer";
 import { headers } from "next/headers"; // <-- TAMBAHAN WAJIB
+import { getSupabase } from "@/lib/supabase"; // <-- IMPORT SUPABASE CLIENT
 
 // PASTIKAN TIDAK ADA export const runtime = "edge" DI SINI
 export const dynamic = "force-dynamic";
@@ -20,24 +18,52 @@ export default async function BerandaPublik() {
 
   try {
     const { user } = await validateRequest();
+    const supabase = getSupabase();
 
-    const publikProperti = await db
-      .select()
-      .from(properties)
-      .where(eq(properties.publishStatus, "published"))
-      .orderBy(desc(properties.updatedAt))
+    // 1. Ambil data properti menggunakan Supabase REST Client (HTTP)
+    // Alias kolom snake_case ke camelCase (contoh: propertyType:property_type) 
+    // agar kompatibel dengan UI yang sudah ada.
+    const { data: publikProperti, error: propError } = await supabase
+      .from("properties")
+      .select(`
+        id, 
+        code, 
+        slug, 
+        title, 
+        description, 
+        publicSummary:public_summary, 
+        price, 
+        transactionType:transaction_type, 
+        propertyType:property_type, 
+        generalLocation:general_location, 
+        preciseAddress:precise_address, 
+        landArea:land_area, 
+        buildingArea:building_area, 
+        bedrooms, 
+        bathrooms, 
+        publishStatus:publish_status, 
+        availabilityStatus:availability_status, 
+        updatedAt:updated_at
+      `)
+      .eq("publish_status", "published")
+      .order("updated_at", { ascending: false })
       .limit(6);
 
+    if (propError) throw new Error(propError.message);
+
+    // 2. Ambil data cover untuk masing-masing properti
     const propertiDenganCover = await Promise.all(
-      publikProperti.map(async (prop) => {
-        const cover = await db
-          .select()
-          .from(propertyMedia)
-          .where(and(eq(propertyMedia.propertyId, prop.id), eq(propertyMedia.fileType, "cover_public")))
+      (publikProperti || []).map(async (prop) => {
+        const { data: cover } = await supabase
+          .from("property_media")
+          .select("id")
+          .eq("property_id", prop.id)
+          .eq("file_type", "cover_public")
           .limit(1);
+
         return {
           ...prop,
-          coverId: cover.length > 0 ? cover[0].id : null,
+          coverId: cover && cover.length > 0 ? cover[0].id : null,
         };
       })
     );
