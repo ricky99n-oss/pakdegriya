@@ -9,8 +9,7 @@ import { keluarAction } from "@/app/auth/actions";
 import ShareButton from "@/components/ShareButton";
 import Footer from "@/components/Footer";
 
-// PERBAIKAN UTAMA: export const runtime = "edge" TELAH DIHAPUS.
-// Kita menggunakan runtime Node.js bawaan yang didukung penuh oleh Cloudflare.
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function BerandaPublik() {
