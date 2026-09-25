@@ -9,7 +9,7 @@ import { keluarAction } from "@/app/auth/actions";
 import ShareButton from "@/components/ShareButton";
 import Footer from "@/components/Footer";
 
-// Wajib untuk Cloudflare Pages agar tidak di-cache secara statis (mencegah error build)
+// Wajib untuk Cloudflare Pages agar tidak di-cache secara statis
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
@@ -263,12 +263,14 @@ export default async function BerandaPublik() {
           </div>
           <h1 className="text-2xl font-black text-[#4A2F1B] mb-3">Terjadi Gangguan Sistem</h1>
           <p className="text-gray-600 font-medium mb-8">Kami tidak dapat memuat data properti saat ini karena kendala koneksi database.</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="bg-[#D6A34A] text-[#4A2F1B] px-8 py-3 rounded-xl font-bold hover:bg-[#c2913b] transition-colors"
+          
+          {/* PERBAIKAN: Menggunakan tag <a href> alih-alih onClick agar valid di Server Component */}
+          <a 
+            href="/" 
+            className="inline-block bg-[#D6A34A] text-[#4A2F1B] px-8 py-3 rounded-xl font-bold hover:bg-[#c2913b] transition-colors"
           >
             Coba Muat Ulang
-          </button>
+          </a>
         </div>
       </div>
     );
