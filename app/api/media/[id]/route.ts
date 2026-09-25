@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateRequest } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
-// EDGE COMPATIBILITY: Wajib untuk API routes yang akan di-deploy ke Cloudflare Pages
+// EDGE COMPATIBILITY
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export async function GET(
     const { id } = await params;
     const supabase = getSupabase();
 
-    // 1. Cari data gambar di database via REST API Supabase (bebas error TCP Edge)
+    // 1. Cek meta-data file di tabel Supabase
     const { data: media, error } = await supabase
       .from("property_media")
       .select("file_type, file_name")
@@ -22,32 +23,45 @@ export async function GET(
       .single();
     
     if (error || !media) {
-      return new NextResponse("Gambar tidak ditemukan", { status: 404 });
+      return new NextResponse("Gambar tidak ditemukan di database", { status: 404 });
     }
 
-    // 2. OTORISASI: Panorama dan Audio butuh verifikasi login (Keamanan)
-    if (media.file_type === "panorama_private" || media.file_type === "audio_private") {
+    // 2. OTORISASI (Keamanan Media Private)
+    if (media.file_type === "panorama_private" || media.file_type === "audio_private" || media.file_type === "floorplan_private") {
       const { user } = await validateRequest();
-      
-      // Jika tidak ada user (belum login / token invalid), tolak akses
       if (!user) {
-        return new NextResponse("Akses ditolak. Anda harus login untuk melihat media privat ini.", { status: 401 });
+        return new NextResponse("Akses ditolak. Silakan login.", { status: 401 });
       }
     }
 
-    // 3. BANGUN URL SUPABASE STORAGE
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!supabaseUrl) {
-      return new NextResponse("Kesalahan sistem: URL Supabase tidak ditemukan.", { status: 500 });
+    // 3. AMBIL OBJEK DARI CLOUDFLARE R2
+    // Menggunakan binding R2 yang dipasang di dashboard
+    const env = getRequestContext().env as any;
+    const bucket = env.R2_MEDIA_BUCKET;
+
+    if (!bucket) {
+      return new NextResponse("Sistem Error: R2 Bucket Binding tidak ditemukan", { status: 500 });
     }
 
-    // Mengalihkan URL request ke CDN Supabase agar beban server kita 0%
-    const publicUrl = `${supabaseUrl}/storage/v1/object/public/pakdegriya-media/${media.file_name}`;
+    // Ambil file fisik berdasarkan nama file (misal: "fasad 1.jpg")
+    const object = await bucket.get(media.file_name);
 
-    // 4. LAKUKAN REDIRECT KE CDN SUPABASE
-    return NextResponse.redirect(publicUrl);
+    if (object === null) {
+      return new NextResponse("File fisik tidak ditemukan di R2", { status: 404 });
+    }
+
+    // 4. STREAMING FILE KE BROWSER
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set('etag', object.httpEtag);
+
+    // Kirim langsung sebagai stream tanpa membebani memori server
+    return new NextResponse(object.body, {
+      headers,
+    });
+
   } catch (err) {
-    console.error("Error API Media:", err);
+    console.error("Error API Media R2:", err);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

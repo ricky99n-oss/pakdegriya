@@ -3,19 +3,34 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { daftarMemberAction, loginWithGoogleAction } from "../actions";
+import { daftarMemberAction } from "../actions"; // loginWithGoogleAction dihapus dari import
 import { UserPlus } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
+
+// Inisiasi Supabase Client untuk Client-Side
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function HalamanDaftar() {
   const [errorMsg, setErrorMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // FUNGSI DAFTAR/LOGIN GOOGLE MENGGUNAKAN SUPABASE CLIENT
   const handleGoogle = async () => {
     setIsLoading(true);
-    const res = await loginWithGoogleAction(window.location.origin);
-    if (res?.url) window.location.href = res.url;
-    if (res?.error) {
-      setErrorMsg(res.error);
+    setErrorMsg("");
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      setErrorMsg(error.message);
       setIsLoading(false);
     }
   };
