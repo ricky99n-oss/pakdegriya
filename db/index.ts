@@ -35,9 +35,11 @@ const getDbInstance = () => {
 
   // 4. Inisialisasi hanya jika cache kosong atau URL berubah
   if (!cachedDb || cachedUrl !== currentUrl) {
-    // WAJIB: prepare: false sangat dibutuhkan untuk Supabase Transaction Pooler dan Hyperdrive
-    // agar koneksi tidak mengalami deadlock
-    const client = postgres(currentUrl, { prepare: false });
+    // WAJIB: prepare: false dan ssl: "require" mutlak dibutuhkan untuk koneksi Edge ke Supabase
+    const client = postgres(currentUrl, { 
+      prepare: false, 
+      ssl: "require" 
+    });
     cachedDb = drizzle(client, { schema });
     cachedUrl = currentUrl;
   }
@@ -46,8 +48,7 @@ const getDbInstance = () => {
 };
 
 // Ekspor menggunakan Proxy:
-// Ini adalah trik andalan di Cloudflare Pages agar fungsi getDbInstance()
-// DIEKSEKUSI SAAT REQUEST MASUK, bukan saat file ini pertama kali dibaca sistem.
+// Dieksekusi SAAT REQUEST MASUK, bukan saat file ini pertama kali dibaca sistem.
 export const db = new Proxy({} as ReturnType<typeof drizzle>, {
   get: (_, prop) => {
     const instance = getDbInstance();
