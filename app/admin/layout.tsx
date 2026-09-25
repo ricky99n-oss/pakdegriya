@@ -7,11 +7,12 @@ export const runtime = "edge";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // 1. VALIDASI SESI OTOMATIS (Mencegah Akses Hacker / Sesi Kadaluarsa)
-  const { user, session } = await validateRequest();
+  // PERBAIKAN: Hanya mengambil 'user' karena Supabase mengurus sesi secara internal
+  const { user } = await validateRequest();
   
-  // Jika tidak login, atau sesi habis (> 24 Jam), atau bukan role admin/superadmin
-  if (!user || !session || (user.role !== "superadmin" && user.role !== "admin")) {
-    redirect("/setup");
+  // Jika tidak login, atau bukan role admin/superadmin
+  if (!user || (user.role !== "superadmin" && user.role !== "admin")) {
+    redirect("/auth/masuk"); // Diarahkan ke halaman login, bukan setup
   }
 
   return (

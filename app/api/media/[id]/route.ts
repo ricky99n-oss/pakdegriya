@@ -25,11 +25,12 @@ export async function GET(
 
   // 2. OTORISASI: Panorama dan Audio butuh verifikasi login (Keamanan)
   if (media.fileType === "panorama_private" || media.fileType === "audio_private") {
-    const { user, session } = await validateRequest();
+    // PERBAIKAN: Hanya mengambil 'user' dari validasi Supabase
+    const { user } = await validateRequest();
     
-    // Jika tidak ada user atau sesi sudah expired, tolak akses
-    if (!user || !session) {
-      return new NextResponse("Akses ditolak. Anda harus login atau sesi Anda telah habis (1 Hari).", { status: 401 });
+    // Jika tidak ada user (belum login / token invalid), tolak akses
+    if (!user) {
+      return new NextResponse("Akses ditolak. Anda harus login untuk melihat media privat ini.", { status: 401 });
     }
   }
 
