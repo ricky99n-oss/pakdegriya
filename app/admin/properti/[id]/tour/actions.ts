@@ -9,22 +9,31 @@ function tourPath(propertyId: string) {
   return `/admin/properti/${propertyId}/tour`;
 }
 
-async function normalizeSceneOrder(propertyId: string) {
-  const supabase = getSupabase();
-  const { data, error } = await supabase
+async function getOrderedScenes(propertyId: string) {
+  const { data, error } = await getSupabase()
     .from("scenes")
-    .select("id, sort_order")
+    .select("id, sort_order, created_at")
     .eq("property_id", propertyId)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
   if (error) throw error;
+  return data || [];
+}
 
-  const updates = (data || []).map((scene, index) =>
-    supabase.from("scenes").update({ sort_order: index }).eq("id", scene.id)
-  );
-  const results = await Promise.all(updates);
+async function persistOrder(propertyId: string, orderedIds: string[]) {
+  const supabase = getSupabase();
+  const reset = await supabase.from("scenes").update({ is_first_scene: false }).eq("property_id", propertyId);
+  if (reset.error) throw reset.error;
+  const results = await Promise.all(orderedIds.map((id, index) =>
+    supabase.from("scenes").update({ sort_order: index, is_first_scene: index === 0 }).eq("id", id)
+  ));
   const failed = results.find((result) => result.error);
   if (failed?.error) throw failed.error;
+}
+
+async function normalizeSceneOrder(propertyId: string) {
+  const scenes = await getOrderedScenes(propertyId);
+  await persistOrder(propertyId, scenes.map((scene) => scene.id));
 }
 
 export async function createSceneAction(formData: FormData): Promise<AdminActionResult> {
@@ -35,29 +44,12 @@ export async function createSceneAction(formData: FormData): Promise<AdminAction
     const name = String(formData.get(`name_${mediaId}`) || "").trim();
     if (!propertyId || !mediaId || !name) return actionError("Data ruangan belum lengkap.");
 
-    const supabase = getSupabase();
-    const { data: existingScenes, error: readError } = await supabase
-      .from("scenes")
-      .select("id, sort_order")
-      .eq("property_id", propertyId)
-      .order("sort_order", { ascending: true });
-    if (readError) throw readError;
-
-    const isFirst = !existingScenes?.length;
-    const nextOrder = existingScenes?.length
-      ? Math.max(...existingScenes.map((scene) => Number(scene.sort_order) || 0)) + 1
-      : 0;
-
-    const { error } = await supabase.from("scenes").insert({
-      id: crypto.randomUUID(),
-      property_id: propertyId,
-      media_id: mediaId,
-      name,
-      sort_order: nextOrder,
-      is_first_scene: isFirst,
+    const existingScenes = await getOrderedScenes(propertyId);
+    const { error } = await getSupabase().from("scenes").insert({
+      id: crypto.randomUUID(), property_id: propertyId, media_id: mediaId, name,
+      sort_order: existingScenes.length, is_first_scene: existingScenes.length === 0,
     });
     if (error) throw error;
-
     revalidatePath(tourPath(propertyId));
     return actionSuccess("Ruangan berhasil ditambahkan ke tur 360°.");
   } catch (error) {
@@ -74,31 +66,16 @@ export async function moveSceneAction(formData: FormData): Promise<AdminActionRe
     const direction = String(formData.get("direction") || "") === "up" ? -1 : 1;
     if (!propertyId || !sceneId) return actionError("Ruangan tidak valid.");
 
-    await normalizeSceneOrder(propertyId);
-    const supabase = getSupabase();
-    const { data: scenes, error } = await supabase
-      .from("scenes")
-      .select("id, sort_order")
-      .eq("property_id", propertyId)
-      .order("sort_order", { ascending: true });
-    if (error) throw error;
-
-    const index = (scenes || []).findIndex((scene) => scene.id === sceneId);
+    const scenes = await getOrderedScenes(propertyId);
+    const ids = scenes.map((scene) => scene.id);
+    const index = ids.indexOf(sceneId);
     const targetIndex = index + direction;
-    if (index < 0 || targetIndex < 0 || targetIndex >= (scenes?.length || 0)) {
-      return actionError("Ruangan sudah berada di posisi paling ujung.");
-    }
-
-    const current = scenes![index];
-    const target = scenes![targetIndex];
-    const [{ error: firstError }, { error: secondError }] = await Promise.all([
-      supabase.from("scenes").update({ sort_order: target.sort_order }).eq("id", current.id),
-      supabase.from("scenes").update({ sort_order: current.sort_order }).eq("id", target.id),
-    ]);
-    if (firstError || secondError) throw firstError || secondError;
+    if (index < 0 || targetIndex < 0 || targetIndex >= ids.length) return actionError("Ruangan sudah berada di posisi paling ujung.");
+    [ids[index], ids[targetIndex]] = [ids[targetIndex], ids[index]];
+    await persistOrder(propertyId, ids);
 
     revalidatePath(tourPath(propertyId));
-    return actionSuccess("Urutan ruangan berhasil diperbarui.");
+    return actionSuccess("Urutan ruangan berhasil diperbarui. Nomor 1 otomatis menjadi tampilan pertama.");
   } catch (error) {
     console.error("moveSceneAction:", error);
     return actionError(adminActionErrorMessage(error));
@@ -116,13 +93,9 @@ export async function createHotspotAction(formData: FormData): Promise<AdminActi
     const label = `${rawLabel}|||${["door", "arrow", "thumbnail"].includes(iconType) ? iconType : "door"}`;
     const pitch = Number(formData.get("pitch"));
     const yaw = Number(formData.get("yaw"));
-    if (!sceneId || !targetSceneId || !propertyId || !rawLabel || !Number.isFinite(pitch) || !Number.isFinite(yaw)) {
-      return actionError("Koordinat, label, atau tujuan hotspot tidak valid.");
-    }
+    if (!sceneId || !targetSceneId || !propertyId || !rawLabel || !Number.isFinite(pitch) || !Number.isFinite(yaw)) return actionError("Koordinat, label, atau tujuan hotspot tidak valid.");
 
-    const { error } = await getSupabase().from("hotspots").insert({
-      id: crypto.randomUUID(), scene_id: sceneId, target_scene_id: targetSceneId, pitch, yaw, label,
-    });
+    const { error } = await getSupabase().from("hotspots").insert({ id: crypto.randomUUID(), scene_id: sceneId, target_scene_id: targetSceneId, pitch, yaw, label });
     if (error) throw error;
     revalidatePath(tourPath(propertyId));
     return actionSuccess("Hotspot berhasil disimpan.");
@@ -142,7 +115,6 @@ export async function deleteHotspotAction(formData: FormData): Promise<AdminActi
     revalidatePath(tourPath(propertyId));
     return actionSuccess("Hotspot berhasil dihapus.");
   } catch (error) {
-    console.error("deleteHotspotAction:", error);
     return actionError(adminActionErrorMessage(error));
   }
 }
@@ -162,7 +134,6 @@ export async function deleteSceneAction(formData: FormData): Promise<AdminAction
     revalidatePath(tourPath(propertyId));
     return actionSuccess("Ruangan berhasil dihapus dari tur.");
   } catch (error) {
-    console.error("deleteSceneAction:", error);
     return actionError(adminActionErrorMessage(error));
   }
 }
@@ -172,15 +143,14 @@ export async function setFirstSceneAction(formData: FormData): Promise<AdminActi
     await requireAdmin();
     const sceneId = String(formData.get("sceneId") || "");
     const propertyId = String(formData.get("propertyId") || "");
-    const supabase = getSupabase();
-    const { error: resetError } = await supabase.from("scenes").update({ is_first_scene: false }).eq("property_id", propertyId);
-    if (resetError) throw resetError;
-    const { error } = await supabase.from("scenes").update({ is_first_scene: true }).eq("id", sceneId);
-    if (error) throw error;
+    const scenes = await getOrderedScenes(propertyId);
+    const ids = scenes.map((scene) => scene.id).filter((id) => id !== sceneId);
+    if (!scenes.some((scene) => scene.id === sceneId)) return actionError("Ruangan tidak ditemukan.");
+    ids.unshift(sceneId);
+    await persistOrder(propertyId, ids);
     revalidatePath(tourPath(propertyId));
-    return actionSuccess("Ruangan awal berhasil ditetapkan. Urutan tur tetap mengikuti nomor yang Anda atur.");
+    return actionSuccess("Ruangan dipindahkan ke urutan nomor 1 dan menjadi tampilan pertama.");
   } catch (error) {
-    console.error("setFirstSceneAction:", error);
     return actionError(adminActionErrorMessage(error));
   }
 }
@@ -207,9 +177,7 @@ export async function updateSceneAudioAction(formData: FormData): Promise<AdminA
     const sceneId = String(formData.get("sceneId") || "");
     const propertyId = String(formData.get("propertyId") || "");
     const audioMediaId = String(formData.get("audioMediaId") || "none");
-    const { error } = await getSupabase().from("scenes").update({
-      audio_media_id: audioMediaId === "none" ? null : audioMediaId,
-    }).eq("id", sceneId);
+    const { error } = await getSupabase().from("scenes").update({ audio_media_id: audioMediaId === "none" ? null : audioMediaId }).eq("id", sceneId);
     if (error) throw error;
     revalidatePath(tourPath(propertyId));
     return actionSuccess("Audio ruangan berhasil diperbarui.");
@@ -225,6 +193,7 @@ export async function setInitialViewAction(formData: FormData): Promise<AdminAct
     const propertyId = String(formData.get("propertyId") || "");
     const pitch = Number(formData.get("pitch") || formData.get("initialPitch") || 0);
     const yaw = Number(formData.get("yaw") || formData.get("initialYaw") || 0);
+    if (!Number.isFinite(pitch) || !Number.isFinite(yaw)) return actionError("Koordinat pandangan awal tidak valid.");
     const { error } = await getSupabase().from("scenes").update({ initial_pitch: pitch, initial_yaw: yaw }).eq("id", sceneId);
     if (error) throw error;
     revalidatePath(tourPath(propertyId));
