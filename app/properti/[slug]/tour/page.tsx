@@ -9,8 +9,15 @@ export const dynamic = "force-dynamic";
 
 export default async function PublicTourPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const tourPath = `/properti/${slug}/tour`;
   const { user } = await validateRequest();
-  if (!user) redirect(`/auth/masuk?next=${encodeURIComponent(`/properti/${slug}/tour`)}`);
+  if (!user) redirect(`/auth/masuk?next=${encodeURIComponent(tourPath)}`);
+
+  const role = String(user.role || "member").toLowerCase();
+  const isAdmin = role === "admin" || role === "superadmin";
+  if (!isAdmin && !String(user.phone || "").trim()) {
+    redirect(`/auth/lengkapi-telepon?next=${encodeURIComponent(tourPath)}`);
+  }
 
   const supabase = getSupabase();
   const { data: propertyRecord } = await supabase.from("properties").select("id, title").eq("slug", slug).limit(1);
@@ -80,13 +87,13 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
 
     const mediaUrl = `/api/media/${scene.media_id}`;
     const previewUrl = `/api/media/${scene.media_id}?preview=1`;
-    const speed = Math.abs(Number(scene.auto_rotate_speed ?? 0.35));
+    const configuredSpeed = Math.abs(Number(scene.auto_rotate_speed));
+    const slowSpeed = configuredSpeed > 0 && configuredSpeed <= 0.8 ? configuredSpeed : 0.35;
 
     tourConfig.scenes[scene.id] = {
       title: scene.name,
       type: "equirectangular",
       panorama: mediaUrl,
-      // Pannellum menampilkan preview ringan lebih dulu sambil master panorama dimuat.
       preview: previewUrl,
       thumbnail: previewUrl,
       pitch: Number(scene.initial_pitch ?? 0),
@@ -94,7 +101,7 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
       hfov: 120,
       minHfov: 55,
       maxHfov: 140,
-      autoRotate: speed ? -Math.min(speed, 1.2) : -0.35,
+      autoRotate: -slowSpeed,
       autoRotateInactivityDelay: 4000,
       customAudioUrl: scene.audio_media_id ? `/api/media/${scene.audio_media_id}` : null,
       hotSpots: sceneHotspots,
