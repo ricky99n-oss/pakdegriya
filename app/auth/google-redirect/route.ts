@@ -34,6 +34,20 @@ function parseState(raw: FormDataEntryValue | null): RedirectState {
   }
 }
 
+function logServerError(label: string, error: unknown) {
+  const cause = error && typeof error === "object" && "cause" in error
+    ? (error as { cause?: any }).cause
+    : undefined;
+
+  console.error(label, {
+    message: error instanceof Error ? error.message : String(error),
+    causeMessage: cause?.message,
+    code: cause?.code,
+    detail: cause?.detail,
+    hint: cause?.hint,
+  });
+}
+
 async function ensureUserProfile(authUser: AuthUser) {
   const email = String(authUser.email || "").trim().toLowerCase();
   if (!email) throw new Error("Email akun Google tidak tersedia.");
@@ -132,10 +146,7 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("Google redirect login error:", error);
-    return errorRedirect(
-      request,
-      error instanceof Error ? error.message : "Login Google gagal. Silakan coba lagi."
-    );
+    logServerError("Google redirect login error", error);
+    return errorRedirect(request, "Gagal menghubungkan akun. Silakan coba lagi beberapa saat.");
   }
 }
