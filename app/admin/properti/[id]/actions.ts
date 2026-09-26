@@ -30,9 +30,7 @@ export async function uploadMediaAction(formData: FormData): Promise<AdminAction
     await requireAdmin();
     const propertyId = String(formData.get("propertyId") || "");
     const fileType = String(formData.get("fileType") || "");
-    const files = formData
-      .getAll("file")
-      .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+    const files = formData.getAll("file").filter((entry): entry is File => entry instanceof File && entry.size > 0);
     const rule = FILE_RULES[fileType];
 
     if (!propertyId || !rule || files.length === 0) return actionError("File atau kategori media tidak valid.");
@@ -40,9 +38,7 @@ export async function uploadMediaAction(formData: FormData): Promise<AdminAction
 
     for (const file of files) {
       if (!validMime(file, rule.prefixes)) return actionError(`Tipe file ${file.name} tidak diizinkan untuk kategori ini.`);
-      if (file.size > rule.maxBytes) {
-        return actionError(`${file.name} terlalu besar. Maksimal ${Math.round(rule.maxBytes / 1024 / 1024)} MB.`);
-      }
+      if (file.size > rule.maxBytes) return actionError(`${file.name} terlalu besar. Maksimal ${Math.round(rule.maxBytes / 1024 / 1024)} MB.`);
     }
 
     const env = getRequestContext().env as any;
@@ -50,27 +46,47 @@ export async function uploadMediaAction(formData: FormData): Promise<AdminAction
     if (!bucket) return actionError("R2 Storage belum dikonfigurasi di Cloudflare.");
     const supabase = getSupabase();
 
-    for (const file of files) {
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
       const fileId = crypto.randomUUID();
       const safeExt = (file.name.match(/\.[a-zA-Z0-9]{1,8}$/)?.[0] || "").toLowerCase();
       const finalFileName = `${fileId}${safeExt}`;
+      let previewFileName: string | null = null;
+
+      const previewEntry = formData.get(`preview_${index}`);
+      const preview = previewEntry instanceof File && previewEntry.size > 0 ? previewEntry : null;
+      if (preview) {
+        if (!preview.type.startsWith("image/") || preview.size > 3 * 1024 * 1024) {
+          return actionError(`Preview untuk ${file.name} tidak valid.`);
+        }
+        previewFileName = `${fileId}-preview.jpg`;
+      }
 
       await bucket.put(finalFileName, file.stream(), {
         httpMetadata: { contentType: file.type || "application/octet-stream" },
         customMetadata: { propertyId, fileType },
       });
 
+      if (preview && previewFileName) {
+        await bucket.put(previewFileName, preview.stream(), {
+          httpMetadata: { contentType: "image/jpeg" },
+          customMetadata: { propertyId, fileType, variant: "preview" },
+        });
+      }
+
       const { error: dbError } = await supabase.from("property_media").insert({
         id: fileId,
         property_id: propertyId,
         file_type: fileType,
         file_name: finalFileName,
+        preview_file_name: previewFileName,
         mime_type: file.type || "application/octet-stream",
         is_public: rule.defaultPublic,
       });
 
       if (dbError) {
         await bucket.delete(finalFileName);
+        if (previewFileName) await bucket.delete(previewFileName);
         throw dbError;
       }
     }
@@ -115,6 +131,14 @@ export async function deleteMediaAction(formData: FormData): Promise<AdminAction
     if (!mediaId || !propertyId || !fileName) return actionError("Data media tidak valid.");
 
     const supabase = getSupabase();
+    const { data: record } = await supabase
+      .from("property_media")
+      .select("preview_file_name")
+      .eq("id", mediaId)
+      .eq("property_id", propertyId)
+      .limit(1)
+      .maybeSingle();
+
     const { error: dbError } = await supabase
       .from("property_media")
       .delete()
@@ -124,7 +148,10 @@ export async function deleteMediaAction(formData: FormData): Promise<AdminAction
 
     try {
       const env = getRequestContext().env as any;
-      if (env.R2_MEDIA_BUCKET) await env.R2_MEDIA_BUCKET.delete(fileName);
+      if (env.R2_MEDIA_BUCKET) {
+        await env.R2_MEDIA_BUCKET.delete(fileName);
+        if (record?.preview_file_name) await env.R2_MEDIA_BUCKET.delete(record.preview_file_name);
+      }
     } catch (r2Error) {
       console.error("R2 cleanup gagal setelah metadata dihapus:", r2Error);
     }
