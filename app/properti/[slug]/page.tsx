@@ -1,18 +1,17 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { headers } from "next/headers";
 import { ArrowLeft, MessageCircle, MapPin, BedDouble, Bath, Maximize2, Home as HomeIcon, Lock } from "lucide-react";
 import { validateRequest } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
 import ShareButton from "@/components/ShareButton";
 import Footer from "@/components/Footer";
+import PublicHeader from "@/components/PublicHeader";
 import GallerySlider from "@/components/GallerySlider";
 
 export const dynamic = "force-dynamic";
 
 export default async function DetailPropertiPage({ params }: { params: Promise<{ slug: string }> }) {
-  await headers();
   const { slug } = await params;
   const { user } = await validateRequest();
   const isMember = Boolean(user);
@@ -43,14 +42,11 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
   return (
     <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] flex flex-col">
       <div className="bg-pakde-pattern" aria-hidden="true" />
-      <header className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-[#D6A34A]/20">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" prefetch={false} className="flex items-center gap-2 text-[#4A2F1B] hover:text-[#D6A34A] font-bold"><ArrowLeft size={20} /><span className="hidden md:inline">Kembali</span></Link>
-          <div className="font-black text-lg text-[#4A2F1B]">P<span className="text-[#D6A34A]">G</span></div>
-        </div>
-      </header>
+      <PublicHeader user={user} />
 
       <main className="flex-grow max-w-4xl w-full mx-auto px-4 mt-6 md:mt-8 space-y-6 md:space-y-8 relative z-10 pb-24">
+        <Link href="/" prefetch={false} className="inline-flex items-center gap-2 text-sm text-[#4A2F1B]/70 hover:text-[#D6A34A] font-bold"><ArrowLeft size={18} /> Kembali ke Beranda</Link>
+
         <section>
           <div className="flex items-start justify-between gap-4 mb-3">
             <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#D6A34A] uppercase tracking-wider">
