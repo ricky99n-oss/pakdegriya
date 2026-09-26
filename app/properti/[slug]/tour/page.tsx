@@ -13,11 +13,7 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
   if (!user) redirect(`/auth/masuk?next=${encodeURIComponent(`/properti/${slug}/tour`)}`);
 
   const supabase = getSupabase();
-  const { data: propertyRecord } = await supabase
-    .from("properties")
-    .select("id, title")
-    .eq("slug", slug)
-    .limit(1);
+  const { data: propertyRecord } = await supabase.from("properties").select("id, title").eq("slug", slug).limit(1);
   if (!propertyRecord?.length) notFound();
   const property = propertyRecord[0];
 
@@ -83,15 +79,16 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
       }));
 
     const mediaUrl = `/api/media/${scene.media_id}`;
+    const previewUrl = `/api/media/${scene.media_id}?preview=1`;
     const speed = Math.abs(Number(scene.auto_rotate_speed ?? 0.35));
 
     tourConfig.scenes[scene.id] = {
       title: scene.name,
       type: "equirectangular",
       panorama: mediaUrl,
-      // Thumbnail saat ini memakai panorama yang sama. Pada tahap multires nanti
-      // properti ini dapat diarahkan ke preview 2K khusus agar jauh lebih ringan.
-      thumbnail: mediaUrl,
+      // Pannellum menampilkan preview ringan lebih dulu sambil master panorama dimuat.
+      preview: previewUrl,
+      thumbnail: previewUrl,
       pitch: Number(scene.initial_pitch ?? 0),
       yaw: Number(scene.initial_yaw ?? 0),
       hfov: 120,
@@ -104,12 +101,5 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
     };
   });
 
-  return (
-    <TourViewer
-      tourConfig={tourConfig}
-      introPlanetUrl={introPlanetUrl}
-      exitUrl={`/properti/${slug}`}
-      propertyTitle={property.title}
-    />
-  );
+  return <TourViewer tourConfig={tourConfig} introPlanetUrl={introPlanetUrl} exitUrl={`/properti/${slug}`} propertyTitle={property.title} />;
 }
