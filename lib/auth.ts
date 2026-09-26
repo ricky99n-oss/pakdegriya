@@ -1,8 +1,6 @@
 import { cookies } from "next/headers";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { users } from "@/db/schema";
 import { getSupabase } from "@/lib/supabase";
+import { getUserProfileByEmail } from "@/lib/user-profile";
 
 export async function validateRequest() {
   try {
@@ -15,19 +13,18 @@ export async function validateRequest() {
 
     const email = String(data.user.email || "").trim().toLowerCase();
     if (email) {
-      const records = await db
-        .select({
-          id: users.id,
-          email: users.email,
-          name: users.name,
-          phone: users.phone,
-          role: users.role,
-        })
-        .from(users)
-        .where(eq(users.email, email))
-        .limit(1);
-
-      if (records.length) return { user: records[0] };
+      const profile = await getUserProfileByEmail(email);
+      if (profile) {
+        return {
+          user: {
+            id: profile.id,
+            email: profile.email,
+            name: profile.name,
+            phone: profile.phone,
+            role: profile.role,
+          },
+        };
+      }
     }
 
     // Akun valid dari Supabase tetap boleh masuk sebagai member. Profil lengkap
@@ -42,7 +39,9 @@ export async function validateRequest() {
       },
     };
   } catch (error) {
-    console.error("validateRequest gagal:", error);
+    console.error("validateRequest gagal:", {
+      message: error instanceof Error ? error.message : String(error),
+    });
     return { user: null };
   }
 }
