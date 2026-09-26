@@ -45,28 +45,19 @@ export default async function BerandaPublik() {
 
     if (propError) throw new Error(propError.message);
 
-    // URL fallback jika environment variable tidak terbaca
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://lfqobyxyuurpzepjyzjw.supabase.co";
-
-    // 2. Ambil data cover dan LANGSUNG buat URL publiknya
+    // KEMBALIKAN KE URL API INTERNAL KARENA DATA SUDAH DI R2 CLOUDFLARE
     const propertiDenganCover = await Promise.all(
       (publikProperti || []).map(async (prop) => {
         const { data: cover } = await supabase
           .from("property_media")
-          .select("id, file_name") // Minta file_name langsung
+          .select("id") 
           .eq("property_id", prop.id)
           .eq("file_type", "cover_public")
           .limit(1);
 
-        let coverUrl = null;
-        if (cover && cover.length > 0 && cover[0].file_name) {
-          // Buat URL langsung ke CDN Supabase (bypass API Media dan cegah error Firefox)
-          coverUrl = `${supabaseUrl}/storage/v1/object/public/pakdegriya-media/${cover[0].file_name}`;
-        }
-
         return {
           ...prop,
-          coverUrl, // Simpan URL yang sudah jadi
+          coverId: cover && cover.length > 0 ? cover[0].id : null,
         };
       })
     );
@@ -192,10 +183,11 @@ export default async function BerandaPublik() {
                     <div className="relative aspect-[16/10] bg-gray-200 overflow-hidden block">
                       <Link href={`/properti/${item.slug}`} prefetch={false} className="absolute inset-0 z-10"></Link>
                       
-                      {item.coverUrl ? (
+                      {item.coverId ? (
+                        // MENGGUNAKAN API INTERNAL UNTUK MENGAMBIL DARI CLOUDFLARE R2
                         // eslint-disable-next-line @next/next/no-img-element
                         <img 
-                          src={item.coverUrl} 
+                          src={`/api/media/${item.coverId}`} 
                           alt={item.title} 
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                         />
@@ -297,15 +289,9 @@ export default async function BerandaPublik() {
           <div className="bg-red-50 text-red-800 p-4 rounded-lg text-xs font-mono text-left mb-8 overflow-auto max-h-60 border border-red-200">
             <strong>Detail Error (Beri tahu tim IT):</strong><br/>
             {error?.message || String(error)}<br/>
-            <pre className="mt-2 text-[10px] whitespace-pre-wrap">
-              {JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}
-            </pre>
           </div>
           
-          <a 
-            href="/" 
-            className="inline-block bg-[#D6A34A] text-[#4A2F1B] px-8 py-3 rounded-xl font-bold hover:bg-[#c2913b] transition-colors"
-          >
+          <a href="/" className="inline-block bg-[#D6A34A] text-[#4A2F1B] px-8 py-3 rounded-xl font-bold hover:bg-[#c2913b] transition-colors">
             Coba Muat Ulang
           </a>
         </div>

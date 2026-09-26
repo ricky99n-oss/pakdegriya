@@ -2,21 +2,23 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { validateRequest } from "@/lib/auth";
-import { getSupabase } from "@/lib/supabase"; // <- Menggunakan Supabase REST
+import { getSupabase } from "@/lib/supabase";
+import { headers } from "next/headers"; // PENTING: Untuk bypass cache Cloudflare
 import { ArrowLeft, MessageCircle, MapPin, BedDouble, Bath, Maximize2, Home as HomeIcon } from "lucide-react";
 import ShareButton from "@/components/ShareButton";
 import Footer from "@/components/Footer";
+import GallerySlider from "@/components/GallerySlider"; // Import Slider Baru
 
 export const dynamic = "force-dynamic";
 
 export default async function DetailPropertiPage({ params }: { params: Promise<{ slug: string }> }) {
-  // 1. Wajib di-await untuk Next.js 15+
-  const { slug } = await params;
+  // PENGAMAN CACHE: Memaksa Next.js & Cloudflare membaca session secara real-time
+  headers();
 
+  const { slug } = await params;
   const { user } = await validateRequest();
   const supabase = getSupabase();
 
-  // 2. Ambil data properti menggunakan REST API Supabase
   const { data: propertyRecord, error: propError } = await supabase
     .from("properties")
     .select(`
@@ -35,7 +37,6 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
   
   const property = propertyRecord[0];
 
-  // 3. Ambil data media (cover, gallery, panorama)
   const { data: allMedia } = await supabase
     .from("property_media")
     .select("id, file_type:file_type")
@@ -43,7 +44,12 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
 
   const mediaList = allMedia || [];
   const coverImage = mediaList.find(m => m.file_type === "cover_public");
-  const galleryImages = mediaList.filter(m => m.file_type === "gallery_private" || m.file_type === "cover_public");
+  
+  // Mengambil ID gambar untuk dikirim ke GallerySlider
+  const galleryImages = mediaList
+    .filter(m => m.file_type === "gallery_private" || m.file_type === "cover_public")
+    .map(img => ({ id: img.id }));
+    
   const hasVirtualTour = mediaList.some(m => m.file_type === "panorama_private");
 
   const isMember = !!user;
@@ -58,7 +64,7 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
           background-repeat: repeat;
           background-position: center;
           opacity: 0.05; 
-          position: fixed; /* Ubah ke fixed agar pola tetap saat scroll */
+          position: fixed;
           top: 0; left: 0; right: 0; bottom: 0;
           z-index: 0;
           pointer-events: none;
@@ -112,27 +118,8 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
           )}
         </div>
 
-        {galleryImages.length > 0 && (
-          <div className="pt-2 md:pt-4">
-            <h3 className="text-lg md:text-xl font-bold text-[#4A2F1B] mb-4 border-l-4 border-[#D6A34A] pl-3">Galeri Properti</h3>
-            <div className="flex gap-3 md:gap-4 overflow-x-auto snap-x snap-mandatory pb-4 hide-scroll cursor-grab active:cursor-grabbing items-start">
-              {galleryImages.map((img) => (
-                <div key={img.id} className="w-[280px] h-[210px] md:w-[320px] md:h-[240px] bg-gray-100 rounded-2xl relative overflow-hidden group snap-center shadow-sm shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img 
-                    src={`/api/media/${img.id}`} 
-                    alt="Galeri Properti" 
-                    loading="lazy" 
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                  />
-                </div>
-              ))}
-            </div>
-            {galleryImages.length > 2 && (
-              <p className="text-center text-[10px] md:text-xs text-gray-400 mt-1 italic">Geser ke samping untuk melihat foto lainnya ↔</p>
-            )}
-          </div>
-        )}
+        {/* Memanggil komponen Galeri yang baru dibuat */}
+        <GallerySlider images={galleryImages} />
 
         {hasVirtualTour && (
           <div className="bg-[#4A2F1B] rounded-2xl md:rounded-3xl p-6 md:p-8 text-center text-white shadow-xl relative overflow-hidden my-6 md:my-8">
