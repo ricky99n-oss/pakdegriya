@@ -85,7 +85,6 @@ export default function TourEditor({
     const mappedHotspots = sceneHotspots.map(h => {
       const [rawLabel, iconType = "door"] = (h.label || "").split("|||");
       const targetScene = existingScenes.find(s => s.id === h.targetSceneId);
-      // Gunakan URL Absolut di thumbnail hotspot
       const targetImage = targetScene ? `${window.location.origin}/api/media/${targetScene.mediaId}` : "";
 
       return {
@@ -99,14 +98,16 @@ export default function TourEditor({
 
     viewerInstance.current = window.pannellum.viewer(viewerRef.current.id, {
       type: "equirectangular",
-      // KUNCI PERBAIKAN 1: Gunakan URL Absolut penuh agar WebGL tidak memblokir render
       panorama: `${window.location.origin}/api/media/${currentScene.mediaId}`,
       autoLoad: true, 
       hfov: 90, 
       compass: false,
       showControls: true,
-      // KUNCI PERBAIKAN 2: Beritahu browser bahwa API ini legal dan aman untuk 3D
-      crossOrigin: "anonymous",
+
+      // KUNCI PERBAIKAN: Kombinasi maut untuk menembus batasan WebGL
+      crossOrigin: "anonymous", 
+      dynamic: true, 
+      
       hotSpots: mappedHotspots 
     });
 

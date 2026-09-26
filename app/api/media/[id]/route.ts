@@ -4,12 +4,15 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "edge";
 
 export async function OPTIONS() {
-  const headers = new Headers();
-  headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "*");
-  headers.set("Access-Control-Max-Age", "86400"); 
-  return new Response(null, { status: 204, headers });
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -23,7 +26,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const supabase = createClient(supabaseUrl!, supabaseKey!);
 
     const { data: media } = await supabase.from("property_media").select("file_name, mime_type").eq("id", id).limit(1).single();
-
     if (!media) return new Response("Media tidak ditemukan", { status: 404 });
 
     const bucket = env.R2_MEDIA_BUCKET;
@@ -32,16 +34,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const object = await bucket.get(media.file_name);
     if (!object) return new Response("File fisik tidak ditemukan di R2", { status: 404 });
 
+    // KEMBALIKAN KE MODE STREAM (object.body) AGAR RAM SERVER TIDAK OVERLOAD
     const headers = new Headers();
-    object.writeHttpMetadata(headers);
-    
-    // Kunci Kelancaran WebGL
     headers.set("Access-Control-Allow-Origin", "*");
-    headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-    headers.set("Cache-Control", "public, max-age=31536000, immutable");
+    headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    headers.set("Access-Control-Expose-Headers", "Content-Length, Accept-Ranges");
+    headers.set("Content-Length", object.size.toString());
     headers.set("Content-Type", media.mime_type || "image/jpeg");
+    headers.set("Cache-Control", "public, max-age=31536000, immutable");
 
-    // Kembalikan ke stream object.body agar tidak menguras memori server Edge Cloudflare
     return new Response(object.body, { headers });
 
   } catch (error) {
