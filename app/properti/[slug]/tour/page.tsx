@@ -1,15 +1,18 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import TourViewer from "@/components/TourViewer";
 import { getSupabase } from "@/lib/supabase";
+import { validateRequest } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function PublicTourPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const supabase = getSupabase();
+  const { user } = await validateRequest();
+  if (!user) redirect(`/auth/masuk?next=${encodeURIComponent(`/properti/${slug}/tour`)}`);
 
+  const supabase = getSupabase();
   const { data: propertyRecord } = await supabase.from("properties").select("id").eq("slug", slug).limit(1);
   if (!propertyRecord?.length) notFound();
   const property = propertyRecord[0];
@@ -29,10 +32,7 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
   let allHotspots: any[] = [];
   if (allScenes.length > 0) {
     const sceneIds = allScenes.map((scene) => scene.id);
-    const { data } = await supabase
-      .from("hotspots")
-      .select("id, scene_id, target_scene_id, pitch, yaw, label")
-      .in("scene_id", sceneIds);
+    const { data } = await supabase.from("hotspots").select("id, scene_id, target_scene_id, pitch, yaw, label").in("scene_id", sceneIds);
     allHotspots = data || [];
   }
 
@@ -41,33 +41,21 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
       <div className="h-screen w-full flex flex-col items-center justify-center bg-[#281C15] text-[#D6A34A] font-sans p-6 text-center">
         <h1 className="text-2xl md:text-3xl font-bold mb-3">Virtual Tour Belum Tersedia</h1>
         <p className="text-sm md:text-base opacity-70 mb-8 max-w-md">Properti ini belum memiliki ruangan 360° yang didaftarkan.</p>
-        <Link href={`/properti/${slug}`} className="flex items-center gap-2 bg-[#D6A34A] text-[#281C15] px-6 py-3 rounded-xl font-bold hover:bg-[#c2913b] transition-all shadow-lg">
-          <ArrowLeft size={20} /> Kembali ke Detail Properti
-        </Link>
+        <Link href={`/properti/${slug}`} className="flex items-center gap-2 bg-[#D6A34A] text-[#281C15] px-6 py-3 rounded-xl font-bold hover:bg-[#c2913b] transition-all shadow-lg"><ArrowLeft size={20} /> Kembali ke Detail Properti</Link>
       </div>
     );
   }
 
-  const firstScene = allScenes.find((scene) => scene.is_first_scene) || allScenes[0];
+  // Urutan #1 di editor selalu menjadi scene pertama user.
+  const firstScene = allScenes[0];
   const planetMedia = allMedia.find((media) => media.file_type === "intro_planet_public");
   const introPlanetUrl = planetMedia ? `/api/media/${planetMedia.id}` : undefined;
-
-  const tourConfig: any = {
-    default: { firstScene: firstScene.id, sceneFadeDuration: 700, autoLoad: true },
-    scenes: {},
-  };
+  const tourConfig: any = { default: { firstScene: firstScene.id, sceneFadeDuration: 700, autoLoad: true }, scenes: {} };
 
   allScenes.forEach((scene) => {
-    const sceneHotspots = allHotspots
-      .filter((hotspot) => hotspot.scene_id === scene.id)
-      .map((hotspot) => ({
-        pitch: hotspot.pitch,
-        yaw: hotspot.yaw,
-        type: "scene",
-        text: hotspot.label,
-        sceneId: hotspot.target_scene_id,
-      }));
-
+    const sceneHotspots = allHotspots.filter((hotspot) => hotspot.scene_id === scene.id).map((hotspot) => ({
+      pitch: hotspot.pitch, yaw: hotspot.yaw, type: "scene", text: hotspot.label, sceneId: hotspot.target_scene_id,
+    }));
     tourConfig.scenes[scene.id] = {
       title: scene.name,
       type: "equirectangular",
