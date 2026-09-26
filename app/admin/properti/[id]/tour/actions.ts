@@ -24,9 +24,17 @@ async function persistOrder(propertyId: string, orderedIds: string[]) {
   const supabase = getSupabase();
   const reset = await supabase.from("scenes").update({ is_first_scene: false }).eq("property_id", propertyId);
   if (reset.error) throw reset.error;
-  const results = await Promise.all(orderedIds.map((id, index) =>
-    supabase.from("scenes").update({ sort_order: index, is_first_scene: index === 0 }).eq("id", id)
-  ));
+
+  const results = await Promise.all(
+    orderedIds.map((id, index) =>
+      supabase
+        .from("scenes")
+        .update({ sort_order: index, is_first_scene: index === 0 })
+        .eq("id", id)
+        .eq("property_id", propertyId)
+    )
+  );
+
   const failed = results.find((result) => result.error);
   if (failed?.error) throw failed.error;
 }
@@ -46,8 +54,12 @@ export async function createSceneAction(formData: FormData): Promise<AdminAction
 
     const existingScenes = await getOrderedScenes(propertyId);
     const { error } = await getSupabase().from("scenes").insert({
-      id: crypto.randomUUID(), property_id: propertyId, media_id: mediaId, name,
-      sort_order: existingScenes.length, is_first_scene: existingScenes.length === 0,
+      id: crypto.randomUUID(),
+      property_id: propertyId,
+      media_id: mediaId,
+      name,
+      sort_order: existingScenes.length,
+      is_first_scene: existingScenes.length === 0,
     });
     if (error) throw error;
     revalidatePath(tourPath(propertyId));
@@ -58,6 +70,44 @@ export async function createSceneAction(formData: FormData): Promise<AdminAction
   }
 }
 
+export async function reorderScenesAction(formData: FormData): Promise<AdminActionResult> {
+  try {
+    await requireAdmin();
+    const propertyId = String(formData.get("propertyId") || "");
+    const raw = String(formData.get("orderedIds") || "");
+    if (!propertyId || !raw) return actionError("Urutan ruangan tidak valid.");
+
+    let orderedIds: string[] = [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) orderedIds = parsed.map((item) => String(item));
+    } catch {
+      return actionError("Format urutan ruangan tidak valid.");
+    }
+
+    if (!orderedIds.length || new Set(orderedIds).size !== orderedIds.length) {
+      return actionError("Urutan ruangan berisi data duplikat atau kosong.");
+    }
+
+    const scenes = await getOrderedScenes(propertyId);
+    const currentIds = scenes.map((scene) => scene.id);
+    if (
+      currentIds.length !== orderedIds.length ||
+      currentIds.some((id) => !orderedIds.includes(id))
+    ) {
+      return actionError("Daftar ruangan berubah. Muat ulang halaman lalu coba lagi.");
+    }
+
+    await persistOrder(propertyId, orderedIds);
+    revalidatePath(tourPath(propertyId));
+    return actionSuccess("Urutan ruangan berhasil disimpan. Urutan pertama menjadi tampilan awal user.");
+  } catch (error) {
+    console.error("reorderScenesAction:", error);
+    return actionError(adminActionErrorMessage(error));
+  }
+}
+
+// Dipertahankan untuk kompatibilitas dengan UI lama / bookmark admin.
 export async function moveSceneAction(formData: FormData): Promise<AdminActionResult> {
   try {
     await requireAdmin();
@@ -70,12 +120,14 @@ export async function moveSceneAction(formData: FormData): Promise<AdminActionRe
     const ids = scenes.map((scene) => scene.id);
     const index = ids.indexOf(sceneId);
     const targetIndex = index + direction;
-    if (index < 0 || targetIndex < 0 || targetIndex >= ids.length) return actionError("Ruangan sudah berada di posisi paling ujung.");
+    if (index < 0 || targetIndex < 0 || targetIndex >= ids.length) {
+      return actionError("Ruangan sudah berada di posisi paling ujung.");
+    }
     [ids[index], ids[targetIndex]] = [ids[targetIndex], ids[index]];
     await persistOrder(propertyId, ids);
 
     revalidatePath(tourPath(propertyId));
-    return actionSuccess("Urutan ruangan berhasil diperbarui. Nomor 1 otomatis menjadi tampilan pertama.");
+    return actionSuccess("Urutan ruangan berhasil diperbarui.");
   } catch (error) {
     console.error("moveSceneAction:", error);
     return actionError(adminActionErrorMessage(error));
@@ -93,9 +145,18 @@ export async function createHotspotAction(formData: FormData): Promise<AdminActi
     const label = `${rawLabel}|||${["door", "arrow", "thumbnail"].includes(iconType) ? iconType : "door"}`;
     const pitch = Number(formData.get("pitch"));
     const yaw = Number(formData.get("yaw"));
-    if (!sceneId || !targetSceneId || !propertyId || !rawLabel || !Number.isFinite(pitch) || !Number.isFinite(yaw)) return actionError("Koordinat, label, atau tujuan hotspot tidak valid.");
+    if (!sceneId || !targetSceneId || !propertyId || !rawLabel || !Number.isFinite(pitch) || !Number.isFinite(yaw)) {
+      return actionError("Koordinat, label, atau tujuan hotspot tidak valid.");
+    }
 
-    const { error } = await getSupabase().from("hotspots").insert({ id: crypto.randomUUID(), scene_id: sceneId, target_scene_id: targetSceneId, pitch, yaw, label });
+    const { error } = await getSupabase().from("hotspots").insert({
+      id: crypto.randomUUID(),
+      scene_id: sceneId,
+      target_scene_id: targetSceneId,
+      pitch,
+      yaw,
+      label,
+    });
     if (error) throw error;
     revalidatePath(tourPath(propertyId));
     return actionSuccess("Hotspot berhasil disimpan.");
@@ -177,7 +238,10 @@ export async function updateSceneAudioAction(formData: FormData): Promise<AdminA
     const sceneId = String(formData.get("sceneId") || "");
     const propertyId = String(formData.get("propertyId") || "");
     const audioMediaId = String(formData.get("audioMediaId") || "none");
-    const { error } = await getSupabase().from("scenes").update({ audio_media_id: audioMediaId === "none" ? null : audioMediaId }).eq("id", sceneId);
+    const { error } = await getSupabase()
+      .from("scenes")
+      .update({ audio_media_id: audioMediaId === "none" ? null : audioMediaId })
+      .eq("id", sceneId);
     if (error) throw error;
     revalidatePath(tourPath(propertyId));
     return actionSuccess("Audio ruangan berhasil diperbarui.");
@@ -193,8 +257,13 @@ export async function setInitialViewAction(formData: FormData): Promise<AdminAct
     const propertyId = String(formData.get("propertyId") || "");
     const pitch = Number(formData.get("pitch") || formData.get("initialPitch") || 0);
     const yaw = Number(formData.get("yaw") || formData.get("initialYaw") || 0);
-    if (!Number.isFinite(pitch) || !Number.isFinite(yaw)) return actionError("Koordinat pandangan awal tidak valid.");
-    const { error } = await getSupabase().from("scenes").update({ initial_pitch: pitch, initial_yaw: yaw }).eq("id", sceneId);
+    if (!Number.isFinite(pitch) || !Number.isFinite(yaw)) {
+      return actionError("Koordinat pandangan awal tidak valid.");
+    }
+    const { error } = await getSupabase()
+      .from("scenes")
+      .update({ initial_pitch: pitch, initial_yaw: yaw })
+      .eq("id", sceneId);
     if (error) throw error;
     revalidatePath(tourPath(propertyId));
     return actionSuccess("Pandangan awal berhasil disimpan.");
