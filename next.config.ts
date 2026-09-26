@@ -1,20 +1,27 @@
 import type { NextConfig } from "next";
 
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://challenges.cloudflare.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' blob: data: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.supabase.co https://challenges.cloudflare.com",
+  "frame-src https://challenges.cloudflare.com",
+  "upgrade-insecure-requests",
+].join("; ");
+
 const nextConfig: NextConfig = {
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**.supabase.co',
-      },
-    ],
+    remotePatterns: [{ protocol: "https", hostname: "**.supabase.co" }],
   },
   experimental: {
-    serverActions: {
-      bodySizeLimit: '50mb',
-    },
+    serverActions: { bodySizeLimit: "50mb" },
   },
-  // TAMBAHAN: Security Headers untuk memperbaiki nilai F ke A
   async headers() {
     return [
       {
@@ -25,28 +32,18 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), browsing-topics=()" },
-          { 
-            key: "Content-Security-Policy", 
-            // Mengizinkan resource dari domain sendiri, Supabase, dan Cloudflare Analytics
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co;" 
-          }
+          { key: "Cross-Origin-Resource-Policy", value: "same-site" },
+          { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
+          { key: "Content-Security-Policy", value: contentSecurityPolicy },
         ],
       },
     ];
   },
   webpack: (config, { isServer, nextRuntime }) => {
     if (isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        "node:util/types": false,
-      };
-
-      // KUNCI UTAMA: Jika Next.js memaksa kompilasi Edge, 
-      // paksa Webpack untuk membiarkan modul jaringan lolos tanpa dibajak.
+      config.resolve.fallback = { ...config.resolve.fallback, "node:util/types": false };
       if (nextRuntime === "edge") {
-        if (!Array.isArray(config.externals)) {
-          config.externals = config.externals ? [config.externals] : [];
-        }
+        if (!Array.isArray(config.externals)) config.externals = config.externals ? [config.externals] : [];
         config.externals.push("net", "tls", "node:net", "node:tls");
       }
     }
