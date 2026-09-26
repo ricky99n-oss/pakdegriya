@@ -15,6 +15,8 @@ export type PannellumViewer = {
     yaw?: number | "same" | "sameAzimuth",
     hfov?: number | "same"
   ) => PannellumViewer;
+  startAutoRotate?: (speed?: number, pitch?: number) => PannellumViewer;
+  stopAutoRotate?: () => PannellumViewer;
   on: (event: string, listener: (...args: any[]) => void) => PannellumViewer;
   off?: (event?: string, listener?: (...args: any[]) => void) => PannellumViewer;
 };
@@ -70,6 +72,8 @@ export type PublicTourScene = {
   hfov?: number;
   minHfov?: number;
   maxHfov?: number;
+  autoRotate?: number;
+  autoRotateInactivityDelay?: number;
   customAudioUrl?: string | null;
   hotSpots?: PublicHotspot[];
   [key: string]: any;
@@ -80,6 +84,8 @@ export type PublicTourConfig = {
     firstScene?: string;
     sceneFadeDuration?: number;
     autoLoad?: boolean;
+    autoRotate?: number;
+    autoRotateInactivityDelay?: number;
     [key: string]: any;
   };
   scenes: Record<string, PublicTourScene>;
