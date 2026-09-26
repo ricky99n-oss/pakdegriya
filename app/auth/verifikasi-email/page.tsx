@@ -1,17 +1,16 @@
 import Link from "next/link";
 import { MailCheck, ArrowLeft, ShieldCheck } from "lucide-react";
 
-export default async function VerifikasiEmailPage({ searchParams }: { searchParams: Promise<{ email?: string }> }) {
-  const params = await searchParams;
-  const email = String(params.email || "email Anda");
+export const dynamic = "force-static";
 
+export default function VerifikasiEmailPage() {
   return (
     <div className="min-h-screen bg-[#FFF7E8] flex items-center justify-center p-5 text-[#281C15]">
       <div className="w-full max-w-xl bg-white rounded-3xl border border-[#D6A34A]/25 shadow-xl p-7 md:p-10 text-center">
         <div className="w-16 h-16 rounded-2xl bg-[#D6A34A]/15 text-[#b67d1d] mx-auto flex items-center justify-center mb-6"><MailCheck size={32} /></div>
         <p className="text-[10px] tracking-[.22em] uppercase font-black text-[#D6A34A]">Satu Langkah Lagi</p>
         <h1 className="text-3xl md:text-4xl font-black text-[#4A2F1B] mt-2">Verifikasi Email Anda</h1>
-        <p className="mt-4 text-[#281C15]/70 leading-relaxed">Kami mengirim tautan verifikasi ke <b className="text-[#4A2F1B] break-all">{email}</b>. Klik tautan tersebut untuk mengaktifkan akun sebelum login.</p>
+        <p className="mt-4 text-[#281C15]/70 leading-relaxed">Kami sudah mengirim tautan verifikasi ke alamat email yang Anda daftarkan. Klik tautan tersebut untuk mengaktifkan akun sebelum login.</p>
 
         <div className="mt-6 rounded-2xl bg-[#FFF7E8] border border-[#D6A34A]/20 p-4 text-left text-sm text-[#4A2F1B] flex gap-3">
           <ShieldCheck size={20} className="text-[#D6A34A] shrink-0" />
