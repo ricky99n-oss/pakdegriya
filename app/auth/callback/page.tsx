@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { setSessionCookieAction } from "../actions";
+import { completeOAuthLoginAction } from "../actions";
 import { Loader2 } from "lucide-react";
 
 const supabase = createClient(
@@ -10,29 +10,78 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+function safeRequestedNext() {
+  const requested = new URLSearchParams(window.location.search).get("next") || "";
+  return requested.startsWith("/") && !requested.startsWith("//") ? requested : null;
+}
+
+async function waitForOAuthSession() {
+  // Pada beberapa browser session OAuth baru tersedia beberapa tick setelah halaman callback dimuat.
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (data.session) return data.session;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  return null;
+}
+
 export default function AuthCallback() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
     const handleCallback = async () => {
       try {
-        const requested = new URLSearchParams(window.location.search).get("next") || "/";
-        const safeNext = requested.startsWith("/") && !requested.startsWith("//") ? requested : "/";
-        const { data, error } = await supabase.auth.getSession();
-        if (error) { setErrorMsg(error.message); return; }
-        if (!data.session) { window.location.href = "/auth/masuk?error=Sesi_Kosong"; return; }
+        const session = await waitForOAuthSession();
+        if (cancelled) return;
 
-        await setSessionCookieAction(data.session.access_token, data.session.expires_in);
-        window.location.href = safeNext;
+        if (!session) {
+          window.location.replace("/auth/masuk?error=Sesi_Google_Tidak_Terbentuk");
+          return;
+        }
+
+        const result = await completeOAuthLoginAction(
+          session.access_token,
+          session.expires_in,
+          safeRequestedNext()
+        );
+
+        if (cancelled) return;
+
+        if (!result.success || !result.redirectTo) {
+          setErrorMsg(result.error || "Gagal menyelesaikan login Google.");
+          return;
+        }
+
+        // replace mencegah tombol Back kembali ke callback OAuth.
+        window.location.replace(result.redirectTo);
       } catch (error) {
-        setErrorMsg(error instanceof Error ? error.message : "Terjadi kesalahan sistem");
+        if (!cancelled) {
+          setErrorMsg(error instanceof Error ? error.message : "Terjadi kesalahan sistem");
+        }
       }
     };
+
     handleCallback();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (errorMsg) {
-    return <div className="min-h-screen flex items-center justify-center bg-[#FFF7E8]"><div className="bg-red-50 text-red-600 p-6 rounded-xl font-bold border border-red-200 shadow-md">Gagal Login: {errorMsg}</div></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FFF7E8] p-6">
+        <div className="max-w-md bg-red-50 text-red-600 p-6 rounded-xl font-bold border border-red-200 shadow-md text-center">
+          <p>Gagal Login Google</p>
+          <p className="text-sm font-medium mt-2">{errorMsg}</p>
+          <a href="/auth/masuk" className="inline-block mt-4 px-4 py-2 rounded-lg bg-[#4A2F1B] text-white text-sm">
+            Kembali ke Login
+          </a>
+        </div>
+      </div>
+    );
   }
 
   return (

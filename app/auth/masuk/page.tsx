@@ -17,12 +17,14 @@ export default function HalamanMasuk() {
   const [errorMsg, setErrorMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
-  const [nextPath, setNextPath] = useState("/admin/dashboard");
+  const [nextPath, setNextPath] = useState("");
   const turnstileConfigured = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("next") || "";
-    if (requested.startsWith("/") && !requested.startsWith("//")) setNextPath(requested);
+    if (requested.startsWith("/") && !requested.startsWith("//")) {
+      setNextPath(requested);
+    }
   }, []);
 
   const ensureHuman = async () => {
@@ -31,35 +33,49 @@ export default function HalamanMasuk() {
       setErrorMsg("Selesaikan verifikasi keamanan terlebih dahulu.");
       return false;
     }
+
     const verification = await verifyHumanAction(turnstileToken);
     if (!verification.success) {
       setErrorMsg(verification.error || "Verifikasi keamanan gagal.");
       setTurnstileToken("");
       return false;
     }
+
     return true;
   };
 
   const handleGoogle = async () => {
     setIsLoading(true);
     setErrorMsg("");
-    if (!(await ensureHuman())) { setIsLoading(false); return; }
+
+    if (!(await ensureHuman())) {
+      setIsLoading(false);
+      return;
+    }
+
     const callback = new URL("/auth/callback", window.location.origin);
-    callback.searchParams.set("next", nextPath);
+    if (nextPath) callback.searchParams.set("next", nextPath);
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: callback.toString() },
     });
-    if (error) { setErrorMsg(error.message); setIsLoading(false); }
+
+    if (error) {
+      setErrorMsg(error.message);
+      setIsLoading(false);
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
     setErrorMsg("");
+
     const formData = new FormData(event.currentTarget);
     formData.set("cf-turnstile-response", turnstileToken);
     formData.set("next", nextPath);
+
     const res = await masukAction(formData);
     if (res?.error) {
       setErrorMsg(res.error);
