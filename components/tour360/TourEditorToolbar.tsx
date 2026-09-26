@@ -47,7 +47,11 @@ export default function TourEditorToolbar({ scenes, propertyId, activeSceneId, o
               }`}
             >
               <span>{idx + 1}. {scene.name}</span>
-              {scene.isFirstScene && <Star size={12} fill="currentColor" title="Ruangan pertama saat tour dibuka" />}
+              {scene.isFirstScene && (
+                <span title="Ruangan pertama saat tour dibuka" aria-label="Ruangan pertama saat tour dibuka">
+                  <Star size={12} fill="currentColor" aria-hidden="true" />
+                </span>
+              )}
             </button>
 
             <ActionForm action={moveSceneAction} refreshOnSuccess>
