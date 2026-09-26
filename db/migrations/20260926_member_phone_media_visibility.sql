@@ -4,6 +4,9 @@ alter table public.users
 alter table public.property_media
   add column if not exists is_public boolean not null default false;
 
+alter table public.property_media
+  add column if not exists preview_file_name varchar(255);
+
 update public.property_media
 set is_public = true
 where file_type in ('cover_public', 'intro_planet_public');
