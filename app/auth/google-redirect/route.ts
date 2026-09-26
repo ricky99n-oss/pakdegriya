@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { users } from "@/db/schema";
 import { getSupabase } from "@/lib/supabase";
+import { ensureUserProfile, type AuthUserLike } from "@/lib/user-profile";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 
 export const runtime = "edge";
-
-type AuthUser = {
-  id: string;
-  email?: string | null;
-  user_metadata?: Record<string, any>;
-};
 
 type RedirectState = {
   next?: string;
@@ -35,46 +27,9 @@ function parseState(raw: FormDataEntryValue | null): RedirectState {
 }
 
 function logServerError(label: string, error: unknown) {
-  const cause = error && typeof error === "object" && "cause" in error
-    ? (error as { cause?: any }).cause
-    : undefined;
-
   console.error(label, {
     message: error instanceof Error ? error.message : String(error),
-    causeMessage: cause?.message,
-    code: cause?.code,
-    detail: cause?.detail,
-    hint: cause?.hint,
   });
-}
-
-async function ensureUserProfile(authUser: AuthUser) {
-  const email = String(authUser.email || "").trim().toLowerCase();
-  if (!email) throw new Error("Email akun Google tidak tersedia.");
-
-  const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  if (existing.length) {
-    const current = existing[0];
-    const googleName = String(authUser.user_metadata?.full_name || authUser.user_metadata?.name || "").trim();
-    if (!current.name && googleName) {
-      await db.update(users).set({ name: googleName }).where(eq(users.email, email));
-      return { ...current, name: googleName };
-    }
-    return current;
-  }
-
-  const name = String(authUser.user_metadata?.full_name || authUser.user_metadata?.name || "Member").trim() || "Member";
-  await db.insert(users).values({
-    id: authUser.id,
-    email,
-    name,
-    passwordHash: "supabase_managed",
-    role: "member" as any,
-  }).onConflictDoNothing();
-
-  const inserted = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  if (!inserted.length) throw new Error("Profil member gagal dibuat.");
-  return inserted[0];
 }
 
 function destinationForRole(roleValue: string, requestedNext: string | null) {
@@ -124,7 +79,7 @@ export async function POST(request: NextRequest) {
       return errorRedirect(request, "Akun Google gagal diverifikasi. Silakan coba lagi.");
     }
 
-    const profile = await ensureUserProfile(data.user as AuthUser);
+    const profile = await ensureUserProfile(data.user as AuthUserLike);
     const requestedNext = safeNext(state.next);
     const destination = destinationForRole(String(profile.role), requestedNext);
     const role = String(profile.role || "member").toLowerCase();
