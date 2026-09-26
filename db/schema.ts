@@ -75,6 +75,7 @@ export const propertyMedia = pgTable("property_media", {
   propertyId: uuid("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
   fileType: fileTypeEnum("file_type").notNull(),
   fileName: varchar("file_name", { length: 255 }).notNull(),
+  previewFileName: varchar("preview_file_name", { length: 255 }),
   mimeType: varchar("mime_type", { length: 100 }).notNull(),
   isPublic: boolean("is_public").default(false).notNull(),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
@@ -103,14 +104,8 @@ export const hotspots = pgTable("hotspots", {
   label: varchar("label", { length: 255 }),
 });
 
-export const usersRelations = relations(users, ({ many }) => ({
-  sessions: many(sessions),
-}));
-
+export const usersRelations = relations(users, ({ many }) => ({ sessions: many(sessions) }));
 export const propertiesRelations = relations(properties, ({ one, many }) => ({
-  tour: one(tours, {
-    fields: [properties.id],
-    references: [tours.propertyId],
-  }),
+  tour: one(tours, { fields: [properties.id], references: [tours.propertyId] }),
   media: many(propertyMedia),
 }));
