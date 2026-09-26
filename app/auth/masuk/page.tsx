@@ -17,8 +17,12 @@ export default function HalamanMasuk() {
   const turnstileConfigured = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
   useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get("next") || "";
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get("next") || "";
+    const googleError = params.get("google_error") || "";
+
     if (requested.startsWith("/") && !requested.startsWith("//")) setNextPath(requested);
+    if (googleError) setErrorMsg(googleError);
   }, []);
 
   const resetTurnstile = () => {
