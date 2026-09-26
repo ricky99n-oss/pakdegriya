@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdmin, adminActionErrorMessage } from "@/lib/admin-auth";
 import { actionError, actionSuccess, type AdminActionResult } from "@/lib/admin-action";
 
@@ -10,7 +10,7 @@ function tourPath(propertyId: string) {
 }
 
 async function getOrderedScenes(propertyId: string) {
-  const { data, error } = await getSupabase()
+  const { data, error } = await getSupabaseAdmin()
     .from("scenes")
     .select("id, sort_order, created_at")
     .eq("property_id", propertyId)
@@ -21,7 +21,7 @@ async function getOrderedScenes(propertyId: string) {
 }
 
 async function persistOrder(propertyId: string, orderedIds: string[]) {
-  const supabase = getSupabase();
+  const supabase = getSupabaseAdmin();
   const reset = await supabase.from("scenes").update({ is_first_scene: false }).eq("property_id", propertyId);
   if (reset.error) throw reset.error;
 
@@ -52,8 +52,20 @@ export async function createSceneAction(formData: FormData): Promise<AdminAction
     const name = String(formData.get(`name_${mediaId}`) || "").trim();
     if (!propertyId || !mediaId || !name) return actionError("Data ruangan belum lengkap.");
 
+    const supabase = getSupabaseAdmin();
+    const { data: media, error: mediaError } = await supabase
+      .from("property_media")
+      .select("id, property_id, file_type")
+      .eq("id", mediaId)
+      .eq("property_id", propertyId)
+      .maybeSingle();
+    if (mediaError) throw mediaError;
+    if (!media || media.file_type !== "panorama_private") {
+      return actionError("Panorama tidak valid atau tidak lagi tersedia.");
+    }
+
     const existingScenes = await getOrderedScenes(propertyId);
-    const { error } = await getSupabase().from("scenes").insert({
+    const { error } = await supabase.from("scenes").insert({
       id: crypto.randomUUID(),
       property_id: propertyId,
       media_id: mediaId,
@@ -107,7 +119,6 @@ export async function reorderScenesAction(formData: FormData): Promise<AdminActi
   }
 }
 
-// Dipertahankan untuk kompatibilitas dengan UI lama / bookmark admin.
 export async function moveSceneAction(formData: FormData): Promise<AdminActionResult> {
   try {
     await requireAdmin();
@@ -149,7 +160,7 @@ export async function createHotspotAction(formData: FormData): Promise<AdminActi
       return actionError("Koordinat, label, atau tujuan hotspot tidak valid.");
     }
 
-    const { error } = await getSupabase().from("hotspots").insert({
+    const { error } = await getSupabaseAdmin().from("hotspots").insert({
       id: crypto.randomUUID(),
       scene_id: sceneId,
       target_scene_id: targetSceneId,
@@ -171,7 +182,7 @@ export async function deleteHotspotAction(formData: FormData): Promise<AdminActi
     await requireAdmin();
     const hotspotId = String(formData.get("hotspotId") || "");
     const propertyId = String(formData.get("propertyId") || "");
-    const { error } = await getSupabase().from("hotspots").delete().eq("id", hotspotId);
+    const { error } = await getSupabaseAdmin().from("hotspots").delete().eq("id", hotspotId);
     if (error) throw error;
     revalidatePath(tourPath(propertyId));
     return actionSuccess("Hotspot berhasil dihapus.");
@@ -185,7 +196,7 @@ export async function deleteSceneAction(formData: FormData): Promise<AdminAction
     await requireAdmin();
     const sceneId = String(formData.get("sceneId") || "");
     const propertyId = String(formData.get("propertyId") || "");
-    const supabase = getSupabase();
+    const supabase = getSupabaseAdmin();
     const { error: h1 } = await supabase.from("hotspots").delete().eq("scene_id", sceneId);
     const { error: h2 } = await supabase.from("hotspots").delete().eq("target_scene_id", sceneId);
     if (h1 || h2) throw h1 || h2;
@@ -223,7 +234,7 @@ export async function updateSceneNameAction(formData: FormData): Promise<AdminAc
     const propertyId = String(formData.get("propertyId") || "");
     const name = String(formData.get("name") || "").trim().slice(0, 255);
     if (!name) return actionError("Nama ruangan tidak boleh kosong.");
-    const { error } = await getSupabase().from("scenes").update({ name }).eq("id", sceneId);
+    const { error } = await getSupabaseAdmin().from("scenes").update({ name }).eq("id", sceneId);
     if (error) throw error;
     revalidatePath(tourPath(propertyId));
     return actionSuccess("Nama ruangan berhasil diperbarui.");
@@ -238,7 +249,7 @@ export async function updateSceneAudioAction(formData: FormData): Promise<AdminA
     const sceneId = String(formData.get("sceneId") || "");
     const propertyId = String(formData.get("propertyId") || "");
     const audioMediaId = String(formData.get("audioMediaId") || "none");
-    const { error } = await getSupabase()
+    const { error } = await getSupabaseAdmin()
       .from("scenes")
       .update({ audio_media_id: audioMediaId === "none" ? null : audioMediaId })
       .eq("id", sceneId);
@@ -260,7 +271,7 @@ export async function setInitialViewAction(formData: FormData): Promise<AdminAct
     if (!Number.isFinite(pitch) || !Number.isFinite(yaw)) {
       return actionError("Koordinat pandangan awal tidak valid.");
     }
-    const { error } = await getSupabase()
+    const { error } = await getSupabaseAdmin()
       .from("scenes")
       .update({ initial_pitch: pitch, initial_yaw: yaw })
       .eq("id", sceneId);
