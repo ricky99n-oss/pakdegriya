@@ -14,17 +14,15 @@ function corsHeaders() {
   return headers;
 }
 
-function mediaHeaders(media: any, contentLength?: number, etag?: string) {
+function mediaHeaders(media: any, contentLength?: number, etag?: string, preview = false) {
   const headers = corsHeaders();
   const isPublic = Boolean(media.is_public);
-  headers.set("Content-Type", media.mime_type || "application/octet-stream");
+  headers.set("Content-Type", preview ? "image/jpeg" : media.mime_type || "application/octet-stream");
   headers.set("Accept-Ranges", "bytes");
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set(
     "Cache-Control",
-    isPublic
-      ? "public, max-age=86400, stale-while-revalidate=604800"
-      : "private, no-store, max-age=0"
+    isPublic ? "public, max-age=86400, stale-while-revalidate=604800" : "private, no-store, max-age=0"
   );
   headers.set("Vary", isPublic ? "Range" : "Cookie, Range");
   if (typeof contentLength === "number") headers.set("Content-Length", String(contentLength));
@@ -38,18 +36,15 @@ function parseRange(value: string, total: number): ParsedRange | null {
   const match = /^bytes=(\d*)-(\d*)$/i.exec(value.trim());
   if (!match) return null;
   const [, startRaw, endRaw] = match;
-
   if (!startRaw && endRaw) {
     const suffix = Number(endRaw);
     if (!Number.isFinite(suffix) || suffix <= 0) return null;
     const length = Math.min(suffix, total);
     return { start: total - length, end: total - 1, length };
   }
-
   if (!startRaw) return null;
   const start = Number(startRaw);
   if (!Number.isFinite(start) || start < 0 || start >= total) return null;
-
   let end = endRaw ? Number(endRaw) : total - 1;
   if (!Number.isFinite(end) || end < start) return null;
   end = Math.min(end, total - 1);
@@ -64,7 +59,7 @@ async function mediaContext(id: string) {
 
   const { data: media, error } = await createClient(url, key)
     .from("property_media")
-    .select("file_name, mime_type, file_type, property_id, is_public")
+    .select("file_name, preview_file_name, mime_type, file_type, property_id, is_public")
     .eq("id", id)
     .limit(1)
     .single();
@@ -79,11 +74,20 @@ async function authorized(media: any) {
   return Boolean(user);
 }
 
+function selectObject(media: any, request: Request) {
+  const wantsPreview = new URL(request.url).searchParams.get("preview") === "1";
+  const hasPreview = wantsPreview && Boolean(media.preview_file_name);
+  return {
+    objectKey: hasPreview ? media.preview_file_name : media.file_name,
+    preview: hasPreview,
+  };
+}
+
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders() });
 }
 
-export async function HEAD(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function HEAD(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const { media, bucket } = await mediaContext(id);
@@ -91,9 +95,10 @@ export async function HEAD(_request: Request, { params }: { params: Promise<{ id
     if (!(await authorized(media))) return new Response(null, { status: 401, headers: corsHeaders() });
     if (!bucket) return new Response(null, { status: 500, headers: corsHeaders() });
 
-    const object = await bucket.head(media.file_name);
+    const { objectKey, preview } = selectObject(media, request);
+    const object = await bucket.head(objectKey);
     if (!object) return new Response(null, { status: 404, headers: corsHeaders() });
-    return new Response(null, { status: 200, headers: mediaHeaders(media, object.size, object.httpEtag) });
+    return new Response(null, { status: 200, headers: mediaHeaders(media, object.size, object.httpEtag, preview) });
   } catch (error) {
     console.error("HEAD media gagal:", error);
     return new Response(null, { status: 500, headers: corsHeaders() });
@@ -105,16 +110,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const { media, bucket } = await mediaContext(id);
     if (!media) return new Response("Media tidak ditemukan", { status: 404, headers: corsHeaders() });
-    if (!(await authorized(media))) {
-      return new Response("Login diperlukan untuk media ini", { status: 401, headers: corsHeaders() });
-    }
+    if (!(await authorized(media))) return new Response("Login diperlukan untuk media ini", { status: 401, headers: corsHeaders() });
     if (!bucket) return new Response("R2 bucket belum dikonfigurasi", { status: 500, headers: corsHeaders() });
 
+    const { objectKey, preview } = selectObject(media, request);
     const rangeHeader = request.headers.get("Range");
-    if (rangeHeader) {
-      const head = await bucket.head(media.file_name);
-      if (!head) return new Response("File tidak ditemukan", { status: 404, headers: corsHeaders() });
 
+    if (rangeHeader) {
+      const head = await bucket.head(objectKey);
+      if (!head) return new Response("File tidak ditemukan", { status: 404, headers: corsHeaders() });
       const range = parseRange(rangeHeader, head.size);
       if (!range) {
         const headers = corsHeaders();
@@ -122,25 +126,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         return new Response(null, { status: 416, headers });
       }
 
-      const object = await bucket.get(media.file_name, {
-        range: { offset: range.start, length: range.length },
-      });
+      const object = await bucket.get(objectKey, { range: { offset: range.start, length: range.length } });
       if (!object) return new Response("File tidak ditemukan", { status: 404, headers: corsHeaders() });
-
-      const headers = mediaHeaders(media, range.length, object.httpEtag || head.httpEtag);
+      const headers = mediaHeaders(media, range.length, object.httpEtag || head.httpEtag, preview);
       headers.set("Content-Range", `bytes ${range.start}-${range.end}/${head.size}`);
       return new Response(object.body, { status: 206, headers });
     }
 
-    const object = await bucket.get(media.file_name);
+    const object = await bucket.get(objectKey);
     if (!object) return new Response("File tidak ditemukan", { status: 404, headers: corsHeaders() });
 
-    const headers = mediaHeaders(media, object.size, object.httpEtag);
+    const headers = mediaHeaders(media, object.size, object.httpEtag, preview);
     const ifNoneMatch = request.headers.get("If-None-Match");
     if (ifNoneMatch && object.httpEtag && ifNoneMatch === object.httpEtag) {
       return new Response(null, { status: 304, headers });
     }
-
     return new Response(object.body, { status: 200, headers });
   } catch (error) {
     console.error("GET media gagal:", error);
