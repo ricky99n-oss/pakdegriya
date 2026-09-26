@@ -43,11 +43,9 @@ export default function TourEditor({
   const currentScene = existingScenes.find(s => s.id === activeSceneId);
   const sceneHotspots = allHotspots.filter(h => h.sceneId === activeSceneId);
 
-  // Fungsi Render Kustom Hotspot Editor
   const renderCustomHotspot = (hotSpotDiv: HTMLElement, args: any) => {
     const { label, iconType, targetImage } = args;
     
-    // Clear the div
     hotSpotDiv.innerHTML = '';
     hotSpotDiv.classList.add('pakde-hotspot-wrapper');
 
@@ -105,6 +103,11 @@ export default function TourEditor({
       hfov: 90, 
       compass: false,
       showControls: true,
+      
+      // === FIX LAYAR HITAM LOADING TERUS ===
+      // Menginstruksikan Pannellum untuk memuat gambar R2 secara instan
+      dynamic: true,
+      
       hotSpots: mappedHotspots 
     });
 
