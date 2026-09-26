@@ -1,16 +1,13 @@
 import { Compass, Handshake, ScanLine, ShieldCheck, Sparkles, Target } from "lucide-react";
-import { validateRequest } from "@/lib/auth";
-import PublicHeader from "@/components/PublicHeader";
+import StaticPublicHeader from "@/components/StaticPublicHeader";
 import Footer from "@/components/Footer";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
 
-export default async function TentangKamiPage() {
-  const { user } = await validateRequest();
-
+export default function TentangKamiPage() {
   return (
     <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] flex flex-col">
-      <PublicHeader user={user} />
+      <StaticPublicHeader />
       <main className="flex-1">
         <section className="px-5 py-16 md:py-24">
           <div className="max-w-6xl mx-auto grid lg:grid-cols-[1.15fr_.85fr] gap-10 items-center">

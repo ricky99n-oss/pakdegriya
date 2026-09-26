@@ -1,9 +1,8 @@
 import { AlertTriangle, BadgeCheck, Mail, MessageCircle, ShieldCheck } from "lucide-react";
-import { validateRequest } from "@/lib/auth";
-import PublicHeader from "@/components/PublicHeader";
+import StaticPublicHeader from "@/components/StaticPublicHeader";
 import Footer from "@/components/Footer";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
 
 const sections = [
   {
@@ -70,12 +69,10 @@ const sections = [
   },
 ];
 
-export default async function SyaratKetentuanPage() {
-  const { user } = await validateRequest();
-
+export default function SyaratKetentuanPage() {
   return (
     <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] flex flex-col">
-      <PublicHeader user={user} />
+      <StaticPublicHeader />
       <main className="flex-1 px-5 py-12 md:py-20">
         <div className="max-w-4xl mx-auto">
           <div className="mb-10">
