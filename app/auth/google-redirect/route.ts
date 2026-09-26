@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { getSupabase } from "@/lib/supabase";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 export const runtime = "edge";
 
@@ -12,10 +13,25 @@ type AuthUser = {
   user_metadata?: Record<string, any>;
 };
 
-function safeNext(value: FormDataEntryValue | null) {
+type RedirectState = {
+  next?: string;
+  turnstile?: string;
+};
+
+function safeNext(value: unknown) {
   const next = String(value || "").trim();
   if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
   return next;
+}
+
+function parseState(raw: FormDataEntryValue | null): RedirectState {
+  try {
+    const text = decodeURIComponent(String(raw || ""));
+    const parsed = JSON.parse(text) as RedirectState;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
 }
 
 async function ensureUserProfile(authUser: AuthUser) {
@@ -71,14 +87,16 @@ export async function POST(request: NextRequest) {
     const credential = String(formData.get("credential") || "");
     const csrfBody = String(formData.get("g_csrf_token") || "");
     const csrfCookie = request.cookies.get("g_csrf_token")?.value || "";
-    const turnstileVerified = request.cookies.get("google_turnstile_ok")?.value === "1";
+    const state = parseState(formData.get("state"));
 
     if (!credential) return errorRedirect(request, "Google tidak mengirim token login. Silakan coba lagi.");
     if (!csrfBody || !csrfCookie || csrfBody !== csrfCookie) {
       return errorRedirect(request, "Validasi keamanan Google gagal. Silakan ulangi login.");
     }
-    if (!turnstileVerified) {
-      return errorRedirect(request, "Verifikasi Cloudflare kedaluwarsa. Silakan ulangi login.");
+
+    const verification = await verifyTurnstileToken(String(state.turnstile || ""));
+    if (!verification.success) {
+      return errorRedirect(request, verification.error || "Verifikasi Cloudflare gagal. Silakan ulangi login.");
     }
 
     const supabase = getSupabase();
@@ -93,7 +111,7 @@ export async function POST(request: NextRequest) {
     }
 
     const profile = await ensureUserProfile(data.user as AuthUser);
-    const requestedNext = safeNext(formData.get("state"));
+    const requestedNext = safeNext(state.next);
     const destination = destinationForRole(String(profile.role), requestedNext);
     const role = String(profile.role || "member").toLowerCase();
     const isAdmin = role === "admin" || role === "superadmin";
@@ -110,13 +128,6 @@ export async function POST(request: NextRequest) {
       sameSite: "lax",
       path: "/",
       maxAge: Math.max(60, Number(data.session.expires_in) || 3600),
-    });
-    response.cookies.set("google_turnstile_ok", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      path: "/auth/google-redirect",
-      maxAge: 0,
     });
 
     return response;
