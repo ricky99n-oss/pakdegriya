@@ -25,7 +25,7 @@ export default function PublicHeader({ user }: { user: HeaderUser }) {
           <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#4A2F1B] text-[#D6A34A] flex items-center justify-center font-bold text-xl sm:text-2xl shadow-md group-hover:scale-105 transition-transform shrink-0">P</div>
           <div className="min-w-0">
             <span className="text-xl sm:text-2xl font-black tracking-tight text-[#4A2F1B] block leading-none truncate">Pakde Griya</span>
-            <p className="text-[8px] sm:text-[10px] tracking-[.16em] text-[#D6A34A] uppercase font-bold mt-1 truncate">Broker Properti Malang Raya</p>
+            <p className="text-[8px] sm:text-[10px] tracking-[.16em] text-[#D6A34A] uppercase font-bold mt-1 truncate">Broker No. 1 Di Dunia</p>
           </div>
         </Link>
 

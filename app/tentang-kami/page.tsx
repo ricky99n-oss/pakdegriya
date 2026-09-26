@@ -15,7 +15,7 @@ export default function TentangKamiPage() {
               <span className="inline-flex items-center gap-2 rounded-full border border-[#D6A34A]/30 bg-[#D6A34A]/10 px-4 py-2 text-xs font-black text-[#4A2F1B]"><Sparkles size={15} /> Broker Properti Modern</span>
               <h1 className="mt-5 text-4xl md:text-6xl font-black leading-tight text-[#4A2F1B]">Kenal Lebih Dekat dengan <span className="text-[#D6A34A]">Pakde Griya</span></h1>
               <p className="mt-6 text-lg leading-relaxed text-[#281C15]/75">Pakde Griya adalah broker properti modern yang berfokus membantu pemilik, pembeli, penyewa, dan investor memahami properti dengan lebih transparan sebelum mengambil keputusan. Kami memadukan pendampingan manusia, pemasaran digital, kurasi informasi, serta teknologi Virtual Tour 360°.</p>
-              <p className="mt-4 text-lg leading-relaxed text-[#281C15]/75">Fokus awal layanan kami adalah Batu dan Malang Raya. Setiap proses diarahkan agar calon pembeli dapat melihat informasi secara lebih jelas, berkomunikasi melalui kanal resmi, dan mendapatkan pendampingan dari tahap ketertarikan hingga proses transaksi.</p>
+              <p className="mt-4 text-lg leading-relaxed text-[#281C15]/75">Setiap proses diarahkan agar calon pembeli dapat melihat informasi secara lebih jelas, berkomunikasi melalui kanal resmi, dan mendapatkan pendampingan dari tahap ketertarikan hingga proses transaksi.</p>
             </div>
 
             <div className="rounded-[2rem] bg-[#4A2F1B] text-white p-8 md:p-10 shadow-2xl border border-[#D6A34A]/25">
@@ -33,7 +33,7 @@ export default function TentangKamiPage() {
               <ValueCard icon={<ShieldCheck size={24} />} title="Informasi Lebih Transparan">Kami mendorong penyajian data, foto, video, dan kondisi properti secara jelas dan mudah dipahami.</ValueCard>
               <ValueCard icon={<Handshake size={24} />} title="Pendampingan Transaksi">Komunikasi dan tindak lanjut dilakukan melalui tim resmi Pakde Griya untuk membantu proses lebih tertata.</ValueCard>
               <ValueCard icon={<Target size={24} />} title="Pemasaran Terarah">Konten, media sosial, website, dan jaringan pemasaran digunakan untuk mempertemukan properti dengan calon pasar yang relevan.</ValueCard>
-              <ValueCard icon={<Compass size={24} />} title="Fokus Malang Raya">Kami membangun pengetahuan pasar lokal mulai dari Kota Batu dan kawasan Malang Raya.</ValueCard>
+              <ValueCard icon={<Compass size={24} />} title="Broker Properti No.1 Di Dunia">Pakde Griya hadir sebagai broker properti modern dengan layanan digital, pendampingan, dan pengalaman pencarian properti yang terus dikembangkan.</ValueCard>
               <ValueCard icon={<Sparkles size={24} />} title="Pengalaman Modern">Teknologi dipakai untuk mempercepat pencarian informasi tanpa menghilangkan peran konsultasi langsung dengan tim.</ValueCard>
             </div>
           </div>
