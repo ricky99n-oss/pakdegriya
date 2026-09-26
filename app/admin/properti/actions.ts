@@ -1,93 +1,108 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSupabase } from "@/lib/supabase";
+import { requireAdmin, adminActionErrorMessage } from "@/lib/admin-auth";
+import { actionError, actionSuccess, type AdminActionResult } from "@/lib/admin-action";
 
-export async function createProperty(formData: FormData) {
-  const code = formData.get("code") as string;
-  const slug = formData.get("slug") as string;
-  const title = formData.get("title") as string;
-  const price = Number(formData.get("price")); 
-  const transactionType = formData.get("transactionType") as string;
-  const propertyType = formData.get("propertyType") as string;
-  const generalLocation = formData.get("generalLocation") as string;
-
-  const supabase = getSupabase();
-
-  await supabase.from("properties").insert({
-    id: crypto.randomUUID(),
-    code,
-    slug,
-    title,
-    price,
-    transaction_type: transactionType,
-    property_type: propertyType,
-    general_location: generalLocation,
-    publish_status: "draft", 
-    availability_status: "available",
-  });
-
-  redirect("/admin/properti");
-}
-
-export async function togglePublishStatus(formData: FormData) {
-  const propertyId = formData.get("propertyId") as string;
-  const currentStatus = formData.get("currentStatus") as string;
-  const newStatus = currentStatus === "published" ? "draft" : "published";
-
-  const supabase = getSupabase();
-
-  await supabase.from("properties")
-    .update({ publish_status: newStatus })
-    .eq("id", propertyId);
-
-  revalidatePath(`/`);
-  revalidatePath(`/admin/properti`);
-  revalidatePath(`/admin/properti/${propertyId}`);
-}
-
-export async function updatePropertyAction(formData: FormData) {
-  const propertyId = formData.get("propertyId") as string;
-  
-  const supabase = getSupabase();
-
-  await supabase.from("properties").update({
-    title: formData.get("title") as string,
-    slug: formData.get("slug") as string,
-    price: Number(formData.get("price")),
-    general_location: formData.get("generalLocation") as string,
-    public_summary: formData.get("publicSummary") as string,
-    transaction_type: formData.get("transactionType") as string,
-    property_type: formData.get("propertyType") as string,
-    
-    // MENYIMPAN SPESIFIKASI BARU
-    bedrooms: Number(formData.get("bedrooms") || 0),
-    bathrooms: Number(formData.get("bathrooms") || 0),
-    land_area: Number(formData.get("landArea") || 0),
-    building_area: Number(formData.get("buildingArea") || 0),
-  }).eq("id", propertyId);
-
-  revalidatePath(`/`);
-  revalidatePath(`/admin/properti`);
-  revalidatePath(`/admin/properti/${propertyId}`);
-}
-
-export async function hapusPropertiAction(formData: FormData) {
-  const propertyId = formData.get("propertyId") as string;
-  
-  const supabase = getSupabase();
-
-  // Hapus referensi media dari database terlebih dahulu (Mencegah error Foreign Key)
-  await supabase.from("property_media").delete().eq("property_id", propertyId);
-  
-  // Kemudian hapus propertinya
-  await supabase.from("properties").delete().eq("id", propertyId);
-  
-  // Catatan: Jika ingin lebih bersih, Anda bisa menambahkan fungsi penghapusan 
-  // file fisik dari R2 di sini dengan cara melooping data file dari property_media 
-  // sebelum menghapusnya dari database.
-
-  revalidatePath("/admin/properti");
+function revalidateProperty(propertyId?: string) {
   revalidatePath("/");
+  revalidatePath("/admin/properti");
+  if (propertyId) revalidatePath(`/admin/properti/${propertyId}`);
+}
+
+export async function createProperty(formData: FormData): Promise<AdminActionResult> {
+  try {
+    await requireAdmin();
+    const code = String(formData.get("code") || "").trim();
+    const slug = String(formData.get("slug") || "").trim().toLowerCase();
+    const title = String(formData.get("title") || "").trim();
+    const price = Number(formData.get("price"));
+    const transactionType = String(formData.get("transactionType") || "");
+    const propertyType = String(formData.get("propertyType") || "");
+    const generalLocation = String(formData.get("generalLocation") || "").trim();
+    if (!code || !slug || !title || !generalLocation || !Number.isFinite(price)) return actionError("Data properti belum lengkap atau tidak valid.");
+
+    const { error } = await getSupabase().from("properties").insert({
+      id: crypto.randomUUID(), code, slug, title, price,
+      transaction_type: transactionType, property_type: propertyType,
+      general_location: generalLocation, publish_status: "draft", availability_status: "available",
+    });
+    if (error) throw error;
+    revalidateProperty();
+    return actionSuccess("Properti berhasil dibuat.", "/admin/properti");
+  } catch (error) {
+    console.error("createProperty:", error);
+    return actionError(adminActionErrorMessage(error));
+  }
+}
+
+export async function togglePublishStatus(formData: FormData): Promise<AdminActionResult> {
+  try {
+    await requireAdmin();
+    const propertyId = String(formData.get("propertyId") || "");
+    const currentStatus = String(formData.get("currentStatus") || "draft");
+    const newStatus = currentStatus === "published" ? "draft" : "published";
+    const { error } = await getSupabase().from("properties").update({ publish_status: newStatus }).eq("id", propertyId);
+    if (error) throw error;
+    revalidateProperty(propertyId);
+    return actionSuccess(newStatus === "published" ? "Properti berhasil diterbitkan." : "Properti dikembalikan ke draft.");
+  } catch (error) {
+    console.error("togglePublishStatus:", error);
+    return actionError(adminActionErrorMessage(error));
+  }
+}
+
+export async function updatePropertyAction(formData: FormData): Promise<AdminActionResult> {
+  try {
+    await requireAdmin();
+    const propertyId = String(formData.get("propertyId") || "");
+    const title = String(formData.get("title") || "").trim();
+    const slug = String(formData.get("slug") || "").trim().toLowerCase();
+    const price = Number(formData.get("price"));
+    if (!propertyId || !title || !slug || !Number.isFinite(price)) return actionError("Data properti tidak valid.");
+
+    const { error } = await getSupabase().from("properties").update({
+      title,
+      slug,
+      price,
+      general_location: String(formData.get("generalLocation") || "").trim(),
+      public_summary: String(formData.get("publicSummary") || "").slice(0, 5000),
+      transaction_type: String(formData.get("transactionType") || ""),
+      property_type: String(formData.get("propertyType") || ""),
+      bedrooms: Math.max(0, Number(formData.get("bedrooms") || 0)),
+      bathrooms: Math.max(0, Number(formData.get("bathrooms") || 0)),
+      land_area: Math.max(0, Number(formData.get("landArea") || 0)),
+      building_area: Math.max(0, Number(formData.get("buildingArea") || 0)),
+      updated_at: new Date().toISOString(),
+    }).eq("id", propertyId);
+    if (error) throw error;
+    revalidateProperty(propertyId);
+    return actionSuccess("Perubahan properti berhasil disimpan.");
+  } catch (error) {
+    console.error("updatePropertyAction:", error);
+    return actionError(adminActionErrorMessage(error));
+  }
+}
+
+export async function hapusPropertiAction(formData: FormData): Promise<AdminActionResult> {
+  try {
+    await requireAdmin();
+    const propertyId = String(formData.get("propertyId") || "");
+    if (!propertyId) return actionError("ID properti tidak valid.");
+    const supabase = getSupabase();
+
+    // Relasi scenes / hotspots menggunakan ON DELETE CASCADE. Media dihapus eksplisit
+    // agar constraint lama yang belum cascade tetap aman.
+    const { error: mediaError } = await supabase.from("property_media").delete().eq("property_id", propertyId);
+    if (mediaError) throw mediaError;
+    const { error } = await supabase.from("properties").delete().eq("id", propertyId);
+    if (error) throw error;
+
+    revalidateProperty();
+    return actionSuccess("Properti berhasil dihapus.");
+  } catch (error) {
+    console.error("hapusPropertiAction:", error);
+    return actionError(adminActionErrorMessage(error));
+  }
 }
