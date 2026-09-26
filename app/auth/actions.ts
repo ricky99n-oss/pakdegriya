@@ -37,13 +37,11 @@ async function resolvePostLoginDestination(accessToken: string, requestedNext?: 
   const isAdmin = role === "admin" || role === "superadmin";
   const requested = normalizeRequestedNext(requestedNext);
 
-  // Jangan pernah mengarahkan member biasa ke area admin hanya karena parameter URL.
   if (requested) {
     if (requested.startsWith("/admin") && !isAdmin) return "/";
     return requested;
   }
 
-  // Login biasa tanpa ?next=: admin masuk dashboard, member kembali ke website publik.
   return isAdmin ? "/admin/dashboard" : "/";
 }
 
@@ -82,18 +80,20 @@ export async function masukAction(formData: FormData) {
     return { error: "Email tidak ditemukan atau password salah." };
   }
 
+  let destination: string;
   try {
-    const destination = await resolvePostLoginDestination(
+    destination = await resolvePostLoginDestination(
       data.session.access_token,
       requestedNext
     );
-
     await saveSessionCookie(data.session.access_token, data.session.expires_in);
-    return redirect(destination);
   } catch (error) {
     console.error("Gagal menyelesaikan login email:", error);
     return { error: error instanceof Error ? error.message : "Gagal membuat sesi login." };
   }
+
+  // redirect() melempar NEXT_REDIRECT; harus berada di luar try/catch.
+  redirect(destination);
 }
 
 export async function completeOAuthLoginAction(
@@ -124,7 +124,7 @@ export async function keluarAction() {
     console.error("Logout Supabase gagal:", error);
   }
 
-  return redirect("/auth/masuk");
+  redirect("/auth/masuk");
 }
 
 export async function daftarMemberAction(formData: FormData) {
@@ -160,7 +160,6 @@ export async function daftarMemberAction(formData: FormData) {
   return { success: true };
 }
 
-// Dipertahankan untuk kompatibilitas jika masih ada pemanggil lama.
 export async function setSessionCookieAction(accessToken: string, expiresIn: number) {
   await saveSessionCookie(accessToken, expiresIn);
 }
