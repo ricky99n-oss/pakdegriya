@@ -2,56 +2,51 @@
 
 import { revalidatePath } from "next/cache";
 import { getSupabase } from "@/lib/supabase";
+import { requireAdmin, adminActionErrorMessage } from "@/lib/admin-auth";
+import { actionError, actionSuccess, type AdminActionResult } from "@/lib/admin-action";
 
-export async function createPropertyAction(formData: FormData) {
-  const code = formData.get("code") as string;
-  const title = formData.get("title") as string;
-  const slug = formData.get("slug") as string;
-  const price = Number(formData.get("price"));
-  const generalLocation = formData.get("generalLocation") as string;
-  const transactionType = formData.get("transactionType") as string;
-  const propertyType = formData.get("propertyType") as string;
-
-  // Validasi dasar
-  if (!title || !slug || !code) {
-    return { error: "Kode, Judul, dan Slug wajib diisi!" };
-  }
-
+export async function createPropertyAction(formData: FormData): Promise<AdminActionResult> {
   try {
-    const supabase = getSupabase();
+    await requireAdmin();
+    const code = String(formData.get("code") || "").trim();
+    const title = String(formData.get("title") || "").trim();
+    const slug = String(formData.get("slug") || "").trim().toLowerCase();
+    const price = Number(formData.get("price"));
+    const generalLocation = String(formData.get("generalLocation") || "").trim();
+    const transactionType = String(formData.get("transactionType") || "");
+    const propertyType = String(formData.get("propertyType") || "");
 
-    // Memasukkan data via REST API Supabase (Drizzle dihapus)
-    const { error } = await supabase.from("properties").insert({
+    if (!title || !slug || !code || !generalLocation || !Number.isFinite(price) || price < 0) {
+      return actionError("Kode, judul, slug, lokasi, dan harga wajib valid.");
+    }
+
+    const { error } = await getSupabase().from("properties").insert({
       id: crypto.randomUUID(),
-      code: code.trim(),
-      title: title.trim(),
-      slug: slug.trim().toLowerCase(),
-      price: isNaN(price) ? 0 : price,
-      general_location: generalLocation.trim(),
+      code,
+      title,
+      slug,
+      price,
+      general_location: generalLocation,
       transaction_type: transactionType,
       property_type: propertyType,
-      publish_status: "draft", 
+      publish_status: "draft",
+      availability_status: "available",
       bedrooms: 0,
       bathrooms: 0,
       land_area: 0,
       building_area: 0,
       public_summary: "",
     });
+    if (error) {
+      if (error.code === "23505") return actionError("Kode properti atau slug URL sudah dipakai. Gunakan nilai lain.");
+      throw error;
+    }
 
-    if (error) throw error;
-
-    // Refresh cache
     revalidatePath("/admin/properti");
     revalidatePath("/");
-    
-    return { success: true };
-    
-  } catch (error: any) {
-    console.error("Error DB Insert:", error);
-    
-    // Pukul rata semua error database
-    return { 
-      error: `Gagal menyimpan! Kode Properti "${code}" atau Slug URL "${slug}" kemungkinan besar SUDAH TERPAKAI di dalam database. Silakan gunakan kode lain.` 
-    };
+    return actionSuccess("Properti berhasil dibuat sebagai draft.", "/admin/properti");
+  } catch (error) {
+    console.error("createPropertyAction:", error);
+    return actionError(adminActionErrorMessage(error));
   }
 }

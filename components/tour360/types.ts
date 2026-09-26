@@ -8,12 +8,7 @@ export type PannellumViewer = {
   getYaw: () => number;
   getHfov: () => number;
   setHfov: (hfov: number, animated?: boolean | number) => PannellumViewer;
-  lookAt: (
-    pitch?: number,
-    yaw?: number,
-    hfov?: number,
-    animated?: boolean | number
-  ) => PannellumViewer;
+  lookAt: (pitch?: number, yaw?: number, hfov?: number, animated?: boolean | number) => PannellumViewer;
   loadScene: (
     sceneId: string,
     pitch?: number | "same",
@@ -38,9 +33,11 @@ export type EditorScene = {
   id: string;
   name: string;
   mediaId: string;
+  sortOrder?: number;
   initialPitch?: number | null;
   initialYaw?: number | null;
   isFirstScene?: boolean;
+  audioMediaId?: string | null;
   [key: string]: any;
 };
 

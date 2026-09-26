@@ -5,7 +5,6 @@ import { createClient } from "@supabase/supabase-js";
 import { setSessionCookieAction } from "../actions";
 import { Loader2 } from "lucide-react";
 
-// Inisiasi Client Supabase
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -17,43 +16,23 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // 1. Supabase akan mengambil token yang tersembunyi di balik URL #
+        const requested = new URLSearchParams(window.location.search).get("next") || "/";
+        const safeNext = requested.startsWith("/") && !requested.startsWith("//") ? requested : "/";
         const { data, error } = await supabase.auth.getSession();
+        if (error) { setErrorMsg(error.message); return; }
+        if (!data.session) { window.location.href = "/auth/masuk?error=Sesi_Kosong"; return; }
 
-        if (error) {
-          setErrorMsg(error.message);
-          return;
-        }
-
-        if (data.session) {
-          // 2. Simpan token ke dalam Cookie Server
-          await setSessionCookieAction(
-            data.session.access_token,
-            data.session.expires_in
-          );
-          
-          // 3. KUNCI PERBAIKAN: Gunakan window.location.href 
-          // Ini memaksa browser merefresh state Next.js dari awal
-          window.location.href = "/";
-        } else {
-          window.location.href = "/auth/masuk?error=Sesi_Kosong";
-        }
-      } catch (err: any) {
-        setErrorMsg(err.message || "Terjadi kesalahan sistem");
+        await setSessionCookieAction(data.session.access_token, data.session.expires_in);
+        window.location.href = safeNext;
+      } catch (error) {
+        setErrorMsg(error instanceof Error ? error.message : "Terjadi kesalahan sistem");
       }
     };
-
     handleCallback();
   }, []);
 
   if (errorMsg) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFF7E8]">
-        <div className="bg-red-50 text-red-600 p-6 rounded-xl font-bold border border-red-200 shadow-md">
-          Gagal Login: {errorMsg}
-        </div>
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center bg-[#FFF7E8]"><div className="bg-red-50 text-red-600 p-6 rounded-xl font-bold border border-red-200 shadow-md">Gagal Login: {errorMsg}</div></div>;
   }
 
   return (

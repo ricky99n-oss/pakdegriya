@@ -1,103 +1,98 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getSupabase } from "@/lib/supabase"; 
+import { getSupabase } from "@/lib/supabase";
 import { getRequestContext } from "@cloudflare/next-on-pages";
+import { requireAdmin, adminActionErrorMessage } from "@/lib/admin-auth";
+import { actionError, actionSuccess, type AdminActionResult } from "@/lib/admin-action";
 
-// === FUNGSI UPLOAD (LANGSUNG KE CLOUDFLARE R2) ===
-export async function uploadMediaAction(formData: FormData): Promise<{ error?: string; success?: boolean }> {
+const FILE_RULES: Record<string, { prefixes: string[]; maxBytes: number }> = {
+  cover_public: { prefixes: ["image/"], maxBytes: 15 * 1024 * 1024 },
+  gallery_private: { prefixes: ["image/"], maxBytes: 15 * 1024 * 1024 },
+  floorplan_private: { prefixes: ["image/", "application/pdf"], maxBytes: 20 * 1024 * 1024 },
+  panorama_private: { prefixes: ["image/"], maxBytes: 45 * 1024 * 1024 },
+  intro_planet_public: { prefixes: ["image/"], maxBytes: 15 * 1024 * 1024 },
+  audio_private: { prefixes: ["audio/"], maxBytes: 20 * 1024 * 1024 },
+};
+
+function validMime(file: File, prefixes: string[]) {
+  return prefixes.some((prefix) => prefix.endsWith("/") ? file.type.startsWith(prefix) : file.type === prefix);
+}
+
+export async function uploadMediaAction(formData: FormData): Promise<AdminActionResult> {
   try {
-    const propertyId = formData.get("propertyId") as string;
-    const fileType = formData.get("fileType") as string;
-    
-    const files = formData.getAll("file") as File[];
+    await requireAdmin();
+    const propertyId = String(formData.get("propertyId") || "");
+    const fileType = String(formData.get("fileType") || "");
+    const files = formData.getAll("file").filter((entry): entry is File => entry instanceof File && entry.size > 0);
+    const rule = FILE_RULES[fileType];
+    if (!propertyId || !rule || files.length === 0) return actionError("File atau kategori media tidak valid.");
+    if (files.length > 10) return actionError("Maksimal 10 file per sekali unggah.");
 
-    if (!files || files.length === 0 || files[0].size === 0) {
-      return { error: "File kosong atau tidak valid" };
+    for (const file of files) {
+      if (!validMime(file, rule.prefixes)) return actionError(`Tipe file ${file.name} tidak diizinkan untuk kategori ini.`);
+      if (file.size > rule.maxBytes) return actionError(`${file.name} terlalu besar. Maksimal ${Math.round(rule.maxBytes / 1024 / 1024)} MB.`);
     }
 
-    // Akses Binding R2 Cloudflare
     const env = getRequestContext().env as any;
     const bucket = env.R2_MEDIA_BUCKET;
-
-    if (!bucket) {
-      return { error: "Sistem R2 Storage belum dikonfigurasi di Cloudflare Pages." };
-    }
-
+    if (!bucket) return actionError("R2 Storage belum dikonfigurasi di Cloudflare.");
     const supabase = getSupabase();
 
-    // Loop setiap file dan simpan
     for (const file of files) {
-      if (file.size === 0) continue;
-
       const fileId = crypto.randomUUID();
-      const fileExt = file.name.substring(file.name.lastIndexOf("."));
-      const finalFileName = `${fileId}${fileExt}`;
-      const finalMimeType = file.type;
-
-      // 1. UPLOAD KE CLOUDFLARE R2 MENGGUNAKAN STREAMING
-      // Menggunakan file.stream() mencegah Out of Memory (OOM) pada file panorama 360 yang masif
+      const safeExt = (file.name.match(/\.[a-zA-Z0-9]{1,8}$/)?.[0] || "").toLowerCase();
+      const finalFileName = `${fileId}${safeExt}`;
       await bucket.put(finalFileName, file.stream(), {
-        httpMetadata: { contentType: finalMimeType }
+        httpMetadata: { contentType: file.type || "application/octet-stream" },
+        customMetadata: { propertyId, fileType },
       });
 
-      // 2. CATAT METADATA KE POSTGRES (SUPABASE REST)
       const { error: dbError } = await supabase.from("property_media").insert({
         id: fileId,
         property_id: propertyId,
         file_type: fileType,
         file_name: finalFileName,
-        mime_type: finalMimeType,
+        mime_type: file.type || "application/octet-stream",
       });
-
       if (dbError) {
-        console.error("Gagal mencatat metadata ke database:", dbError);
-        // Jika gagal catat DB, hapus lagi dari R2 agar tidak ada file yatim
-        await bucket.delete(finalFileName); 
-        return { error: "Gagal mencatat file ke database." };
+        await bucket.delete(finalFileName);
+        throw dbError;
       }
     }
 
     revalidatePath(`/admin/properti/${propertyId}`);
-    return { success: true };
-
-  } catch (error: any) {
-    console.error("Kesalahan Upload R2:", error);
-    return { error: "Terjadi kesalahan server. File mungkin terlalu besar atau konfigurasi Cloudflare salah." };
+    return actionSuccess(`${files.length} media berhasil diunggah.`);
+  } catch (error) {
+    console.error("uploadMediaAction:", error);
+    return actionError(adminActionErrorMessage(error));
   }
 }
 
-// === FUNGSI HAPUS (DARI R2 & DATABASE) ===
-export async function deleteMediaAction(formData: FormData) {
+export async function deleteMediaAction(formData: FormData): Promise<AdminActionResult> {
   try {
-    const mediaId = formData.get("mediaId") as string;
-    const propertyId = formData.get("propertyId") as string;
-    const fileName = formData.get("fileName") as string;
+    await requireAdmin();
+    const mediaId = String(formData.get("mediaId") || "");
+    const propertyId = String(formData.get("propertyId") || "");
+    const fileName = String(formData.get("fileName") || "");
+    if (!mediaId || !propertyId || !fileName) return actionError("Data media tidak valid.");
 
     const supabase = getSupabase();
-
-    // 1. Hapus dari Database Postgres via REST
-    const { error: dbError } = await supabase
-      .from("property_media")
-      .delete()
-      .eq("id", mediaId);
-
+    const { error: dbError } = await supabase.from("property_media").delete().eq("id", mediaId).eq("property_id", propertyId);
     if (dbError) throw dbError;
 
-    // 2. Hapus file fisik dari Cloudflare R2 Storage
     try {
       const env = getRequestContext().env as any;
-      const bucket = env.R2_MEDIA_BUCKET;
-      if (bucket) {
-        await bucket.delete(fileName);
-      }
+      if (env.R2_MEDIA_BUCKET) await env.R2_MEDIA_BUCKET.delete(fileName);
     } catch (r2Error) {
-      console.error("Gagal menghapus file fisik di R2, mengabaikan...", r2Error);
+      console.error("R2 cleanup gagal setelah metadata dihapus:", r2Error);
     }
 
     revalidatePath(`/admin/properti/${propertyId}`);
-    revalidatePath(`/`);
+    revalidatePath("/");
+    return actionSuccess("Media berhasil dihapus.");
   } catch (error) {
-    console.error("Kesalahan saat menghapus media:", error);
+    console.error("deleteMediaAction:", error);
+    return actionError(adminActionErrorMessage(error));
   }
 }
