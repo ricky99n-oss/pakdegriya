@@ -24,6 +24,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
   const rotateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sceneIds = useMemo(() => Object.keys(tourConfig?.scenes || {}), [tourConfig?.scenes]);
   const firstScene = tourConfig?.default?.firstScene || sceneIds[0] || "";
+  const currentSceneIdRef = useRef(firstScene);
 
   const [engineReady, setEngineReady] = useState(false);
   const [currentSceneId, setCurrentSceneId] = useState(firstScene);
@@ -99,12 +100,13 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
     if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
     viewerInstance.current?.stopAutoRotate?.();
     if (!startedRef.current) return;
+
     rotateTimerRef.current = setTimeout(() => {
-      const scene = tourConfig.scenes[currentSceneId];
+      const scene = tourConfig.scenes[currentSceneIdRef.current];
       const speed = Number(scene?.autoRotate ?? tourConfig.default?.autoRotate ?? -0.35);
       viewerInstance.current?.startAutoRotate?.(speed);
     }, delay);
-  }, [currentSceneId, tourConfig.default?.autoRotate, tourConfig.scenes]);
+  }, [tourConfig.default?.autoRotate, tourConfig.scenes]);
 
   useEffect(() => {
     const audio = new Audio();
@@ -128,6 +130,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
     setViewerError("");
     try { viewerInstance.current?.destroy(); } catch {}
     viewerInstance.current = null;
+    currentSceneIdRef.current = firstScene;
     setCurrentSceneId(firstScene);
 
     let viewer: PannellumViewer | null = null;
@@ -160,6 +163,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
         scheduleAutoRotate(1200);
       });
       viewer.on("scenechange", (sceneId: string) => {
+        currentSceneIdRef.current = sceneId;
         setCurrentSceneId(sceneId);
         setLoading(true);
         setShowGallery(false);
@@ -201,7 +205,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
     startedRef.current = true;
     setStarted(true);
     audioEnabledRef.current = withAudio;
-    if (withAudio) playSceneAudio(currentSceneId);
+    if (withAudio) playSceneAudio(currentSceneIdRef.current);
     else setIsAudioPlaying(false);
     const viewer = viewerInstance.current;
     if (viewer && viewer.getHfov() < 110) viewer.setHfov(120, 700);
@@ -215,20 +219,20 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
       setIsAudioPlaying(false);
     } else {
       audioEnabledRef.current = true;
-      playSceneAudio(currentSceneId);
+      playSceneAudio(currentSceneIdRef.current);
     }
   };
 
   const changeScene = (id: string) => {
     if (!tourConfig.scenes[id]) return;
-    if (id === currentSceneId) { setShowGallery(false); return; }
+    if (id === currentSceneIdRef.current) { setShowGallery(false); return; }
     setLoading(true);
     viewerInstance.current?.loadScene(id);
   };
 
   const moveScene = (direction: -1 | 1) => {
     if (sceneIds.length < 2) return;
-    const index = Math.max(0, sceneIds.indexOf(currentSceneId));
+    const index = Math.max(0, sceneIds.indexOf(currentSceneIdRef.current));
     changeScene(sceneIds[(index + direction + sceneIds.length) % sceneIds.length]);
   };
 
