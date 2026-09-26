@@ -92,28 +92,6 @@ export async function verifyHumanAction(token: string) {
   return verifyTurnstileToken(token);
 }
 
-// Pada browser mobile kita memakai Google redirect UX (bukan popup) agar tidak
-// terjebak layar putih accounts.google.com. Turnstile diverifikasi SEBELUM user
-// masuk ke Google, lalu hasil verifikasi disimpan sebentar di cookie HttpOnly.
-export async function prepareGoogleRedirectAction(token: string) {
-  const verification = await verifyTurnstileToken(token);
-  if (!verification.success) {
-    return { success: false, error: verification.error || "Verifikasi keamanan gagal." };
-  }
-
-  const cookieStore = await cookies();
-  cookieStore.set("google_turnstile_ok", "1", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    // Redirect Google kembali lewat cross-site POST, jadi cookie harus bisa ikut.
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    path: "/auth/google-redirect",
-    maxAge: 180,
-  });
-
-  return { success: true };
-}
-
 export async function masukAction(formData: FormData) {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
