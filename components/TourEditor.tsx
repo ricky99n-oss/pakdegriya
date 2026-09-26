@@ -103,11 +103,6 @@ export default function TourEditor({
       hfov: 90, 
       compass: false,
       showControls: true,
-      
-      // === FIX LAYAR HITAM LOADING TERUS ===
-      // Menginstruksikan Pannellum untuk memuat gambar R2 secara instan
-      dynamic: true,
-      
       hotSpots: mappedHotspots 
     });
 

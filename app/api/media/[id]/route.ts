@@ -45,26 +45,28 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return new Response("File fisik tidak ditemukan", { status: 404 });
     }
 
+    // === SOLUSI FINAL LAYAR LOADING HITAM ===
+    // Membaca file sebagai ArrayBuffer utuh, BUKAN stream.
+    // Ini mencegah pemotongan ukuran file oleh Next.js sehingga
+    // Pannellum bisa menghitung progres loading hingga 100%.
+    const buffer = await object.arrayBuffer();
+
     const headers = new Headers();
-    object.writeHttpMetadata(headers);
-    headers.set("etag", object.httpEtag);
-    
-    // 1. Izin CORS Dasar (Mencegah Blokir WebGL)
+    // Izin WebGL
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-    
-    // 2. KUNCI PERBAIKAN: Mengizinkan Javascript/Pannellum membaca ukuran file
     headers.set("Access-Control-Expose-Headers", "Content-Length, Accept-Ranges");
     
-    // 3. Memberitahu Browser ukuran pasti file
-    headers.set("Content-Length", object.size.toString());
-    headers.set("Accept-Ranges", "bytes");
-
-    // 4. Pengoptimalan Cache
-    headers.set("Cache-Control", "public, max-age=31536000, immutable");
+    // Memberikan tipe data dan ukuran pasti dari buffer yang sudah diunduh
     headers.set("Content-Type", media.mime_type || "image/jpeg");
+    headers.set("Content-Length", buffer.byteLength.toString());
+    headers.set("Accept-Ranges", "bytes");
+    
+    // Caching 1 tahun agar sangat cepat
+    headers.set("Cache-Control", "public, max-age=31536000, immutable");
 
-    return new Response(object.body, { headers });
+    // Mengirim buffer utuh, bukan object.body
+    return new Response(buffer, { headers });
 
   } catch (error) {
     console.error("Gagal memuat media:", error);
