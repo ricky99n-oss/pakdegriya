@@ -30,13 +30,8 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
-  // STATE BARU: Eksekusi Trik Blob URL untuk mem-bypass WebGL
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
-
   const sceneIds = Object.keys(tourConfig?.scenes || {});
 
-  // 1. Inisialisasi Ruangan Pertama
   useEffect(() => {
     if (!currentSceneId && sceneIds.length > 0) {
       setCurrentSceneId(tourConfig?.default?.firstScene || sceneIds[0]);
@@ -82,42 +77,8 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
     };
   }, []);
 
-  // EFFECT 1: Mengunduh gambar secara diam-diam ke memori setiap kali pindah ruangan
   useEffect(() => {
-    if (!currentSceneId || !tourConfig?.scenes?.[currentSceneId]) return;
-
-    let isMounted = true;
-    setIsDownloading(true);
-    setBlobUrl(null);
-
-    // Hancurkan viewer agar kanvas direset sebelum gambar baru dimuat
-    if (viewerInstance.current) {
-      try { viewerInstance.current.destroy(); } catch(e) {}
-      viewerInstance.current = null;
-    }
-
-    const mediaUrl = tourConfig.scenes[currentSceneId].panorama;
-
-    fetch(mediaUrl)
-      .then(res => res.blob())
-      .then(blob => {
-        if (isMounted) {
-          const objectUrl = URL.createObjectURL(blob);
-          setBlobUrl(objectUrl);
-          setIsDownloading(false);
-        }
-      })
-      .catch(err => {
-        console.error("Gagal mengunduh panorama:", err);
-        if (isMounted) setIsDownloading(false);
-      });
-
-    return () => { isMounted = false; };
-  }, [currentSceneId, tourConfig]);
-
-  // EFFECT 2: Merender Pannellum secara instan setelah gambar selesai diunduh
-  useEffect(() => {
-    if (!isScriptReady || !viewerRef.current || !window.pannellum || !blobUrl || !currentSceneId) return;
+    if (!isScriptReady || !viewerRef.current || !window.pannellum || !currentSceneId) return;
 
     if (viewerInstance.current) {
       try { viewerInstance.current.destroy(); } catch (e) {}
@@ -125,7 +86,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
 
     const currentSceneConfig = tourConfig.scenes[currentSceneId];
 
-    // Pemetaan ulang Hotspot agar bisa memicu perpindahan ruangan via State React
     const mappedHotspots = (currentSceneConfig.hotSpots || []).map((hs: any) => {
       if (hs.type === "scene" && hs.sceneId) {
         const targetRoom = hs.sceneId;
@@ -142,7 +102,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
           createTooltipFunc: renderViewerHotspot,
           createTooltipArgs: { name: displayName, iconType, targetImage },
           clickHandlerFunc: () => {
-            // Ini akan memicu Effect 1 secara otomatis
             setCurrentSceneId(targetRoom);
             setShowGallery(false);
           }
@@ -151,10 +110,10 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
       return hs;
     }).filter((hs: any) => hs.type === "custom");
 
-    // Konfigurasi tunggal (langsung render, tanpa loading bawaan)
+    // KUNCI UTAMA 3: Menambahkan parameter "?buffer=true" pada render publik
     viewerInstance.current = window.pannellum.viewer(viewerRef.current.id, {
       type: "equirectangular",
-      panorama: blobUrl,
+      panorama: `${currentSceneConfig.panorama}?buffer=true`,
       autoLoad: true,
       hfov: 90,
       minHfov: 50,
@@ -163,11 +122,9 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
       yaw: currentSceneConfig.yaw || 0,
       compass: false,
       showControls: false,
-      dynamic: true, // WAJIB untuk membaca blob
       hotSpots: mappedHotspots
     });
 
-    // Jalankan audio jika tour sudah dimulai
     if (isAudioEnabledRef.current && audioRef.current) {
       if (currentSceneConfig.customAudioUrl) {
         if (!audioRef.current.src.includes(currentSceneConfig.customAudioUrl)) {
@@ -188,7 +145,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
         viewerInstance.current = null; 
       }
     };
-  }, [isScriptReady, blobUrl, currentSceneId, tourConfig]);
+  }, [isScriptReady, currentSceneId, tourConfig]);
 
   const handleStartTour = (withAudio: boolean) => {
     setTourState("playing");
@@ -269,7 +226,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
       `}</style>
 
       <div className={`planet-curtain ${tourState === "pending" ? "visible" : "hidden"}`}>
-        {introPlanetUrl && <img src={introPlanetUrl} alt="Intro Planet" className="planet-img" />}
+        {introPlanetUrl && <img src={`${introPlanetUrl}?buffer=true`} alt="Intro Planet" className="planet-img" />}
       </div>
 
       {tourState === "pending" && (
@@ -283,14 +240,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
               <button onClick={() => handleStartTour(false)} className="w-full text-gray-400 font-medium py-2 hover:text-white transition-all text-sm cursor-pointer">Mulai Tanpa Audio</button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* INDIKATOR LOADING PINTAR: Muncul saat berpindah ruangan (Blob sedang diunduh) */}
-      {isDownloading && (
-        <div className="absolute inset-0 z-[45] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="w-12 h-12 border-4 border-[#D6A34A] border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-[#D6A34A] font-bold animate-pulse tracking-wide">Memuat Ruangan...</p>
         </div>
       )}
       
@@ -333,7 +282,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
                   return (
                     <button key={id} onClick={() => changeScene(id)} className={`relative group rounded-xl overflow-hidden aspect-video border-2 transition-all cursor-pointer ${isActive ? 'border-[#D6A34A] scale-105 shadow-[0_0_15px_rgba(214,163,74,0.5)]' : 'border-transparent hover:border-white/50'}`}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.panorama} alt={s.title} className="w-full h-full object-cover" />
+                      <img src={`${s.panorama}?buffer=true`} alt={s.title} className="w-full h-full object-cover" />
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-3 pt-8">
                         <p className={`text-sm font-bold truncate ${isActive ? 'text-[#D6A34A]' : 'text-white'}`}>{s.title}</p>
                       </div>
