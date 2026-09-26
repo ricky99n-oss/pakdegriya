@@ -2,10 +2,13 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { users } from "@/db/schema";
 import { getSupabase } from "@/lib/supabase";
+import {
+  createMemberProfile,
+  ensureUserProfile,
+  updateUserPhone,
+  type AuthUserLike,
+} from "@/lib/user-profile";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 
 function normalizeRequestedNext(value: FormDataEntryValue | string | null | undefined) {
@@ -39,49 +42,16 @@ function logServerError(label: string, error: unknown) {
 
 const DATABASE_AUTH_ERROR = "Gagal menghubungkan akun. Silakan coba lagi beberapa saat.";
 
-type AuthUser = {
-  id: string;
-  email?: string | null;
-  user_metadata?: Record<string, any>;
-};
-
-async function ensureUserProfile(authUser: AuthUser) {
-  const email = String(authUser.email || "").trim().toLowerCase();
-  if (!email) throw new Error("Email akun Google tidak tersedia.");
-
-  const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  if (existing.length) {
-    const current = existing[0];
-    const googleName = String(authUser.user_metadata?.full_name || authUser.user_metadata?.name || "").trim();
-    if (!current.name && googleName) {
-      await db.update(users).set({ name: googleName }).where(eq(users.email, email));
-      return { ...current, name: googleName };
-    }
-    return current;
-  }
-
-  const name = String(authUser.user_metadata?.full_name || authUser.user_metadata?.name || "Member").trim() || "Member";
-  await db.insert(users).values({
-    id: authUser.id,
-    email,
-    name,
-    passwordHash: "supabase_managed",
-    role: "member" as any,
-  }).onConflictDoNothing();
-
-  const inserted = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  if (!inserted.length) throw new Error("Profil member gagal dibuat.");
-  return inserted[0];
-}
-
 function destinationForRole(roleValue: string, requestedNext?: string | null) {
   const role = String(roleValue || "member").toLowerCase();
   const isAdmin = role === "admin" || role === "superadmin";
   const requested = normalizeRequestedNext(requestedNext);
+
   if (requested) {
     if (requested.startsWith("/admin") && !isAdmin) return "/";
     return requested;
   }
+
   return isAdmin ? "/admin/dashboard" : "/";
 }
 
@@ -89,7 +59,8 @@ async function authContextFromToken(accessToken: string) {
   const supabase = getSupabase();
   const { data, error } = await supabase.auth.getUser(accessToken);
   if (error || !data?.user) throw new Error("Sesi login tidak valid. Silakan masuk kembali.");
-  const profile = await ensureUserProfile(data.user as AuthUser);
+
+  const profile = await ensureUserProfile(data.user as AuthUserLike);
   return { authUser: data.user, profile };
 }
 
@@ -115,6 +86,7 @@ export async function masukAction(formData: FormData) {
   const requestedNext = normalizeRequestedNext(formData.get("next"));
 
   if (!email || !password) return { error: "Email dan Password wajib diisi." };
+
   const verification = await verifyTurnstileToken(turnstileToken);
   if (!verification.success) return { error: verification.error || "Verifikasi keamanan gagal." };
 
@@ -159,12 +131,13 @@ export async function googleIdTokenLoginAction(
       return { success: false, error: "Akun Google gagal diverifikasi. Silakan coba lagi." };
     }
 
-    const profile = await ensureUserProfile(data.user as AuthUser);
+    const profile = await ensureUserProfile(data.user as AuthUserLike);
     const destination = destinationForRole(String(profile.role), requestedNext);
     await saveSessionCookie(data.session.access_token, data.session.expires_in);
 
     const role = String(profile.role || "member").toLowerCase();
     const isAdmin = role === "admin" || role === "superadmin";
+
     return {
       success: true,
       redirectTo: destination,
@@ -186,6 +159,7 @@ export async function completeOAuthLoginAction(
     const { authUser, profile } = await authContextFromToken(accessToken);
     const destination = destinationForRole(String(profile.role), requestedNext);
     await saveSessionCookie(accessToken, expiresIn);
+
     const role = String(profile.role || "member").toLowerCase();
     const isAdmin = role === "admin" || role === "superadmin";
 
@@ -204,7 +178,12 @@ export async function completeOAuthLoginAction(
 export async function saveMemberPhoneAction(rawPhone: string) {
   try {
     const phone = normalizePhone(rawPhone);
-    if (!phone) return { success: false, error: "Nomor telepon tidak valid. Gunakan nomor Indonesia aktif, misalnya 0812..." };
+    if (!phone) {
+      return {
+        success: false,
+        error: "Nomor telepon tidak valid. Gunakan nomor Indonesia aktif, misalnya 0812...",
+      };
+    }
 
     const cookieStore = await cookies();
     const accessToken = cookieStore.get("supabase_access_token")?.value;
@@ -214,7 +193,7 @@ export async function saveMemberPhoneAction(rawPhone: string) {
     const email = String(authUser.email || "").trim().toLowerCase();
     if (!email) return { success: false, error: "Email akun tidak ditemukan." };
 
-    await db.update(users).set({ phone }).where(eq(users.email, email));
+    await updateUserPhone(email, phone);
     return { success: true, phone };
   } catch (error) {
     logServerError("saveMemberPhoneAction gagal", error);
@@ -225,7 +204,13 @@ export async function saveMemberPhoneAction(rawPhone: string) {
 export async function keluarAction() {
   const cookieStore = await cookies();
   cookieStore.delete("supabase_access_token");
-  try { await getSupabase().auth.signOut(); } catch (error) { console.error("Logout Supabase gagal:", error); }
+
+  try {
+    await getSupabase().auth.signOut();
+  } catch (error) {
+    console.error("Logout Supabase gagal:", error);
+  }
+
   redirect("/auth/masuk");
 }
 
@@ -236,7 +221,9 @@ export async function daftarMemberAction(formData: FormData) {
   const phone = normalizePhone(String(formData.get("phone") || ""));
   const turnstileToken = String(formData.get("cf-turnstile-response") || "");
 
-  if (!name || !email || !password || !phone) return { error: "Nama, email, nomor telepon, dan password wajib diisi dengan benar." };
+  if (!name || !email || !password || !phone) {
+    return { error: "Nama, email, nomor telepon, dan password wajib diisi dengan benar." };
+  }
   if (password.length < 8) return { error: "Password minimal 8 karakter." };
 
   const verification = await verifyTurnstileToken(turnstileToken);
@@ -249,23 +236,25 @@ export async function daftarMemberAction(formData: FormData) {
   });
 
   if (error) {
-    if (error.message.includes("already registered") || error.message.includes("User already exists")) return { error: "Email sudah terdaftar!" };
+    if (error.message.includes("already registered") || error.message.includes("User already exists")) {
+      return { error: "Email sudah terdaftar!" };
+    }
     return { error: `Gagal mendaftar: ${error.message}` };
   }
 
   if (data.user) {
     try {
-      await db.insert(users).values({
+      await createMemberProfile({
         id: data.user.id,
         email,
         name,
         phone,
-        passwordHash: "supabase_managed",
-        role: "member" as any,
-      }).onConflictDoNothing();
-    } catch (dbError) {
-      logServerError("Gagal membuat profil member setelah signup", dbError);
-      return { error: "Akun dibuat, tetapi profil belum dapat disiapkan. Silakan coba login beberapa saat lagi." };
+      });
+    } catch (profileError) {
+      logServerError("Gagal membuat profil member setelah signup", profileError);
+      return {
+        error: "Akun dibuat, tetapi profil belum dapat disiapkan. Silakan coba login beberapa saat lagi.",
+      };
     }
   }
 
