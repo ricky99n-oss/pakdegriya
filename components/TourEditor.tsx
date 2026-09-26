@@ -40,10 +40,6 @@ export default function TourEditor({
   const [pitch, setPitch] = useState<number | string>("");
   const [yaw, setYaw] = useState<number | string>("");
 
-  // STATE BARU: Untuk menyimpan memori lokal gambar & status unduhan
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
-
   const currentScene = existingScenes.find(s => s.id === activeSceneId);
   const sceneHotspots = allHotspots.filter(h => h.sceneId === activeSceneId);
 
@@ -79,42 +75,8 @@ export default function TourEditor({
     hotSpotDiv.appendChild(labelDiv);
   };
 
-  // EFFECT 1: Mengunduh gambar API ke memori lokal (Blob) secara diam-diam
   useEffect(() => {
-    if (!currentScene?.mediaId) return;
-
-    let isMounted = true;
-    setIsDownloading(true);
-    setBlobUrl(null);
-
-    // Hancurkan viewer lama saat berganti ruangan agar kanvas bersih
-    if (viewerInstance.current) {
-      try { viewerInstance.current.destroy(); } catch(e) {}
-      viewerInstance.current = null;
-    }
-
-    fetch(`/api/media/${currentScene.mediaId}`)
-      .then(res => res.blob())
-      .then(blob => {
-        if (isMounted) {
-          const objectUrl = URL.createObjectURL(blob);
-          setBlobUrl(objectUrl);
-          setIsDownloading(false);
-        }
-      })
-      .catch(err => {
-        console.error("Gagal mengunduh gambar ke memori lokal", err);
-        if (isMounted) setIsDownloading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [currentScene?.mediaId]);
-
-  // EFFECT 2: Memasukkan memori lokal (Blob) ke Pannellum secara instan
-  useEffect(() => {
-    if (!isReady || !viewerRef.current || !window.pannellum || !blobUrl) return;
+    if (!isReady || !viewerRef.current || !window.pannellum || !currentScene) return;
 
     if (viewerInstance.current) {
       try { viewerInstance.current.destroy(); } catch(e) {}
@@ -123,6 +85,7 @@ export default function TourEditor({
     const mappedHotspots = sceneHotspots.map(h => {
       const [rawLabel, iconType = "door"] = (h.label || "").split("|||");
       const targetScene = existingScenes.find(s => s.id === h.targetSceneId);
+      // Thumbnail memanggil API biasa tanpa membebani RAM
       const targetImage = targetScene ? `/api/media/${targetScene.mediaId}` : "";
 
       return {
@@ -136,12 +99,13 @@ export default function TourEditor({
 
     viewerInstance.current = window.pannellum.viewer(viewerRef.current.id, {
       type: "equirectangular",
-      // KUNCI UTAMA: Gambar dibaca dari memori lokal (bebas loading macet)
-      panorama: blobUrl, 
+      // KUNCI PERBAIKAN: Gunakan parameter khusus agar server memberi file utuh untuk kanvas ini
+      panorama: `/api/media/${currentScene.mediaId}?buffer=true`,
       autoLoad: true, 
       hfov: 90, 
       compass: false,
       showControls: true,
+      crossOrigin: "anonymous", 
       hotSpots: mappedHotspots 
     });
 
@@ -151,7 +115,7 @@ export default function TourEditor({
         viewerInstance.current = null;
       }
     };
-  }, [isReady, blobUrl, sceneHotspots, existingScenes]);
+  }, [isReady, activeSceneId, currentScene, sceneHotspots, existingScenes]);
 
   const handleCaptureCoords = () => {
     if (viewerInstance.current) {
@@ -253,15 +217,6 @@ export default function TourEditor({
           <div className="flex flex-col xl:flex-row gap-6">
             
             <div className="w-full xl:w-2/3 h-[500px] relative bg-black rounded-xl overflow-hidden shadow-inner border-2 border-gray-200">
-              
-              {/* PENANDA DOWNLOAD KUSTOM SAAT BACKGROUND BERJALAN */}
-              {isDownloading && (
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black">
-                  <div className="w-10 h-10 border-4 border-[#D6A34A] border-t-transparent rounded-full animate-spin mb-4"></div>
-                  <p className="text-[#D6A34A] text-sm font-bold animate-pulse">Mengunduh Resolusi Tinggi...</p>
-                </div>
-              )}
-
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                 <Crosshair className="text-[#D6A34A] drop-shadow-md" size={40} strokeWidth={2} />
               </div>

@@ -4,21 +4,22 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "edge";
 
 export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "*",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
+  const headers = new Headers();
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "*");
+  headers.set("Access-Control-Max-Age", "86400"); 
+  return new Response(null, { status: 204, headers });
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   try {
+    const url = new URL(request.url);
+    // SAKLAR PINTAR: Mengecek apakah ini permintaan dari mesin 360
+    const forceBuffer = url.searchParams.get("buffer") === "true";
+
     const env = getRequestContext().env as any;
     const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -34,16 +35,25 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const object = await bucket.get(media.file_name);
     if (!object) return new Response("File fisik tidak ditemukan di R2", { status: 404 });
 
-    // KEMBALIKAN KE MODE STREAM (object.body) AGAR RAM SERVER TIDAK OVERLOAD
     const headers = new Headers();
     headers.set("Access-Control-Allow-Origin", "*");
-    headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
     headers.set("Access-Control-Expose-Headers", "Content-Length, Accept-Ranges");
-    headers.set("Content-Length", object.size.toString());
     headers.set("Content-Type", media.mime_type || "image/jpeg");
     headers.set("Cache-Control", "public, max-age=31536000, immutable");
+    headers.set("Accept-Ranges", "bytes");
 
-    return new Response(object.body, { headers });
+    if (forceBuffer) {
+      // MODE 1 (PANNELLUM 360): Dimuat utuh ke RAM agar nilai persentase loading jalan.
+      // Aman dari Error 1102 karena hanya 1 gambar yang diproses pada satu waktu.
+      const buffer = await object.arrayBuffer();
+      headers.set("Content-Length", buffer.byteLength.toString());
+      return new Response(buffer, { headers });
+    } else {
+      // MODE 2 (THUMBNAIL): Streaming langsung. Hemat memori server.
+      headers.set("Content-Length", object.size.toString());
+      return new Response(object.body, { headers });
+    }
 
   } catch (error) {
     console.error("Gagal memuat media:", error);

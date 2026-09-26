@@ -30,7 +30,18 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
+  // STATE BARU: Eksekusi Trik Blob URL untuk mem-bypass WebGL
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
   const sceneIds = Object.keys(tourConfig?.scenes || {});
+
+  // 1. Inisialisasi Ruangan Pertama
+  useEffect(() => {
+    if (!currentSceneId && sceneIds.length > 0) {
+      setCurrentSceneId(tourConfig?.default?.firstScene || sceneIds[0]);
+    }
+  }, [tourConfig, currentSceneId, sceneIds]);
 
   const renderViewerHotspot = (hotSpotDiv: HTMLElement, args: any) => {
     const { name, iconType, targetImage } = args;
@@ -71,84 +82,126 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
     };
   }, []);
 
+  // EFFECT 1: Mengunduh gambar secara diam-diam ke memori setiap kali pindah ruangan
   useEffect(() => {
-    if (isScriptReady && viewerRef.current && window.pannellum && !viewerInstance.current) {
-      const config = JSON.parse(JSON.stringify(tourConfig));
-      config.default.autoRotate = 0; 
-      config.default.hfov = 90;
-      config.default.sceneFadeDuration = 1000; 
-      config.default.showControls = false;
-      config.default.showZoomCtrl = false;
-      config.default.showFullscreenCtrl = false;
-      config.default.title = ""; 
-      
-      // === FIX LAYAR HITAM LOADING TERUS ===
-      // Menginstruksikan Pannellum untuk tidak menghitung ukuran file terlebih dahulu
-      config.default.dynamic = true;
+    if (!currentSceneId || !tourConfig?.scenes?.[currentSceneId]) return;
 
-      if (config.scenes) {
-        Object.keys(config.scenes).forEach(sceneKey => {
-          const scene = config.scenes[sceneKey];
-          scene.title = ""; 
-          scene.minHfov = 50;
-          scene.maxHfov = 110; 
+    let isMounted = true;
+    setIsDownloading(true);
+    setBlobUrl(null);
 
-          if (scene.hotSpots) {
-            scene.hotSpots.forEach((hs: any) => {
-              if (hs.type === "scene" && hs.sceneId) {
-                const targetRoom = hs.sceneId;
-                const rawLabel = hs.text || "";
-                const parts = rawLabel.split("|||");
-                const displayName = parts[0] || tourConfig.scenes[hs.sceneId]?.title || "Pindah Ruangan";
-                const iconType = parts[1] || "door";
-                const targetImage = tourConfig.scenes[hs.sceneId]?.panorama || "";
-
-                hs.type = "custom";
-                hs.createTooltipFunc = renderViewerHotspot;
-                hs.createTooltipArgs = { name: displayName, iconType, targetImage };
-                
-                hs.clickHandlerFunc = () => {
-                  const viewer = viewerInstance.current;
-                  if (viewer) viewer.loadScene(targetRoom);
-                };
-              }
-            });
-          }
-        });
-      }
-      viewerInstance.current = window.pannellum.viewer(viewerRef.current.id, config);
-      setCurrentSceneId(viewerInstance.current.getScene());
-      viewerInstance.current.on('scenechange', (sceneId: string) => {
-        setCurrentSceneId(sceneId);
-        if (isAudioEnabledRef.current && audioRef.current) {
-          const newSceneConfig = config.scenes[sceneId];
-          if (newSceneConfig && newSceneConfig.customAudioUrl) {
-            if (!audioRef.current.src.includes(newSceneConfig.customAudioUrl)) {
-              audioRef.current.src = newSceneConfig.customAudioUrl;
-              audioRef.current.play().catch(e => {});
-              setIsAudioPlaying(true);
-            }
-          } else {
-            audioRef.current.pause(); audioRef.current.src = ""; setIsAudioPlaying(false);
-          }
-        }
-      });
+    // Hancurkan viewer agar kanvas direset sebelum gambar baru dimuat
+    if (viewerInstance.current) {
+      try { viewerInstance.current.destroy(); } catch(e) {}
+      viewerInstance.current = null;
     }
+
+    const mediaUrl = tourConfig.scenes[currentSceneId].panorama;
+
+    fetch(mediaUrl)
+      .then(res => res.blob())
+      .then(blob => {
+        if (isMounted) {
+          const objectUrl = URL.createObjectURL(blob);
+          setBlobUrl(objectUrl);
+          setIsDownloading(false);
+        }
+      })
+      .catch(err => {
+        console.error("Gagal mengunduh panorama:", err);
+        if (isMounted) setIsDownloading(false);
+      });
+
+    return () => { isMounted = false; };
+  }, [currentSceneId, tourConfig]);
+
+  // EFFECT 2: Merender Pannellum secara instan setelah gambar selesai diunduh
+  useEffect(() => {
+    if (!isScriptReady || !viewerRef.current || !window.pannellum || !blobUrl || !currentSceneId) return;
+
+    if (viewerInstance.current) {
+      try { viewerInstance.current.destroy(); } catch (e) {}
+    }
+
+    const currentSceneConfig = tourConfig.scenes[currentSceneId];
+
+    // Pemetaan ulang Hotspot agar bisa memicu perpindahan ruangan via State React
+    const mappedHotspots = (currentSceneConfig.hotSpots || []).map((hs: any) => {
+      if (hs.type === "scene" && hs.sceneId) {
+        const targetRoom = hs.sceneId;
+        const rawLabel = hs.text || "";
+        const parts = rawLabel.split("|||");
+        const displayName = parts[0] || tourConfig.scenes[hs.sceneId]?.title || "Pindah Ruangan";
+        const iconType = parts[1] || "door";
+        const targetImage = tourConfig.scenes[hs.sceneId]?.panorama || "";
+
+        return {
+          pitch: hs.pitch,
+          yaw: hs.yaw,
+          type: "custom",
+          createTooltipFunc: renderViewerHotspot,
+          createTooltipArgs: { name: displayName, iconType, targetImage },
+          clickHandlerFunc: () => {
+            // Ini akan memicu Effect 1 secara otomatis
+            setCurrentSceneId(targetRoom);
+            setShowGallery(false);
+          }
+        };
+      }
+      return hs;
+    }).filter((hs: any) => hs.type === "custom");
+
+    // Konfigurasi tunggal (langsung render, tanpa loading bawaan)
+    viewerInstance.current = window.pannellum.viewer(viewerRef.current.id, {
+      type: "equirectangular",
+      panorama: blobUrl,
+      autoLoad: true,
+      hfov: 90,
+      minHfov: 50,
+      maxHfov: 110,
+      pitch: currentSceneConfig.pitch || 0,
+      yaw: currentSceneConfig.yaw || 0,
+      compass: false,
+      showControls: false,
+      dynamic: true, // WAJIB untuk membaca blob
+      hotSpots: mappedHotspots
+    });
+
+    // Jalankan audio jika tour sudah dimulai
+    if (isAudioEnabledRef.current && audioRef.current) {
+      if (currentSceneConfig.customAudioUrl) {
+        if (!audioRef.current.src.includes(currentSceneConfig.customAudioUrl)) {
+          audioRef.current.src = currentSceneConfig.customAudioUrl;
+          audioRef.current.play().catch(() => {});
+          setIsAudioPlaying(true);
+        }
+      } else {
+        audioRef.current.pause(); 
+        audioRef.current.src = ""; 
+        setIsAudioPlaying(false);
+      }
+    }
+
     return () => {
-      if (viewerInstance.current) { try { viewerInstance.current.destroy(); } catch (e) {} viewerInstance.current = null; }
+      if (viewerInstance.current) { 
+        try { viewerInstance.current.destroy(); } catch (e) {} 
+        viewerInstance.current = null; 
+      }
     };
-  }, [isScriptReady, tourConfig]);
+  }, [isScriptReady, blobUrl, currentSceneId, tourConfig]);
 
   const handleStartTour = (withAudio: boolean) => {
     setTourState("playing");
     isAudioEnabledRef.current = withAudio;
     setIsAudioPlaying(withAudio);
+    
     if (viewerInstance.current) {
       viewerInstance.current.setHfov(130);
       viewerInstance.current.lookAt(viewerInstance.current.getPitch(), viewerInstance.current.getYaw(), 90, 2000);
     }
-    if (withAudio && viewerInstance.current && audioRef.current) {
-      const currentSceneConfig = tourConfig.scenes[viewerInstance.current.getScene()];
+    
+    if (withAudio && audioRef.current) {
+      const currentSceneConfig = tourConfig.scenes[currentSceneId];
       if (currentSceneConfig && currentSceneConfig.customAudioUrl) {
         audioRef.current.src = currentSceneConfig.customAudioUrl;
         audioRef.current.play().catch(e => {});
@@ -170,12 +223,17 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
   };
 
   const changeScene = (id: string) => {
-    if (viewerInstance.current && id !== currentSceneId) { viewerInstance.current.loadScene(id); setShowGallery(false); }
+    if (id !== currentSceneId) { 
+      setCurrentSceneId(id); 
+      setShowGallery(false); 
+    }
   };
+  
   const goToPrevScene = () => {
     const idx = sceneIds.indexOf(currentSceneId);
     if (idx > 0) changeScene(sceneIds[idx - 1]); else changeScene(sceneIds[sceneIds.length - 1]);
   };
+  
   const goToNextScene = () => {
     const idx = sceneIds.indexOf(currentSceneId);
     if (idx < sceneIds.length - 1) changeScene(sceneIds[idx + 1]); else changeScene(sceneIds[0]);
@@ -195,11 +253,9 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
         .pakde-hotspot-thumbnail:hover { transform: scale(1.15); border-color: #D6A34A; }
         .door-icon { display: flex; align-items: center; justify-content: center; }
         
-        /* Default: Hilang dan muncul saat hover */
         .door-label { position: absolute; bottom: 100%; margin-bottom: 10px; left: 50%; transform: translateX(-50%) translateY(10px); background: rgba(0, 0, 0, 0.8); color: white; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; transition: all 0.3s ease; border: 1px solid rgba(255,255,255,0.2); }
         .pakde-hotspot-wrapper:hover .door-label { opacity: 1; transform: translateX(-50%) translateY(0); }
         
-        /* Mobile Override: Selalu Muncul */
         @media (max-width: 768px) {
           .door-label { opacity: 1 !important; transform: translateX(-50%) translateY(0) !important; font-size: 11px; padding: 4px 10px; margin-bottom: 5px;}
         }
@@ -227,6 +283,14 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
               <button onClick={() => handleStartTour(false)} className="w-full text-gray-400 font-medium py-2 hover:text-white transition-all text-sm cursor-pointer">Mulai Tanpa Audio</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* INDIKATOR LOADING PINTAR: Muncul saat berpindah ruangan (Blob sedang diunduh) */}
+      {isDownloading && (
+        <div className="absolute inset-0 z-[45] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="w-12 h-12 border-4 border-[#D6A34A] border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-[#D6A34A] font-bold animate-pulse tracking-wide">Memuat Ruangan...</p>
         </div>
       )}
       
