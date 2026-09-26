@@ -1,30 +1,32 @@
 import { getRequestContext } from "@cloudflare/next-on-pages";
 import { createClient } from "@supabase/supabase-js";
 
-// Wajib untuk Cloudflare Pages
+// Wajib untuk Cloudflare Pages Edge Runtime
 export const runtime = "edge";
 
-// FUNGSI BARU: Menjawab "Pemeriksaan Keamanan CORS" dari mesin WebGL 360°
+// Menjawab "Pemeriksaan Keamanan CORS" dari mesin WebGL 360°
 export async function OPTIONS() {
   const headers = new Headers();
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, Range");
+  headers.set("Access-Control-Allow-Headers", "*");
   headers.set("Access-Control-Max-Age", "86400"); // Cache izin selama 24 jam
   
   return new Response(null, { status: 204, headers });
 }
 
-// FUNGSI UTAMA: Mengirim file gambar
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    // Mengambil env dengan cara paling aman di Cloudflare Edge
+    const env = getRequestContext().env as any;
+    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+    const supabase = createClient(supabaseUrl!, supabaseKey!);
+
+    // Ambil data metadata dari database
     const { data: media } = await supabase
       .from("property_media")
       .select("file_name, mime_type")
@@ -36,14 +38,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return new Response("Media tidak ditemukan", { status: 404 });
     }
 
-    const env = getRequestContext().env as any;
     const bucket = env.R2_MEDIA_BUCKET;
-
     if (!bucket) {
-      return new Response("R2 Error", { status: 500 });
+      return new Response("R2 Error: Bucket belum di-binding", { status: 500 });
     }
 
-    // Mengambil file dari Cloudflare R2
+    // Mengambil file fisik dari Cloudflare R2
     const object = await bucket.get(media.file_name);
 
     if (!object) {
@@ -54,13 +54,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     object.writeHttpMetadata(headers);
     headers.set("etag", object.httpEtag);
     
-    // Header Wajib agar WebGL bisa membungkus gambar jadi 360 derajat
+    // Header Izin Keamanan WebGL
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
     
-    // Memaksa Cache 1 Tahun agar loading di HP pengunjung sangat cepat
+    // Header Cache untuk mempercepat loading
     headers.set("Cache-Control", "public, max-age=31536000, immutable");
     headers.set("Content-Type", media.mime_type || "image/jpeg");
+
+    // === KUNCI PERBAIKAN: Mencegah Layar Loading Hitam di Editor ===
+    // Memberitahu Pannellum ukuran asli file agar persentase loading bisa berjalan
+    headers.set("Content-Length", object.size.toString());
+    
+    // Mengizinkan Browser memuat gambar secara parsial (potongan)
+    headers.set("Accept-Ranges", "bytes");
 
     return new Response(object.body, { headers });
 
