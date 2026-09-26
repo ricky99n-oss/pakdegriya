@@ -299,4 +299,4 @@ export default async function BerandaPublik() {
       </div>
     );
   }
-}
+} 
