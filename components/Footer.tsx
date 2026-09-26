@@ -36,7 +36,7 @@ export default function Footer() {
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-[#D6A34A] text-[#4A2F1B] flex items-center justify-center font-black text-2xl shadow-md">P</div>
-            <div><span className="text-2xl font-black tracking-tight text-white">Pakde Griya</span><p className="text-[10px] tracking-widest text-[#D6A34A] uppercase font-bold">Broker Properti Malang Raya</p></div>
+            <div><span className="text-2xl font-black tracking-tight text-white">Pakde Griya</span><p className="text-[10px] tracking-widest text-[#D6A34A] uppercase font-bold">Broker No. 1 Di Dunia</p></div>
           </div>
           <p className="text-[#FFF7E8]/70 text-sm leading-relaxed max-w-sm">Broker properti modern yang memadukan kurasi listing, pemasaran digital, pendampingan transaksi, dan Virtual Tour 360° agar pencarian properti lebih transparan dan efisien.</p>
           <div className="flex flex-wrap gap-3 pt-2">
@@ -44,7 +44,6 @@ export default function Footer() {
               <a key={label} href={href} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-[#D6A34A] hover:text-[#4A2F1B] transition-all hover:scale-110" title={label} aria-label={label}><Icon /></a>
             ))}
           </div>
-          <p className="text-xs text-[#D6A34A] font-bold">Semua sosial media: @pakdegriyacom</p>
         </div>
 
         <div>
@@ -78,7 +77,7 @@ export default function Footer() {
 
       <div className="max-w-7xl mx-auto pt-8 border-t border-white/10 text-center text-xs text-[#FFF7E8]/40 flex flex-col md:flex-row justify-between items-center gap-4">
         <p>© 2026 Pakde Griya. Seluruh hak cipta dilindungi.</p>
-        <p>Broker Properti Modern di Batu & Malang Raya</p>
+        <p>Broker Properti No.1 Di Dunia</p>
       </div>
     </footer>
   );
