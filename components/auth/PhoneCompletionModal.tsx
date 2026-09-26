@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Loader2, Phone, ShieldCheck } from "lucide-react";
 import { saveMemberPhoneAction } from "@/app/auth/actions";
@@ -13,6 +14,8 @@ type Props = {
 
 export default function PhoneCompletionModal({ open, redirectTo, userName, onComplete }: Props) {
   const [phone, setPhone] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -21,11 +24,15 @@ export default function PhoneCompletionModal({ open, redirectTo, userName, onCom
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (saving) return;
+    if (!acceptedTerms) {
+      setError("Anda harus menyetujui Syarat & Ketentuan Pakde Griya.");
+      return;
+    }
+
     setSaving(true);
     setError("");
-
     try {
-      const result = await saveMemberPhoneAction(phone);
+      const result = await saveMemberPhoneAction(phone, acceptedTerms, marketingOptIn);
       if (!result.success) {
         setError(result.error || "Nomor telepon gagal disimpan.");
         return;
@@ -42,7 +49,7 @@ export default function PhoneCompletionModal({ open, redirectTo, userName, onCom
 
   return (
     <div className="fixed inset-0 z-[99999] bg-black/70 backdrop-blur-md flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="phone-title">
-      <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl border border-[#D6A34A]/30 overflow-hidden">
+      <div className="w-full max-w-md max-h-[92dvh] overflow-y-auto rounded-3xl bg-white shadow-2xl border border-[#D6A34A]/30">
         <div className="bg-[#4A2F1B] px-6 py-6 text-white">
           <div className="w-12 h-12 rounded-2xl bg-[#D6A34A] text-[#281C15] flex items-center justify-center mb-4"><Phone size={23} /></div>
           <h2 id="phone-title" className="text-2xl font-black">Lengkapi Nomor Telepon Anda</h2>
@@ -59,21 +66,21 @@ export default function PhoneCompletionModal({ open, redirectTo, userName, onCom
 
           <div>
             <label htmlFor="member-phone" className="block text-sm font-bold text-[#281C15] mb-2">Nomor Telepon / WhatsApp</label>
-            <input
-              id="member-phone"
-              type="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              required
-              autoFocus
-              autoComplete="tel"
-              inputMode="tel"
-              placeholder="0812 3456 7890"
-              className="w-full h-12 rounded-xl border border-gray-200 bg-gray-50 px-4 text-[#281C15] focus:outline-none focus:border-[#D6A34A] focus:ring-2 focus:ring-[#D6A34A]/20"
-            />
+            <input id="member-phone" type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} required autoFocus autoComplete="tel" inputMode="tel" placeholder="0812 3456 7890" className="w-full h-12 rounded-xl border border-gray-200 bg-gray-50 px-4 text-[#281C15] focus:outline-none focus:border-[#D6A34A] focus:ring-2 focus:ring-[#D6A34A]/20" />
           </div>
 
-          <button type="submit" disabled={saving} className="w-full h-12 rounded-xl bg-[#D6A34A] text-[#281C15] font-black flex items-center justify-center gap-2 hover:bg-[#c2913b] disabled:opacity-60">
+          <div className="space-y-3 rounded-2xl border border-[#D6A34A]/20 bg-[#FFF7E8] p-4">
+            <label className="flex items-start gap-3 text-xs text-[#4A2F1B] cursor-pointer">
+              <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} className="mt-0.5 accent-[#D6A34A]" />
+              <span>Saya menyetujui <Link href="/syarat-ketentuan" target="_blank" className="font-black underline text-[#b67d1d]">Syarat & Ketentuan Pakde Griya</Link>.</span>
+            </label>
+            <label className="flex items-start gap-3 text-xs text-[#4A2F1B]/80 cursor-pointer">
+              <input type="checkbox" checked={marketingOptIn} onChange={(event) => setMarketingOptIn(event.target.checked)} className="mt-0.5 accent-[#D6A34A]" />
+              <span>Saya bersedia menerima promo dan penawaran menarik melalui email dan/atau WhatsApp. Opsional.</span>
+            </label>
+          </div>
+
+          <button type="submit" disabled={saving || !acceptedTerms} className="w-full h-12 rounded-xl bg-[#D6A34A] text-[#281C15] font-black flex items-center justify-center gap-2 hover:bg-[#c2913b] disabled:opacity-60">
             {saving ? <><Loader2 size={18} className="animate-spin" /> Menyimpan...</> : "Simpan & Lanjutkan"}
           </button>
 
