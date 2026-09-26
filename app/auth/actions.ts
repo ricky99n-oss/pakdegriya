@@ -23,6 +23,22 @@ function normalizePhone(value: string) {
   return `+${digits}`;
 }
 
+function logServerError(label: string, error: unknown) {
+  const cause = error && typeof error === "object" && "cause" in error
+    ? (error as { cause?: any }).cause
+    : undefined;
+
+  console.error(label, {
+    message: error instanceof Error ? error.message : String(error),
+    causeMessage: cause?.message,
+    code: cause?.code,
+    detail: cause?.detail,
+    hint: cause?.hint,
+  });
+}
+
+const DATABASE_AUTH_ERROR = "Gagal menghubungkan akun. Silakan coba lagi beberapa saat.";
+
 type AuthUser = {
   id: string;
   email?: string | null;
@@ -112,8 +128,8 @@ export async function masukAction(formData: FormData) {
     destination = destinationForRole(String(profile.role), requestedNext);
     await saveSessionCookie(data.session.access_token, data.session.expires_in);
   } catch (error) {
-    console.error("Gagal menyelesaikan login email:", error);
-    return { error: error instanceof Error ? error.message : "Gagal membuat sesi login." };
+    logServerError("Gagal menyelesaikan login email", error);
+    return { error: DATABASE_AUTH_ERROR };
   }
 
   redirect(destination);
@@ -156,8 +172,8 @@ export async function googleIdTokenLoginAction(
       userName: profile.name || data.user.user_metadata?.full_name || "Member",
     };
   } catch (error) {
-    console.error("Google ID token login gagal:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Login Google gagal." };
+    logServerError("Google ID token login gagal", error);
+    return { success: false, error: DATABASE_AUTH_ERROR };
   }
 }
 
@@ -180,8 +196,8 @@ export async function completeOAuthLoginAction(
       userName: profile.name || authUser.user_metadata?.full_name || "Member",
     };
   } catch (error) {
-    console.error("Gagal menyelesaikan login OAuth:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Gagal membuat sesi login Google." };
+    logServerError("Gagal menyelesaikan login OAuth", error);
+    return { success: false, error: DATABASE_AUTH_ERROR };
   }
 }
 
@@ -201,8 +217,8 @@ export async function saveMemberPhoneAction(rawPhone: string) {
     await db.update(users).set({ phone }).where(eq(users.email, email));
     return { success: true, phone };
   } catch (error) {
-    console.error("saveMemberPhoneAction:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Nomor telepon gagal disimpan." };
+    logServerError("saveMemberPhoneAction gagal", error);
+    return { success: false, error: "Nomor telepon gagal disimpan. Silakan coba lagi." };
   }
 }
 
@@ -238,14 +254,19 @@ export async function daftarMemberAction(formData: FormData) {
   }
 
   if (data.user) {
-    await db.insert(users).values({
-      id: data.user.id,
-      email,
-      name,
-      phone,
-      passwordHash: "supabase_managed",
-      role: "member" as any,
-    }).onConflictDoNothing();
+    try {
+      await db.insert(users).values({
+        id: data.user.id,
+        email,
+        name,
+        phone,
+        passwordHash: "supabase_managed",
+        role: "member" as any,
+      }).onConflictDoNothing();
+    } catch (dbError) {
+      logServerError("Gagal membuat profil member setelah signup", dbError);
+      return { error: "Akun dibuat, tetapi profil belum dapat disiapkan. Silakan coba login beberapa saat lagi." };
+    }
   }
 
   return { success: true };
