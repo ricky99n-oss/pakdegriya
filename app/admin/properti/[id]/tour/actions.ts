@@ -1,133 +1,199 @@
 "use server";
+
 import { revalidatePath } from "next/cache";
 import { getSupabase } from "@/lib/supabase";
+import { requireAdmin, adminActionErrorMessage } from "@/lib/admin-auth";
+import { actionError, actionSuccess, type AdminActionResult } from "@/lib/admin-action";
 
-export async function createSceneAction(formData: FormData) {
-  const propertyId = formData.get("propertyId") as string;
-  const mediaId = formData.get("mediaId") as string;
-  const name = formData.get(`name_${mediaId}`) as string;
-
-  if (!name || name.trim() === "") return;
-
-  const supabase = getSupabase();
-
-  // Cek apakah ini scene pertama yang dibuat
-  const { data: existingScenes } = await supabase
-    .from("scenes")
-    .select("id")
-    .eq("property_id", propertyId);
-    
-  const isFirst = !existingScenes || existingScenes.length === 0;
-
-  await supabase.from("scenes").insert({
-    id: crypto.randomUUID(),
-    property_id: propertyId,
-    media_id: mediaId,
-    name: name.trim(),
-    is_first_scene: isFirst,
-  });
-
-  revalidatePath(`/admin/properti/${propertyId}/tour`);
+function tourPath(propertyId: string) {
+  return `/admin/properti/${propertyId}/tour`;
 }
 
-export async function createHotspotAction(formData: FormData) {
-  const sceneId = formData.get("sceneId") as string;
-  const targetSceneId = formData.get("targetSceneId") as string;
-  const pitch = Number(formData.get("pitch"));
-  const yaw = Number(formData.get("yaw"));
-  const label = formData.get("label") as string;
-  const propertyId = formData.get("propertyId") as string;
+export async function createSceneAction(formData: FormData): Promise<AdminActionResult> {
+  try {
+    await requireAdmin();
+    const propertyId = String(formData.get("propertyId") || "");
+    const mediaId = String(formData.get("mediaId") || "");
+    const name = String(formData.get(`name_${mediaId}`) || "").trim();
+    if (!propertyId || !mediaId || !name) return actionError("Data ruangan belum lengkap.");
 
-  const supabase = getSupabase();
-  await supabase.from("hotspots").insert({
-    id: crypto.randomUUID(),
-    scene_id: sceneId,
-    target_scene_id: targetSceneId,
-    pitch,
-    yaw,
-    label,
-  });
+    const supabase = getSupabase();
+    const { data: existingScenes, error: readError } = await supabase
+      .from("scenes")
+      .select("id, sort_order")
+      .eq("property_id", propertyId)
+      .order("sort_order", { ascending: true });
+    if (readError) throw readError;
 
-  revalidatePath(`/admin/properti/${propertyId}/tour`);
+    const isFirst = !existingScenes?.length;
+    const nextOrder = existingScenes?.length
+      ? Math.max(...existingScenes.map((scene) => Number(scene.sort_order) || 0)) + 1
+      : 0;
+
+    const { error } = await supabase.from("scenes").insert({
+      id: crypto.randomUUID(),
+      property_id: propertyId,
+      media_id: mediaId,
+      name,
+      sort_order: nextOrder,
+      is_first_scene: isFirst,
+    });
+    if (error) throw error;
+
+    revalidatePath(tourPath(propertyId));
+    return actionSuccess("Ruangan berhasil ditambahkan ke tur 360°.");
+  } catch (error) {
+    console.error("createSceneAction:", error);
+    return actionError(adminActionErrorMessage(error));
+  }
 }
 
-export async function deleteHotspotAction(formData: FormData) {
-  const hotspotId = formData.get("hotspotId") as string;
-  const propertyId = formData.get("propertyId") as string;
+export async function moveSceneAction(formData: FormData): Promise<AdminActionResult> {
+  try {
+    await requireAdmin();
+    const propertyId = String(formData.get("propertyId") || "");
+    const sceneId = String(formData.get("sceneId") || "");
+    const direction = String(formData.get("direction") || "") === "up" ? -1 : 1;
+    if (!propertyId || !sceneId) return actionError("Ruangan tidak valid.");
 
-  const supabase = getSupabase();
-  await supabase.from("hotspots").delete().eq("id", hotspotId);
+    const supabase = getSupabase();
+    const { data: scenes, error } = await supabase
+      .from("scenes")
+      .select("id, sort_order")
+      .eq("property_id", propertyId)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) throw error;
 
-  revalidatePath(`/admin/properti/${propertyId}/tour`);
+    const index = (scenes || []).findIndex((scene) => scene.id === sceneId);
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= (scenes?.length || 0)) {
+      return actionError("Ruangan sudah berada di posisi paling ujung.");
+    }
+
+    const normalized = (scenes || []).map((scene, idx) => ({ ...scene, sort_order: idx }));
+    const current = normalized[index];
+    const target = normalized[targetIndex];
+
+    const [{ error: firstError }, { error: secondError }] = await Promise.all([
+      supabase.from("scenes").update({ sort_order: target.sort_order }).eq("id", current.id),
+      supabase.from("scenes").update({ sort_order: current.sort_order }).eq("id", target.id),
+    ]);
+    if (firstError || secondError) throw firstError || secondError;
+
+    revalidatePath(tourPath(propertyId));
+    return actionSuccess("Urutan ruangan berhasil diperbarui.");
+  } catch (error) {
+    console.error("moveSceneAction:", error);
+    return actionError(adminActionErrorMessage(error));
+  }
 }
 
-export async function deleteSceneAction(formData: FormData) {
-  const sceneId = formData.get("sceneId") as string;
-  const propertyId = formData.get("propertyId") as string;
+export async function createHotspotAction(formData: FormData): Promise<AdminActionResult> {
+  try {
+    await requireAdmin();
+    const sceneId = String(formData.get("sceneId") || "");
+    const targetSceneId = String(formData.get("targetSceneId") || "");
+    const propertyId = String(formData.get("propertyId") || "");
+    const label = String(formData.get("label") || "").slice(0, 255);
+    const pitch = Number(formData.get("pitch"));
+    const yaw = Number(formData.get("yaw"));
+    if (!sceneId || !targetSceneId || !propertyId || !Number.isFinite(pitch) || !Number.isFinite(yaw)) {
+      return actionError("Koordinat atau tujuan hotspot tidak valid.");
+    }
 
-  const supabase = getSupabase();
-  
-  // Hapus semua hotspot yang terkait dengan scene ini terlebih dahulu
-  await supabase.from("hotspots").delete().eq("scene_id", sceneId);
-  await supabase.from("hotspots").delete().eq("target_scene_id", sceneId);
-  
-  // Baru hapus scene-nya
-  await supabase.from("scenes").delete().eq("id", sceneId);
-
-  revalidatePath(`/admin/properti/${propertyId}/tour`);
+    const { error } = await getSupabase().from("hotspots").insert({
+      id: crypto.randomUUID(), scene_id: sceneId, target_scene_id: targetSceneId, pitch, yaw, label,
+    });
+    if (error) throw error;
+    revalidatePath(tourPath(propertyId));
+    return actionSuccess("Hotspot berhasil disimpan.");
+  } catch (error) {
+    console.error("createHotspotAction:", error);
+    return actionError(adminActionErrorMessage(error));
+  }
 }
 
-export async function setFirstSceneAction(formData: FormData) {
-  const sceneId = formData.get("sceneId") as string;
-  const propertyId = formData.get("propertyId") as string;
-
-  const supabase = getSupabase();
-  
-  // Set semua scene di properti ini menjadi false
-  await supabase.from("scenes").update({ is_first_scene: false }).eq("property_id", propertyId);
-  
-  // Jadikan scene yang dipilih menjadi true
-  await supabase.from("scenes").update({ is_first_scene: true }).eq("id", sceneId);
-
-  revalidatePath(`/admin/properti/${propertyId}/tour`);
+export async function deleteHotspotAction(formData: FormData): Promise<AdminActionResult> {
+  try {
+    await requireAdmin();
+    const hotspotId = String(formData.get("hotspotId") || "");
+    const propertyId = String(formData.get("propertyId") || "");
+    const { error } = await getSupabase().from("hotspots").delete().eq("id", hotspotId);
+    if (error) throw error;
+    revalidatePath(tourPath(propertyId));
+    return actionSuccess("Hotspot berhasil dihapus.");
+  } catch (error) {
+    console.error("deleteHotspotAction:", error);
+    return actionError(adminActionErrorMessage(error));
+  }
 }
 
-export async function updateSceneNameAction(formData: FormData) {
-  const sceneId = formData.get("sceneId") as string;
-  const propertyId = formData.get("propertyId") as string;
-  const name = formData.get("name") as string;
-
-  const supabase = getSupabase();
-  await supabase.from("scenes").update({ name }).eq("id", sceneId);
-  
-  revalidatePath(`/admin/properti/${propertyId}/tour`);
+export async function deleteSceneAction(formData: FormData): Promise<AdminActionResult> {
+  try {
+    await requireAdmin();
+    const sceneId = String(formData.get("sceneId") || "");
+    const propertyId = String(formData.get("propertyId") || "");
+    const supabase = getSupabase();
+    const { error: h1 } = await supabase.from("hotspots").delete().eq("scene_id", sceneId);
+    const { error: h2 } = await supabase.from("hotspots").delete().eq("target_scene_id", sceneId);
+    if (h1 || h2) throw h1 || h2;
+    const { error } = await supabase.from("scenes").delete().eq("id", sceneId);
+    if (error) throw error;
+    revalidatePath(tourPath(propertyId));
+    return actionSuccess("Ruangan berhasil dihapus dari tur.");
+  } catch (error) {
+    console.error("deleteSceneAction:", error);
+    return actionError(adminActionErrorMessage(error));
+  }
 }
 
-export async function updateSceneAudioAction(formData: FormData) {
-  const sceneId = formData.get("sceneId") as string;
-  const propertyId = formData.get("propertyId") as string;
-  const audioMediaId = formData.get("audioMediaId") as string;
-
-  const supabase = getSupabase();
-  await supabase.from("scenes").update({
-    audio_media_id: audioMediaId === "none" ? null : audioMediaId,
-  }).eq("id", sceneId);
-
-  revalidatePath(`/admin/properti/${propertyId}/tour`);
+export async function setFirstSceneAction(formData: FormData): Promise<AdminActionResult> {
+  try {
+    await requireAdmin();
+    const sceneId = String(formData.get("sceneId") || "");
+    const propertyId = String(formData.get("propertyId") || "");
+    const supabase = getSupabase();
+    const { error: resetError } = await supabase.from("scenes").update({ is_first_scene: false }).eq("property_id", propertyId);
+    if (resetError) throw resetError;
+    const { error } = await supabase.from("scenes").update({ is_first_scene: true, sort_order: 0 }).eq("id", sceneId);
+    if (error) throw error;
+    revalidatePath(tourPath(propertyId));
+    return actionSuccess("Ruangan awal berhasil ditetapkan.");
+  } catch (error) {
+    console.error("setFirstSceneAction:", error);
+    return actionError(adminActionErrorMessage(error));
+  }
 }
 
-export async function setInitialViewAction(formData: FormData) {
-  const sceneId = formData.get("sceneId") as string;
-  const propertyId = formData.get("propertyId") as string;
-  
-  const pitch = formData.get("pitch") || formData.get("initialPitch");
-  const yaw = formData.get("yaw") || formData.get("initialYaw");
+export async function updateSceneNameAction(formData: FormData): Promise<AdminActionResult> {
+  try {
+    await requireAdmin();
+    const sceneId = String(formData.get("sceneId") || "");
+    const propertyId = String(formData.get("propertyId") || "");
+    const name = String(formData.get("name") || "").trim().slice(0, 255);
+    if (!name) return actionError("Nama ruangan tidak boleh kosong.");
+    const { error } = await getSupabase().from("scenes").update({ name }).eq("id", sceneId);
+    if (error) throw error;
+    revalidatePath(tourPath(propertyId));
+    return actionSuccess("Nama ruangan berhasil diperbarui.");
+  } catch (error) {
+    return actionError(adminActionErrorMessage(error));
+  }
+}
 
-  const supabase = getSupabase();
-  await supabase.from("scenes").update({
-    initial_pitch: Number(pitch),
-    initial_yaw: Number(yaw),
-  }).eq("id", sceneId);
-
-  revalidatePath(`/admin/properti/${propertyId}/tour`);
+export async function setInitialViewAction(formData: FormData): Promise<AdminActionResult> {
+  try {
+    await requireAdmin();
+    const sceneId = String(formData.get("sceneId") || "");
+    const propertyId = String(formData.get("propertyId") || "");
+    const pitch = Number(formData.get("pitch") || formData.get("initialPitch") || 0);
+    const yaw = Number(formData.get("yaw") || formData.get("initialYaw") || 0);
+    const { error } = await getSupabase().from("scenes").update({ initial_pitch: pitch, initial_yaw: yaw }).eq("id", sceneId);
+    if (error) throw error;
+    revalidatePath(tourPath(propertyId));
+    return actionSuccess("Pandangan awal berhasil disimpan.");
+  } catch (error) {
+    return actionError(adminActionErrorMessage(error));
+  }
 }
