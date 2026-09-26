@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import TourViewer from "@/components/TourViewer";
-import { getSupabase } from "@/lib/supabase"; // <- Menggunakan Supabase REST
+import { getSupabase } from "@/lib/supabase"; 
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +30,6 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
       media_id:media_id, audio_media_id:audio_media_id
     `).eq("property_id", property.id),
     
-    // Asumsi tabel hotspots terkait dengan scene yang terkait dengan property ini
     supabase.from("hotspots").select(`
       id, scene_id:scene_id, target_scene_id:target_scene_id, 
       pitch, yaw, label
@@ -41,11 +42,21 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
   const allHotspots = hotspotsRes.data || [];
   const allMedia = mediaRes.data || [];
 
+  // TAMPILAN JIKA BELUM ADA VIRTUAL TOUR (DITAMBAH TOMBOL KEMBALI)
   if (allScenes.length === 0) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#281C15] text-[#D6A34A] font-sans">
-        <h1 className="text-2xl font-bold mb-2">Virtual Tour Belum Tersedia</h1>
-        <p className="text-sm opacity-70">Properti ini belum memiliki ruangan 360° yang didaftarkan.</p>
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#281C15] text-[#D6A34A] font-sans p-6 text-center">
+        <h1 className="text-2xl md:text-3xl font-bold mb-3">Virtual Tour Belum Tersedia</h1>
+        <p className="text-sm md:text-base opacity-70 mb-8 max-w-md">
+          Properti ini belum memiliki ruangan 360° yang didaftarkan.
+        </p>
+        
+        <Link 
+          href={`/properti/${slug}`}
+          className="flex items-center gap-2 bg-[#D6A34A] text-[#281C15] px-6 py-3 rounded-xl font-bold hover:bg-[#c2913b] transition-all shadow-lg"
+        >
+          <ArrowLeft size={20} /> Kembali ke Detail Properti
+        </Link>
       </div>
     );
   }
@@ -84,7 +95,6 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
       panorama: `/api/media/${scene.media_id}`,
       pitch: scene.initial_pitch || 0,
       yaw: scene.initial_yaw || 0,
-      // SETELAN BARU: Mengunci lensa kamera agar tidak terlalu nge-zoom/pecah
       hfov: 110,
       minHfov: 50,
       maxHfov: 150,
