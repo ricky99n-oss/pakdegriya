@@ -1,67 +1,67 @@
-import { NextRequest, NextResponse } from "next/server";
-import { validateRequest } from "@/lib/auth";
-import { getSupabase } from "@/lib/supabase";
 import { getRequestContext } from "@cloudflare/next-on-pages";
+import { createClient } from "@supabase/supabase-js";
 
-// EDGE COMPATIBILITY
+// Wajib untuk Cloudflare Pages
 export const runtime = "edge";
-export const dynamic = "force-dynamic";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> } 
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+
   try {
-    const { id } = await params;
-    const supabase = getSupabase();
+    // 1. Inisiasi Supabase murni (menghindari error cookie di Edge API)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
 
-    // 1. Cek meta-data file di tabel Supabase
-    const { data: media, error } = await supabase
+    // 2. Ambil nama file fisik dari database
+    const { data: media } = await supabase
       .from("property_media")
-      .select("file_type, file_name")
+      .select("file_name, mime_type")
       .eq("id", id)
+      .limit(1)
       .single();
-    
-    if (error || !media) {
-      return new NextResponse("Gambar tidak ditemukan di database", { status: 404 });
+
+    if (!media) {
+      return new Response("Media tidak ditemukan di database", { status: 404 });
     }
 
-    // 2. OTORISASI (Keamanan Media Private)
-    if (media.file_type === "panorama_private" || media.file_type === "audio_private" || media.file_type === "floorplan_private") {
-      const { user } = await validateRequest();
-      if (!user) {
-        return new NextResponse("Akses ditolak. Silakan login.", { status: 401 });
-      }
-    }
-
-    // 3. AMBIL OBJEK DARI CLOUDFLARE R2
-    // Menggunakan binding R2 yang dipasang di dashboard
+    // 3. Akses Cloudflare R2
     const env = getRequestContext().env as any;
     const bucket = env.R2_MEDIA_BUCKET;
 
     if (!bucket) {
-      return new NextResponse("Sistem Error: R2 Bucket Binding tidak ditemukan", { status: 500 });
+      return new Response("Sistem R2 belum dikonfigurasi", { status: 500 });
     }
 
-    // Ambil file fisik berdasarkan nama file (misal: "fasad 1.jpg")
     const object = await bucket.get(media.file_name);
 
-    if (object === null) {
-      return new NextResponse("File fisik tidak ditemukan di R2", { status: 404 });
+    if (!object) {
+      return new Response("File fisik tidak ditemukan di R2", { status: 404 });
     }
 
-    // 4. STREAMING FILE KE BROWSER
+    // 4. RACIKAN HEADER SUPER CEPAT & ANTI BLANK HITAM
     const headers = new Headers();
     object.writeHttpMetadata(headers);
-    headers.set('etag', object.httpEtag);
+    headers.set("etag", object.httpEtag);
+    
+    // KUNCI UTAMA 1: Mengizinkan WebGL membaca gambar untuk dirender menjadi bola 360 derajat (Mencegah Blank Hitam)
+    headers.set("Access-Control-Allow-Origin", "*");
+    headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    
+    // KUNCI UTAMA 2: Memaksa Browser & CDN menyimpan cache selama 1 Tahun (Mencegah Web Lemot/Berat)
+    headers.set("Cache-Control", "public, max-age=31536000, immutable");
+    
+    // Pastikan format gambar terbaca dengan benar
+    headers.set("Content-Type", media.mime_type || "image/jpeg");
 
-    // Kirim langsung sebagai stream tanpa membebani memori server
-    return new NextResponse(object.body, {
+    // 5. Kirim gambar sebagai aliran data (Stream) agar RAM server tidak jebol
+    return new Response(object.body, {
       headers,
     });
 
-  } catch (err) {
-    console.error("Error API Media R2:", err);
-    return new NextResponse("Internal Server Error", { status: 500 });
+  } catch (error) {
+    console.error("Gagal memuat media:", error);
+    return new Response("Terjadi Kesalahan Server", { status: 500 });
   }
 }

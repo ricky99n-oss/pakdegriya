@@ -45,7 +45,6 @@ export default async function BerandaPublik() {
 
     if (propError) throw new Error(propError.message);
 
-    // KEMBALIKAN KE URL API INTERNAL KARENA DATA SUDAH DI R2 CLOUDFLARE
     const propertiDenganCover = await Promise.all(
       (publikProperti || []).map(async (prop) => {
         const { data: cover } = await supabase
@@ -184,7 +183,6 @@ export default async function BerandaPublik() {
                       <Link href={`/properti/${item.slug}`} prefetch={false} className="absolute inset-0 z-10"></Link>
                       
                       {item.coverId ? (
-                        // MENGGUNAKAN API INTERNAL UNTUK MENGAMBIL DARI CLOUDFLARE R2
                         // eslint-disable-next-line @next/next/no-img-element
                         <img 
                           src={`/api/media/${item.coverId}`} 
@@ -226,7 +224,8 @@ export default async function BerandaPublik() {
           <section className="container mx-auto px-6 mt-16 mb-32 space-y-32 max-w-7xl">
             <div className="flex flex-col md:flex-row items-center gap-10">
               <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
-                <Image src="/images/pakde-1.webp" alt="Pakde Griya Survey 360 Derajat" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
+                {/* PENAMBAHAN PARAMETER UNOPTIMIZED AGAR CLOUDFLARE TIDAK TERSENDAT */}
+                <Image src="/images/pakde-1.webp" alt="Pakde Griya Survey 360 Derajat" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" unoptimized />
               </div>
               <div className="w-full md:w-7/12 space-y-6 md:pl-8">
                 <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
@@ -240,7 +239,8 @@ export default async function BerandaPublik() {
 
             <div className="flex flex-col md:flex-row-reverse items-center gap-10">
               <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
-                <Image src="/images/pakde-2.webp" alt="Daftarkan Properti di Pakde Griya" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
+                {/* PENAMBAHAN PARAMETER UNOPTIMIZED AGAR CLOUDFLARE TIDAK TERSENDAT */}
+                <Image src="/images/pakde-2.webp" alt="Daftarkan Properti di Pakde Griya" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" unoptimized />
               </div>
               <div className="w-full md:w-7/12 space-y-6 md:pr-8">
                 <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
@@ -257,7 +257,8 @@ export default async function BerandaPublik() {
 
             <div className="flex flex-col md:flex-row items-center gap-10">
               <div className="w-full md:w-5/12 relative h-[350px] md:h-[450px] flex items-end justify-center group">
-                <Image src="/images/pakde-3.webp" alt="Jual Properti Bersama Pakde" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
+                {/* PENAMBAHAN PARAMETER UNOPTIMIZED AGAR CLOUDFLARE TIDAK TERSENDAT */}
+                <Image src="/images/pakde-3.webp" alt="Jual Properti Bersama Pakde" fill className="object-contain object-bottom group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" unoptimized />
               </div>
               <div className="w-full md:w-7/12 space-y-6 md:pl-8">
                 <h2 className="text-3xl md:text-5xl font-black text-[#4A2F1B] leading-tight">
