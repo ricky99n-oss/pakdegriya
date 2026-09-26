@@ -1,13 +1,13 @@
-import { 
-  pgTable, 
-  varchar, 
-  text, 
-  integer, 
-  timestamp, 
-  boolean, 
-  pgEnum, 
-  doublePrecision, 
-  uuid 
+import {
+  pgTable,
+  varchar,
+  text,
+  integer,
+  timestamp,
+  boolean,
+  pgEnum,
+  doublePrecision,
+  uuid,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -17,13 +17,21 @@ export const propertyTypeEnum = pgEnum("property_type", ["rumah", "tanah", "vill
 export const publishStatusEnum = pgEnum("publish_status", ["draft", "published", "archived"]);
 export const availabilityStatusEnum = pgEnum("availability_status", ["available", "reserved", "sold", "rented", "withdrawn"]);
 export const tourStatusEnum = pgEnum("tour_status", ["draft", "published"]);
-export const fileTypeEnum = pgEnum("file_type", ["cover_public", "gallery_private", "floorplan_private", "panorama_private", "audio_private", "intro_planet_public"]);
+export const fileTypeEnum = pgEnum("file_type", [
+  "cover_public",
+  "gallery_private",
+  "floorplan_private",
+  "panorama_private",
+  "audio_private",
+  "intro_planet_public",
+]);
 
 export const users = pgTable("users", {
   id: varchar("id", { length: 255 }).primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   passwordHash: varchar("password_hash", { length: 255 }),
   name: varchar("name", { length: 255 }),
+  phone: varchar("phone", { length: 32 }),
   role: roleEnum("role").default("member").notNull(),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 });
@@ -68,6 +76,7 @@ export const propertyMedia = pgTable("property_media", {
   fileType: fileTypeEnum("file_type").notNull(),
   fileName: varchar("file_name", { length: 255 }).notNull(),
   mimeType: varchar("mime_type", { length: 100 }).notNull(),
+  isPublic: boolean("is_public").default(false).notNull(),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 });
 
