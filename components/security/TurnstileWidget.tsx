@@ -16,9 +16,10 @@ declare global {
 type Props = {
   onToken: (token: string) => void;
   onExpire?: () => void;
+  resetKey?: number;
 };
 
-export default function TurnstileWidget({ onToken, onExpire }: Props) {
+export default function TurnstileWidget({ onToken, onExpire, resetKey = 0 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
   const onTokenRef = useRef(onToken);
@@ -51,6 +52,12 @@ export default function TurnstileWidget({ onToken, onExpire }: Props) {
       }
     };
   }, [ready, siteKey]);
+
+  useEffect(() => {
+    if (!resetKey || !widgetId.current || !window.turnstile) return;
+    window.turnstile.reset(widgetId.current);
+    onTokenRef.current("");
+  }, [resetKey]);
 
   if (!siteKey) {
     return <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">Turnstile belum aktif. Tambahkan NEXT_PUBLIC_TURNSTILE_SITE_KEY dan TURNSTILE_SECRET_KEY di Cloudflare.</p>;
