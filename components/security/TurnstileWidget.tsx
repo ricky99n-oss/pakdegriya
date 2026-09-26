@@ -19,24 +19,29 @@ type Props = {
 };
 
 export default function TurnstileWidget({ onToken, onExpire }: Props) {
-  const ref = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
+  const onTokenRef = useRef(onToken);
+  const onExpireRef = useRef(onExpire);
   const [ready, setReady] = useState(false);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
-  useEffect(() => {
-    if (!ready || !siteKey || !ref.current || !window.turnstile || widgetId.current) return;
+  useEffect(() => { onTokenRef.current = onToken; }, [onToken]);
+  useEffect(() => { onExpireRef.current = onExpire; }, [onExpire]);
 
-    widgetId.current = window.turnstile.render(ref.current, {
+  useEffect(() => {
+    if (!ready || !siteKey || !containerRef.current || !window.turnstile || widgetId.current) return;
+
+    widgetId.current = window.turnstile.render(containerRef.current, {
       sitekey: siteKey,
       theme: "light",
       size: "flexible",
-      callback: (token: string) => onToken(token),
+      callback: (token: string) => onTokenRef.current(token),
       "expired-callback": () => {
-        onToken("");
-        onExpire?.();
+        onTokenRef.current("");
+        onExpireRef.current?.();
       },
-      "error-callback": () => onToken(""),
+      "error-callback": () => onTokenRef.current(""),
     });
 
     return () => {
@@ -45,7 +50,7 @@ export default function TurnstileWidget({ onToken, onExpire }: Props) {
         widgetId.current = null;
       }
     };
-  }, [ready, siteKey, onToken, onExpire]);
+  }, [ready, siteKey]);
 
   if (!siteKey) {
     return <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">Turnstile belum aktif. Tambahkan NEXT_PUBLIC_TURNSTILE_SITE_KEY dan TURNSTILE_SECRET_KEY di Cloudflare.</p>;
@@ -53,12 +58,8 @@ export default function TurnstileWidget({ onToken, onExpire }: Props) {
 
   return (
     <>
-      <Script
-        src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-        strategy="afterInteractive"
-        onLoad={() => setReady(true)}
-      />
-      <div ref={ref} className="min-h-[65px]" />
+      <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onLoad={() => setReady(true)} />
+      <div ref={containerRef} className="min-h-[65px]" />
     </>
   );
 }
