@@ -41,7 +41,7 @@ export const getSupabase = () => {
   });
 };
 
-/** Client anon yang menjalankan request sebagai user dengan access token tertentu. */
+/** Client anon yang menjalankan REST request sebagai user dengan access token tertentu. */
 export const getSupabaseForAccessToken = (accessToken: string) => {
   const supabaseUrl = resolveSupabaseUrl();
   const anonKey = resolveAnonKey();
@@ -59,12 +59,39 @@ export const getSupabaseForAccessToken = (accessToken: string) => {
 };
 
 /**
+ * Update atribut Supabase Auth user menggunakan endpoint HTTPS /auth/v1/user.
+ * Helper ini tidak membutuhkan session state di supabase-js sehingga stabil di Edge Runtime.
+ */
+export async function updateAuthUserWithAccessToken(
+  accessToken: string,
+  attributes: Record<string, unknown>
+) {
+  const supabaseUrl = resolveSupabaseUrl();
+  const anonKey = resolveAnonKey();
+  if (!supabaseUrl || !anonKey) throw new Error("Konfigurasi Supabase belum lengkap.");
+
+  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    method: "PUT",
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(attributes),
+    cache: "no-store",
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(String(payload?.msg || payload?.message || payload?.error_description || "Gagal memperbarui akun Supabase."));
+  }
+  return payload;
+}
+
+/**
  * Server-only Supabase client untuk operasi database yang harus melewati RLS.
  * Menggunakan REST/HTTPS sehingga aman di Next Edge Runtime dan tidak memakai
  * Node.js net/tls seperti driver PostgreSQL TCP.
- *
- * SUPABASE_SERVICE_ROLE_KEY wajib disimpan sebagai Secret di Cloudflare,
- * jangan pernah memakai prefix NEXT_PUBLIC_.
  */
 export const getSupabaseAdmin = () => {
   const supabaseUrl = resolveSupabaseUrl();
@@ -78,7 +105,6 @@ export const getSupabaseAdmin = () => {
   });
 };
 
-// Kompatibilitas untuk file lama yang masih menggunakan import { supabase }.
 export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
   get: (_, prop) => {
     const instance = getSupabase();
