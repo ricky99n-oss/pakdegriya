@@ -63,6 +63,7 @@ export default function GoogleIdentityButton({
   const nextRef = useRef(requestedNext);
   const onErrorRef = useRef(onError);
   const onTokenConsumedRef = useRef(onTokenConsumed);
+  const lastRedirectStateRef = useRef("");
 
   const [scriptReady, setScriptReady] = useState(false);
   const [pending, setPending] = useState(false);
@@ -76,6 +77,27 @@ export default function GoogleIdentityButton({
   useEffect(() => { onTokenConsumedRef.current = onTokenConsumed; }, [onTokenConsumed]);
   useEffect(() => { setRedirectMode(isMobileLikeBrowser()); }, []);
 
+  const renderGoogleButton = () => {
+    if (!containerRef.current || !window.google?.accounts?.id) return;
+
+    const redirectState = redirectMode
+      ? buildRedirectState(nextRef.current, tokenRef.current)
+      : "";
+
+    containerRef.current.innerHTML = "";
+    window.google.accounts.id.renderButton(containerRef.current, {
+      theme: "outline",
+      size: "large",
+      shape: "rectangular",
+      text: mode === "signup" ? "signup_with" : "signin_with",
+      width: Math.min(420, containerRef.current.clientWidth || 420),
+      logo_alignment: "left",
+      ...(redirectMode ? { state: redirectState } : {}),
+    });
+
+    lastRedirectStateRef.current = redirectState;
+  };
+
   useEffect(() => {
     if (
       redirectMode === null ||
@@ -83,7 +105,8 @@ export default function GoogleIdentityButton({
       !clientId ||
       !containerRef.current ||
       !window.google?.accounts?.id ||
-      initializedRef.current
+      initializedRef.current ||
+      (redirectMode && !turnstileToken)
     ) return;
 
     const googleId = window.google.accounts.id;
@@ -147,31 +170,21 @@ export default function GoogleIdentityButton({
     }
 
     googleId.initialize(config);
-
-    containerRef.current.innerHTML = "";
-    googleId.renderButton(containerRef.current, {
-      theme: "outline",
-      size: "large",
-      shape: "rectangular",
-      text: mode === "signup" ? "signup_with" : "signin_with",
-      width: Math.min(420, containerRef.current.clientWidth || 420),
-      logo_alignment: "left",
-      ...(redirectMode
-        ? { state: buildRedirectState(nextRef.current, tokenRef.current) }
-        : {}),
-    });
-
     initializedRef.current = true;
-  }, [clientId, mode, redirectMode, scriptReady]);
+    renderGoogleButton();
+  // renderGoogleButton sengaja tidak dimasukkan dependency; ia hanya memakai refs terbaru.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, mode, redirectMode, scriptReady, turnstileToken]);
 
-  // Di mode redirect, state pada tombol membawa Turnstile token. Ketika token
-  // berubah / expired, render ulang tombol agar state tidak memakai token lama.
+  // Jika Turnstile mendapatkan token baru sebelum user menekan Google, cukup
+  // render ulang tombol dengan state terbaru. GIS tidak perlu initialize ulang.
   useEffect(() => {
-    if (!redirectMode || !initializedRef.current || !scriptReady) return;
-    initializedRef.current = false;
-    setScriptReady(false);
-    queueMicrotask(() => setScriptReady(true));
-  }, [redirectMode, turnstileToken, requestedNext, scriptReady]);
+    if (!redirectMode || !initializedRef.current || !turnstileToken || !scriptReady) return;
+    const nextState = buildRedirectState(requestedNext, turnstileToken);
+    if (nextState === lastRedirectStateRef.current) return;
+    renderGoogleButton();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [redirectMode, requestedNext, scriptReady, turnstileToken]);
 
   if (!clientId) {
     return (
