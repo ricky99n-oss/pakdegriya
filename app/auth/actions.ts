@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 
+function safeNext(value: FormDataEntryValue | null) {
+  const next = String(value || "");
+  return next.startsWith("/") && !next.startsWith("//") ? next : "/admin/dashboard";
+}
+
 export async function verifyHumanAction(token: string) {
   return verifyTurnstileToken(token);
 }
@@ -13,6 +18,7 @@ export async function masukAction(formData: FormData) {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
   const turnstileToken = String(formData.get("cf-turnstile-response") || "");
+  const destination = safeNext(formData.get("next"));
 
   if (!email || !password) return { error: "Email dan Password wajib diisi." };
   const verification = await verifyTurnstileToken(turnstileToken);
@@ -31,7 +37,7 @@ export async function masukAction(formData: FormData) {
     maxAge: data.session.expires_in,
   });
 
-  return redirect("/admin/dashboard");
+  return redirect(destination);
 }
 
 export async function keluarAction() {
