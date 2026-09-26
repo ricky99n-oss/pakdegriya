@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, XCircle, X } from "lucide-react";
 import type { AdminActionResult } from "@/lib/admin-action";
 
@@ -10,9 +11,18 @@ type Props = {
   className?: string;
   confirmMessage?: string;
   onSuccess?: () => void;
+  refreshOnSuccess?: boolean;
 };
 
-export default function ActionForm({ action, children, className, confirmMessage, onSuccess }: Props) {
+export default function ActionForm({
+  action,
+  children,
+  className,
+  confirmMessage,
+  onSuccess,
+  refreshOnSuccess = true,
+}: Props) {
+  const router = useRouter();
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<AdminActionResult | null>(null);
 
@@ -26,7 +36,12 @@ export default function ActionForm({ action, children, className, confirmMessage
     try {
       const response = await action(new FormData(event.currentTarget));
       setResult(response);
-      if (response.success) onSuccess?.();
+
+      if (response.success) {
+        onSuccess?.();
+        if (response.redirectTo) router.push(response.redirectTo);
+        else if (refreshOnSuccess) router.refresh();
+      }
     } catch (error) {
       console.error("Admin action failed:", error);
       setResult({ success: false, error: "Koneksi ke server gagal. Silakan coba lagi." });
