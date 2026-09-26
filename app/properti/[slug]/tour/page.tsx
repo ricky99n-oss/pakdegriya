@@ -1,21 +1,45 @@
-import { db } from "@/db";
-import { properties, scenes, hotspots, propertyMedia } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import TourViewer from "@/components/TourViewer";
+import { getSupabase } from "@/lib/supabase"; // <- Menggunakan Supabase REST
+
+export const dynamic = "force-dynamic";
 
 export default async function PublicTourPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const supabase = getSupabase();
   
-  // 1. Ambil data properti berdasarkan Slug
-  const propertyRecord = await db.select().from(properties).where(eq(properties.slug, slug));
-  if (propertyRecord.length === 0) notFound();
+  // 1. Ambil data properti berdasarkan Slug (REST API)
+  const { data: propertyRecord } = await supabase
+    .from("properties")
+    .select("id")
+    .eq("slug", slug)
+    .limit(1);
+
+  if (!propertyRecord || propertyRecord.length === 0) {
+    notFound();
+  }
   const property = propertyRecord[0];
 
-  // 2. Ambil semua ruangan, hotspot, dan media
-  const allScenes = await db.select().from(scenes).where(eq(scenes.propertyId, property.id));
-  const allHotspots = await db.select().from(hotspots);
-  const allMedia = await db.select().from(propertyMedia).where(eq(propertyMedia.propertyId, property.id));
+  // 2. Ambil semua ruangan, hotspot, dan media secara paralel
+  const [scenesRes, hotspotsRes, mediaRes] = await Promise.all([
+    supabase.from("scenes").select(`
+      id, name, is_first_scene:is_first_scene, 
+      initial_pitch:initial_pitch, initial_yaw:initial_yaw, 
+      media_id:media_id, audio_media_id:audio_media_id
+    `).eq("property_id", property.id),
+    
+    // Asumsi tabel hotspots terkait dengan scene yang terkait dengan property ini
+    supabase.from("hotspots").select(`
+      id, scene_id:scene_id, target_scene_id:target_scene_id, 
+      pitch, yaw, label
+    `),
+    
+    supabase.from("property_media").select("id, file_type:file_type").eq("property_id", property.id)
+  ]);
+
+  const allScenes = scenesRes.data || [];
+  const allHotspots = hotspotsRes.data || [];
+  const allMedia = mediaRes.data || [];
 
   if (allScenes.length === 0) {
     return (
@@ -26,11 +50,11 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
     );
   }
 
-  // 3. Tentukan Ruangan Pertama (Berdasarkan setelan bintang di Admin)
-  const firstScene = allScenes.find(s => s.isFirstScene) || allScenes[0];
+  // 3. Tentukan Ruangan Pertama (Berdasarkan setelan di Admin)
+  const firstScene = allScenes.find(s => s.is_first_scene) || allScenes[0];
   
   // 4. Cari Media "Little Planet"
-  const planetMedia = allMedia.find(m => m.fileType === "intro_planet_public");
+  const planetMedia = allMedia.find(m => m.file_type === "intro_planet_public");
   const introPlanetUrl = planetMedia ? `/api/media/${planetMedia.id}` : undefined;
 
   // 5. Susun JSON Config untuk mesin Pannellum
@@ -45,26 +69,26 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
 
   allScenes.forEach(scene => {
     const sceneHotspots = allHotspots
-      .filter(h => h.sceneId === scene.id)
+      .filter(h => h.scene_id === scene.id)
       .map(hs => ({
         pitch: hs.pitch,
         yaw: hs.yaw,
         type: "scene",
         text: hs.label,
-        sceneId: hs.targetSceneId
+        sceneId: hs.target_scene_id
       }));
 
     tourConfig.scenes[scene.id] = {
       title: scene.name,
       type: "equirectangular",
-      panorama: `/api/media/${scene.mediaId}`,
-      pitch: scene.initialPitch || 0,
-      yaw: scene.initialYaw || 0,
+      panorama: `/api/media/${scene.media_id}`,
+      pitch: scene.initial_pitch || 0,
+      yaw: scene.initial_yaw || 0,
       // SETELAN BARU: Mengunci lensa kamera agar tidak terlalu nge-zoom/pecah
       hfov: 110,
       minHfov: 50,
       maxHfov: 150,
-      customAudioUrl: scene.audioMediaId ? `/api/media/${scene.audioMediaId}` : null,
+      customAudioUrl: scene.audio_media_id ? `/api/media/${scene.audio_media_id}` : null,
       hotSpots: sceneHotspots
     };
   });

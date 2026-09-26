@@ -1,8 +1,6 @@
 "use server";
-import { db } from "@/db";
-import { scenes, hotspots } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { getSupabase } from "@/lib/supabase";
 
 export async function createSceneAction(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
@@ -11,15 +9,22 @@ export async function createSceneAction(formData: FormData) {
 
   if (!name || name.trim() === "") return;
 
-  const existingScenes = await db.select().from(scenes).where(eq(scenes.propertyId, propertyId));
-  const isFirst = existingScenes.length === 0;
+  const supabase = getSupabase();
 
-  await db.insert(scenes).values({
+  // Cek apakah ini scene pertama yang dibuat
+  const { data: existingScenes } = await supabase
+    .from("scenes")
+    .select("id")
+    .eq("property_id", propertyId);
+    
+  const isFirst = !existingScenes || existingScenes.length === 0;
+
+  await supabase.from("scenes").insert({
     id: crypto.randomUUID(),
-    propertyId,
-    mediaId,
+    property_id: propertyId,
+    media_id: mediaId,
     name: name.trim(),
-    isFirstScene: isFirst,
+    is_first_scene: isFirst,
   });
 
   revalidatePath(`/admin/properti/${propertyId}/tour`);
@@ -33,10 +38,11 @@ export async function createHotspotAction(formData: FormData) {
   const label = formData.get("label") as string;
   const propertyId = formData.get("propertyId") as string;
 
-  await db.insert(hotspots).values({
+  const supabase = getSupabase();
+  await supabase.from("hotspots").insert({
     id: crypto.randomUUID(),
-    sceneId,
-    targetSceneId,
+    scene_id: sceneId,
+    target_scene_id: targetSceneId,
     pitch,
     yaw,
     label,
@@ -49,7 +55,8 @@ export async function deleteHotspotAction(formData: FormData) {
   const hotspotId = formData.get("hotspotId") as string;
   const propertyId = formData.get("propertyId") as string;
 
-  await db.delete(hotspots).where(eq(hotspots.id, hotspotId));
+  const supabase = getSupabase();
+  await supabase.from("hotspots").delete().eq("id", hotspotId);
 
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
@@ -58,9 +65,14 @@ export async function deleteSceneAction(formData: FormData) {
   const sceneId = formData.get("sceneId") as string;
   const propertyId = formData.get("propertyId") as string;
 
-  await db.delete(scenes).where(eq(scenes.id, sceneId));
-  await db.delete(hotspots).where(eq(hotspots.sceneId, sceneId));
-  await db.delete(hotspots).where(eq(hotspots.targetSceneId, sceneId));
+  const supabase = getSupabase();
+  
+  // Hapus semua hotspot yang terkait dengan scene ini terlebih dahulu
+  await supabase.from("hotspots").delete().eq("scene_id", sceneId);
+  await supabase.from("hotspots").delete().eq("target_scene_id", sceneId);
+  
+  // Baru hapus scene-nya
+  await supabase.from("scenes").delete().eq("id", sceneId);
 
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
@@ -69,8 +81,13 @@ export async function setFirstSceneAction(formData: FormData) {
   const sceneId = formData.get("sceneId") as string;
   const propertyId = formData.get("propertyId") as string;
 
-  await db.update(scenes).set({ isFirstScene: false }).where(eq(scenes.propertyId, propertyId));
-  await db.update(scenes).set({ isFirstScene: true }).where(eq(scenes.id, sceneId));
+  const supabase = getSupabase();
+  
+  // Set semua scene di properti ini menjadi false
+  await supabase.from("scenes").update({ is_first_scene: false }).eq("property_id", propertyId);
+  
+  // Jadikan scene yang dipilih menjadi true
+  await supabase.from("scenes").update({ is_first_scene: true }).eq("id", sceneId);
 
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
@@ -80,7 +97,9 @@ export async function updateSceneNameAction(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
   const name = formData.get("name") as string;
 
-  await db.update(scenes).set({ name }).where(eq(scenes.id, sceneId));
+  const supabase = getSupabase();
+  await supabase.from("scenes").update({ name }).eq("id", sceneId);
+  
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
 
@@ -89,9 +108,10 @@ export async function updateSceneAudioAction(formData: FormData) {
   const propertyId = formData.get("propertyId") as string;
   const audioMediaId = formData.get("audioMediaId") as string;
 
-  await db.update(scenes).set({
-    audioMediaId: audioMediaId === "none" ? null : audioMediaId,
-  }).where(eq(scenes.id, sceneId));
+  const supabase = getSupabase();
+  await supabase.from("scenes").update({
+    audio_media_id: audioMediaId === "none" ? null : audioMediaId,
+  }).eq("id", sceneId);
 
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }
@@ -103,10 +123,11 @@ export async function setInitialViewAction(formData: FormData) {
   const pitch = formData.get("pitch") || formData.get("initialPitch");
   const yaw = formData.get("yaw") || formData.get("initialYaw");
 
-  await db.update(scenes).set({
-    initialPitch: Number(pitch),
-    initialYaw: Number(yaw),
-  }).where(eq(scenes.id, sceneId));
+  const supabase = getSupabase();
+  await supabase.from("scenes").update({
+    initial_pitch: Number(pitch),
+    initial_yaw: Number(yaw),
+  }).eq("id", sceneId);
 
   revalidatePath(`/admin/properti/${propertyId}/tour`);
 }

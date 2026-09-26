@@ -1,6 +1,3 @@
-import { db } from "@/db";
-import { properties, propertyMedia } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ImagePlus, Lock, Globe, Save, Trash2, Music, Sparkles } from "lucide-react";
@@ -8,16 +5,31 @@ import { ArrowLeft, ImagePlus, Lock, Globe, Save, Trash2, Music, Sparkles } from
 import { togglePublishStatus, updatePropertyAction } from "../actions";
 import { deleteMediaAction } from "./actions"; 
 import UploadMediaForm from "./UploadMediaForm";
+import { getSupabase } from "@/lib/supabase";
 
 export default async function KelolaMediaProperti({ params }: { params: Promise<{ id: string }> }) {
-  // 1. Wajib di-await untuk Next.js 15+ (Cloudflare Edge)
   const { id } = await params;
+  const supabase = getSupabase();
 
-  const propertyRecord = await db.select().from(properties).where(eq(properties.id, id));
-  if (propertyRecord.length === 0) redirect("/admin/properti");
+  // 1. Ambil Properti via REST
+  const { data: propertyRecord, error: propError } = await supabase
+    .from("properties")
+    .select("*")
+    .eq("id", id)
+    .limit(1);
+
+  if (propError || !propertyRecord || propertyRecord.length === 0) {
+    redirect("/admin/properti");
+  }
   const property = propertyRecord[0];
 
-  const mediaList = await db.select().from(propertyMedia).where(eq(propertyMedia.propertyId, id));
+  // 2. Ambil Daftar Media via REST
+  const { data: mediaList } = await supabase
+    .from("property_media")
+    .select("*")
+    .eq("property_id", id);
+
+  const mediaFiles = mediaList || [];
 
   return (
     <div className="space-y-8 pb-20">
@@ -29,8 +41,8 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
           <div>
             <h1 className="text-3xl font-extrabold text-[#281C15] flex items-center gap-3">
               Edit Properti
-              <span className={`text-xs px-2 py-1 rounded-md uppercase tracking-wider font-bold ${property.publishStatus === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-700'}`}>
-                {property.publishStatus}
+              <span className={`text-xs px-2 py-1 rounded-md uppercase tracking-wider font-bold ${property.publish_status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-700'}`}>
+                {property.publish_status}
               </span>
             </h1>
             <p className="text-[#4A2F1B]/70 font-mono text-sm mt-1">{property.code}</p>
@@ -47,9 +59,9 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
 
           <form action={togglePublishStatus}>
             <input type="hidden" name="propertyId" value={property.id} />
-            <input type="hidden" name="currentStatus" value={property.publishStatus} />
-            <button type="submit" className={`px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm text-sm ${property.publishStatus === 'published' ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-[#25D366] text-white hover:bg-[#20ba59]'}`}>
-              {property.publishStatus === 'published' ? 'Kembalikan ke Draft' : 'Terbitkan ke Publik'}
+            <input type="hidden" name="currentStatus" value={property.publish_status} />
+            <button type="submit" className={`px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm text-sm ${property.publish_status === 'published' ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-[#25D366] text-white hover:bg-[#20ba59]'}`}>
+              {property.publish_status === 'published' ? 'Kembalikan ke Draft' : 'Terbitkan ke Publik'}
             </button>
           </form>
         </div>
@@ -75,11 +87,11 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
             </div>
             <div>
               <label className="block text-sm font-medium mb-1 text-[#281C15]">Lokasi Umum</label>
-              <input type="text" name="generalLocation" defaultValue={property.generalLocation} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" />
+              <input type="text" name="generalLocation" defaultValue={property.general_location} required className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1 text-[#281C15]">Tipe Transaksi</label>
-              <select name="transactionType" defaultValue={property.transactionType} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-white text-[#281C15]">
+              <select name="transactionType" defaultValue={property.transaction_type} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-white text-[#281C15]">
                 <option value="jual">Jual</option>
                 <option value="sewa_bulan">Sewa (Bulanan)</option>
                 <option value="sewa_tahun">Sewa (Tahunan)</option>
@@ -87,7 +99,7 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
             </div>
             <div>
               <label className="block text-sm font-medium mb-1 text-[#281C15]">Jenis Properti</label>
-              <select name="propertyType" defaultValue={property.propertyType} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-white text-[#281C15]">
+              <select name="propertyType" defaultValue={property.property_type} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-white text-[#281C15]">
                 <option value="rumah">Rumah</option>
                 <option value="tanah">Tanah</option>
                 <option value="villa">Villa</option>
@@ -100,13 +112,13 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-y border-gray-100 my-4">
             <div><label className="block text-xs font-bold mb-1 text-gray-500">Kamar Tidur</label><input type="number" name="bedrooms" defaultValue={property.bedrooms || 0} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
             <div><label className="block text-xs font-bold mb-1 text-gray-500">Kamar Mandi</label><input type="number" name="bathrooms" defaultValue={property.bathrooms || 0} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
-            <div><label className="block text-xs font-bold mb-1 text-gray-500">Luas Tanah (m²)</label><input type="number" name="landArea" defaultValue={property.landArea || 0} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
-            <div><label className="block text-xs font-bold mb-1 text-gray-500">Luas Bangunan (m²)</label><input type="number" name="buildingArea" defaultValue={property.buildingArea || 0} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
+            <div><label className="block text-xs font-bold mb-1 text-gray-500">Luas Tanah (m²)</label><input type="number" name="landArea" defaultValue={property.land_area || 0} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
+            <div><label className="block text-xs font-bold mb-1 text-gray-500">Luas Bangunan (m²)</label><input type="number" name="buildingArea" defaultValue={property.building_area || 0} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]" /></div>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1 text-[#281C15]">Ringkasan Properti (Publik)</label>
-            <textarea name="publicSummary" defaultValue={property.publicSummary || ""} rows={4} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]"></textarea>
+            <textarea name="publicSummary" defaultValue={property.public_summary || ""} rows={4} className="w-full border p-2.5 rounded-lg focus:outline-none focus:border-[#D6A34A] bg-gray-50 text-[#281C15]"></textarea>
           </div>
 
           <div className="flex justify-end pt-4">
@@ -134,33 +146,33 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#D6A34A]/20 min-h-full">
             <h2 className="text-xl font-bold text-[#4A2F1B] mb-6">Media Tersimpan</h2>
             
-            {mediaList.length === 0 ? (
+            {mediaFiles.length === 0 ? (
               <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
                 <p className="text-gray-500">Belum ada media yang diunggah.</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                {mediaList.map((media) => (
+                {mediaFiles.map((media) => (
                   <div key={media.id} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50 aspect-[4/3]">
                     
-                    {media.fileType === "audio_private" ? (
+                    {media.file_type === "audio_private" ? (
                       <div className="w-full h-full flex flex-col items-center justify-center bg-[#FFF7E8] text-[#4A2F1B]">
                         <Music size={32} className="mb-2 text-[#D6A34A]" />
-                        <span className="text-xs text-center px-2 truncate w-full font-bold">{media.fileName}</span>
+                        <span className="text-xs text-center px-2 truncate w-full font-bold">{media.file_name}</span>
                       </div>
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={`/api/media/${media.id}`} alt={media.fileName} className="w-full h-full object-cover" />
+                      <img src={`/api/media/${media.id}`} alt={media.file_name} className="w-full h-full object-cover" />
                     )}
                     
                     <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
-                      {media.fileType === "cover_public" && (
+                      {media.file_type === "cover_public" && (
                         <span className="bg-green-500/90 backdrop-blur text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-sm"><Globe size={10} /> Publik</span>
                       )}
-                      {media.fileType === "intro_planet_public" && (
+                      {media.file_type === "intro_planet_public" && (
                         <span className="bg-blue-500/90 backdrop-blur text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-sm"><Sparkles size={10} /> Planet</span>
                       )}
-                      {(media.fileType === "gallery_private" || media.fileType === "panorama_private" || media.fileType === "audio_private") && (
+                      {(media.file_type === "gallery_private" || media.file_type === "panorama_private" || media.file_type === "audio_private") && (
                         <span className="bg-red-500/90 backdrop-blur text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-sm"><Lock size={10} /> Privat</span>
                       )}
                     </div>
@@ -168,7 +180,7 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
                     <form action={deleteMediaAction} className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
                       <input type="hidden" name="mediaId" value={media.id} />
                       <input type="hidden" name="propertyId" value={property.id} />
-                      <input type="hidden" name="fileName" value={media.fileName} />
+                      <input type="hidden" name="fileName" value={media.file_name} />
                       <button type="submit" className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full shadow-lg transform hover:scale-110 transition-all">
                         <Trash2 size={20} />
                       </button>

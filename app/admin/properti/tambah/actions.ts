@@ -1,8 +1,7 @@
 "use server";
 
-import { db } from "@/db";
-import { properties } from "@/db/schema";
 import { revalidatePath } from "next/cache";
+import { getSupabase } from "@/lib/supabase";
 
 export async function createPropertyAction(formData: FormData) {
   const code = formData.get("code") as string;
@@ -19,26 +18,27 @@ export async function createPropertyAction(formData: FormData) {
   }
 
   try {
-    // Memasukkan data ke database Drizzle ORM Postgres
-    await db.insert(properties).values({
-      // EDGE COMPATIBILITY: Gunakan crypto global, bukan import dari "crypto" Node.js
+    const supabase = getSupabase();
+
+    // Memasukkan data via REST API Supabase (Drizzle dihapus)
+    const { error } = await supabase.from("properties").insert({
       id: crypto.randomUUID(),
       code: code.trim(),
       title: title.trim(),
       slug: slug.trim().toLowerCase(),
       price: isNaN(price) ? 0 : price,
-      generalLocation: generalLocation.trim(),
-      transactionType: transactionType as any,
-      propertyType: propertyType as any,
-      publishStatus: "draft" as any, 
-      
-      // Nilai default
+      general_location: generalLocation.trim(),
+      transaction_type: transactionType,
+      property_type: propertyType,
+      publish_status: "draft", 
       bedrooms: 0,
       bathrooms: 0,
-      landArea: 0,
-      buildingArea: 0,
-      publicSummary: "",
+      land_area: 0,
+      building_area: 0,
+      public_summary: "",
     });
+
+    if (error) throw error;
 
     // Refresh cache
     revalidatePath("/admin/properti");
@@ -49,7 +49,7 @@ export async function createPropertyAction(formData: FormData) {
   } catch (error: any) {
     console.error("Error DB Insert:", error);
     
-    // Pukul rata semua error database di sini untuk menghindari kebocoran kode SQL ke UI
+    // Pukul rata semua error database
     return { 
       error: `Gagal menyimpan! Kode Properti "${code}" atau Slug URL "${slug}" kemungkinan besar SUDAH TERPAKAI di dalam database. Silakan gunakan kode lain.` 
     };

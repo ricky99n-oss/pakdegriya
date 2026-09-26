@@ -1,29 +1,52 @@
-import { db } from "@/db";
-import { properties, propertyMedia, scenes, hotspots } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Map } from "lucide-react";
 import { createSceneAction } from "./actions";
 import TourEditorWrapper from "@/components/TourEditorWrapper";
+import { getSupabase } from "@/lib/supabase";
 
 export default async function KelolaTurProperti({ params }: { params: Promise<{ id: string }> }) {
-  // 1. Wajib di-await untuk Next.js 15+
   const { id } = await params;
+  const supabase = getSupabase();
 
-  const propertyRecord = await db.select().from(properties).where(eq(properties.id, id));
-  if (propertyRecord.length === 0) notFound();
+  const { data: propertyRecord } = await supabase.from("properties").select("*").eq("id", id).limit(1);
+  if (!propertyRecord || propertyRecord.length === 0) notFound();
   const property = propertyRecord[0];
 
-  const panoramasRaw = await db.select().from(propertyMedia).where(and(eq(propertyMedia.propertyId, id), eq(propertyMedia.fileType, "panorama_private")));
-  const audiosRaw = await db.select().from(propertyMedia).where(and(eq(propertyMedia.propertyId, id), eq(propertyMedia.fileType, "audio_private")));
-  const existingScenesRaw = await db.select().from(scenes).where(eq(scenes.propertyId, id));
-  const allHotspotsRaw = await db.select().from(hotspots); 
+  // Eksekusi pemanggilan database paralel
+  const [mediaRes, scenesRes, hotspotsRes] = await Promise.all([
+    supabase.from("property_media").select("*").eq("property_id", id),
+    supabase.from("scenes").select("*").eq("property_id", id),
+    // Anggap hotspots tabel mandiri tanpa relasi langsung property_id
+    supabase.from("hotspots").select("*") 
+  ]);
 
-  const panoramas = JSON.parse(JSON.stringify(panoramasRaw));
-  const audios = JSON.parse(JSON.stringify(audiosRaw));
-  const existingScenes = JSON.parse(JSON.stringify(existingScenesRaw));
-  const allHotspots = JSON.parse(JSON.stringify(allHotspotsRaw));
+  const allMedia = mediaRes.data || [];
+  const panoramas = allMedia.filter(m => m.file_type === "panorama_private");
+  const audios = allMedia.filter(m => m.file_type === "audio_private").map(a => ({
+    id: a.id,
+    fileName: a.file_name // Dikonversi karena dibutuhkan oleh komponen UI Client
+  }));
+  
+  // Konversi property name yang dipakai oleh Client Component (React)
+  const existingScenes = (scenesRes.data || []).map(s => ({
+    id: s.id,
+    mediaId: s.media_id,
+    name: s.name,
+    isFirstScene: s.is_first_scene,
+    initialPitch: s.initial_pitch,
+    initialYaw: s.initial_yaw,
+    audioMediaId: s.audio_media_id
+  }));
+
+  const allHotspots = (hotspotsRes.data || []).map(h => ({
+    id: h.id,
+    sceneId: h.scene_id,
+    targetSceneId: h.target_scene_id,
+    pitch: h.pitch,
+    yaw: h.yaw,
+    label: h.label
+  }));
 
   return (
     <div className="space-y-8 pb-20">

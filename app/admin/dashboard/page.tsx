@@ -1,9 +1,10 @@
-import { db } from "../../../db";
-import { properties, propertyMedia } from "../../../db/schema";
-import { validateRequest } from "../../../lib/auth";
+import { validateRequest } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Building2, Globe, FileImage, FileText, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { getSupabase } from "@/lib/supabase"; // <-- Menggunakan Supabase REST Client
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
   const { user } = await validateRequest();
@@ -13,12 +14,24 @@ export default async function AdminDashboard() {
     redirect("/auth/masuk");
   }
 
-  // Mengambil statistik dari database
-  const allProperties = await db.select().from(properties);
-  const publishedProps = allProperties.filter(p => p.publishStatus === "published");
-  const draftProps = allProperties.filter(p => p.publishStatus === "draft");
+  const supabase = getSupabase();
+
+  // 1. Mengambil statistik properti (Hanya mengambil kolom publish_status agar ringan)
+  const { data: propertiesData } = await supabase
+    .from("properties")
+    .select("publish_status");
+    
+  const allProperties = propertiesData || [];
+  // Menggunakan snake_case bawaan database
+  const publishedProps = allProperties.filter(p => p.publish_status === "published");
+  const draftProps = allProperties.filter(p => p.publish_status === "draft");
   
-  const allMedia = await db.select().from(propertyMedia);
+  // 2. Mengambil total media menggunakan fungsi Count bawaan Supabase (Sangat efisien)
+  const { count: mediaCount } = await supabase
+    .from("property_media")
+    .select("*", { count: "exact", head: true });
+
+  const totalMedia = mediaCount || 0;
 
   return (
     <div className="space-y-8">
@@ -71,7 +84,7 @@ export default async function AdminDashboard() {
           </div>
           <div>
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Media</p>
-            <p className="text-4xl font-black text-[#4A2F1B] mt-1">{allMedia.length}</p>
+            <p className="text-4xl font-black text-[#4A2F1B] mt-1">{totalMedia}</p>
           </div>
         </div>
       </div>

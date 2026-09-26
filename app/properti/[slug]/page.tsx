@@ -1,10 +1,8 @@
-import { db } from "@/db";
-import { properties, propertyMedia } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { validateRequest } from "@/lib/auth";
+import { getSupabase } from "@/lib/supabase"; // <- Menggunakan Supabase REST
 import { ArrowLeft, MessageCircle, MapPin, BedDouble, Bath, Maximize2, Home as HomeIcon } from "lucide-react";
 import ShareButton from "@/components/ShareButton";
 import Footer from "@/components/Footer";
@@ -16,16 +14,37 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
   const { slug } = await params;
 
   const { user } = await validateRequest();
+  const supabase = getSupabase();
 
-  const propertyRecord = await db.select().from(properties).where(eq(properties.slug, slug));
-  if (propertyRecord.length === 0) notFound();
+  // 2. Ambil data properti menggunakan REST API Supabase
+  const { data: propertyRecord, error: propError } = await supabase
+    .from("properties")
+    .select(`
+      id, code, slug, title, description, publicSummary:public_summary, price, 
+      transactionType:transaction_type, propertyType:property_type, 
+      generalLocation:general_location, preciseAddress:precise_address, 
+      landArea:land_area, buildingArea:building_area, bedrooms, bathrooms, 
+      publishStatus:publish_status, availabilityStatus:availability_status
+    `)
+    .eq("slug", slug)
+    .limit(1);
+
+  if (propError || !propertyRecord || propertyRecord.length === 0) {
+    notFound();
+  }
+  
   const property = propertyRecord[0];
 
-  const allMedia = await db.select().from(propertyMedia).where(eq(propertyMedia.propertyId, property.id));
-  
-  const coverImage = allMedia.find(m => m.fileType === "cover_public");
-  const galleryImages = allMedia.filter(m => m.fileType === "gallery_private" || m.fileType === "cover_public");
-  const hasVirtualTour = allMedia.some(m => m.fileType === "panorama_private");
+  // 3. Ambil data media (cover, gallery, panorama)
+  const { data: allMedia } = await supabase
+    .from("property_media")
+    .select("id, file_type:file_type")
+    .eq("property_id", property.id);
+
+  const mediaList = allMedia || [];
+  const coverImage = mediaList.find(m => m.file_type === "cover_public");
+  const galleryImages = mediaList.filter(m => m.file_type === "gallery_private" || m.file_type === "cover_public");
+  const hasVirtualTour = mediaList.some(m => m.file_type === "panorama_private");
 
   const isMember = !!user;
 
@@ -52,7 +71,7 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
 
       <header className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-[#D6A34A]/20">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-[#4A2F1B] hover:text-[#D6A34A] font-bold transition-colors">
+          <Link href="/" prefetch={false} className="flex items-center gap-2 text-[#4A2F1B] hover:text-[#D6A34A] font-bold transition-colors">
             <ArrowLeft size={20} /> <span className="hidden md:inline">Kembali</span>
           </Link>
           <div className="font-black text-lg tracking-tight text-[#4A2F1B]">
@@ -122,14 +141,14 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
             <p className="text-white/70 mb-6 text-xs md:text-sm">Lihat setiap sudut ruangan layaknya survei langsung.</p>
             
             {isMember ? (
-              <Link href={`/properti/${property.slug}/tour`} className="inline-block bg-[#D6A34A] text-[#281C15] font-bold px-6 py-3 md:px-8 md:py-3.5 rounded-full hover:bg-[#c2913b] transition-transform hover:scale-105 shadow-lg text-sm md:text-base">
+              <Link href={`/properti/${property.slug}/tour`} prefetch={false} className="inline-block bg-[#D6A34A] text-[#281C15] font-bold px-6 py-3 md:px-8 md:py-3.5 rounded-full hover:bg-[#c2913b] transition-transform hover:scale-105 shadow-lg text-sm md:text-base">
                 Mulai Virtual Tour
               </Link>
             ) : (
               <div className="bg-white/10 p-4 rounded-xl md:rounded-2xl inline-block max-w-sm w-full backdrop-blur border border-white/10">
                 <LockIcon className="mx-auto mb-2 text-[#D6A34A]" size={24} />
                 <p className="text-xs md:text-sm font-medium mb-3">Akses Virtual Tour Khusus Member</p>
-                <Link href="/auth/daftar" className="block w-full bg-[#D6A34A] text-[#4A2F1B] font-bold py-2.5 rounded-xl hover:bg-[#e8b65c] transition-colors text-sm">
+                <Link href="/auth/daftar" prefetch={false} className="block w-full bg-[#D6A34A] text-[#4A2F1B] font-bold py-2.5 rounded-xl hover:bg-[#e8b65c] transition-colors text-sm">
                   Daftar / Masuk Member Gratis
                 </Link>
               </div>

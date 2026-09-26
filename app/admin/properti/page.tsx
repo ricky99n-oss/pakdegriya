@@ -1,14 +1,20 @@
-import { db } from "@/db"; // Kembali menggunakan alias standar Next.js
-import { properties } from "@/db/schema"; // Kembali menggunakan alias standar Next.js
-import { desc } from "drizzle-orm";
 import Link from "next/link";
 import { Plus, Building2, Edit2, Trash2 } from "lucide-react";
 import { hapusPropertiAction } from "./actions"; 
+import { getSupabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
 export default async function DaftarPropertiPage() {
-  const dataProperti = await db.select().from(properties).orderBy(desc(properties.updatedAt));
+  const supabase = getSupabase();
+  
+  // Menggunakan Supabase REST Client
+  const { data: dataProperti } = await supabase
+    .from("properties")
+    .select("id, title, code, property_type, transaction_type, price, publish_status")
+    .order("updated_at", { ascending: false });
+
+  const propertiLengkap = dataProperti || [];
 
   return (
     <div className="space-y-8">
@@ -38,7 +44,7 @@ export default async function DaftarPropertiPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {dataProperti.length === 0 ? (
+              {propertiLengkap.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-10 text-center text-gray-400">
                     <div className="flex flex-col items-center gap-3">
@@ -50,7 +56,7 @@ export default async function DaftarPropertiPage() {
                   </td>
                 </tr>
               ) : (
-                dataProperti.map((item: typeof properties.$inferSelect) => (
+                propertiLengkap.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50/50 transition-colors group">
                     <td className="p-5">
                       <p className="font-bold text-[#281C15] text-base">{item.title}</p>
@@ -58,17 +64,19 @@ export default async function DaftarPropertiPage() {
                     </td>
                     <td className="p-5">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-[#FFF7E8] text-[#4A2F1B] text-xs font-semibold capitalize border border-[#D6A34A]/30">
-                        {item.propertyType}
+                        {item.property_type}
                       </span>
-                      <p className="text-xs text-gray-500 mt-2 capitalize font-medium">{item.transactionType.replace('_', ' ')}</p>
+                      <p className="text-xs text-gray-500 mt-2 capitalize font-medium">
+                        {item.transaction_type.replace('_', ' ')}
+                      </p>
                     </td>
                     <td className="p-5">
                       <p className="font-bold text-[#4A2F1B]">Rp {item.price.toLocaleString('id-ID')}</p>
                     </td>
                     <td className="p-5">
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider
-                        ${item.publishStatus === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                        {item.publishStatus}
+                        ${item.publish_status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {item.publish_status}
                       </span>
                     </td>
                     <td className="p-5 text-right">
