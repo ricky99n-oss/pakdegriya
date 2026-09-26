@@ -22,7 +22,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
   const audioEnabledRef = useRef(false);
   const startedRef = useRef(false);
   const rotateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const sceneIds = useMemo(() => Object.keys(tourConfig?.scenes || {}), [tourConfig?.scenes]);
   const firstScene = tourConfig?.default?.firstScene || sceneIds[0] || "";
 
@@ -39,76 +38,67 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
   const pannellumScenes = useMemo(
-    () =>
-      Object.fromEntries(
-        sceneIds.map((id) => {
-          const scene = tourConfig.scenes[id];
-          const hotSpots = (scene.hotSpots || [])
-            .filter((hotspot) => hotspot.sceneId && tourConfig.scenes[hotspot.sceneId])
-            .map((hotspot) => {
-              const target = tourConfig.scenes[hotspot.sceneId!];
-              const { label, iconType } = parseHotspotLabel(hotspot.text);
-              return {
-                pitch: Number(hotspot.pitch) || 0,
-                yaw: Number(hotspot.yaw) || 0,
-                type: "scene",
-                sceneId: hotspot.sceneId,
-                cssClass: "pakde-scene-hotspot",
-                createTooltipFunc: renderTourHotspot,
-                createTooltipArgs: {
-                  label: label || target?.title || "Pindah Ruangan",
-                  iconType,
-                  targetImage: target?.thumbnail || "",
-                  animated: true,
-                },
-              };
-            });
-
-          return [
-            id,
-            {
-              type: scene.type || "equirectangular",
-              panorama: scene.panorama,
-              pitch: Number(scene.pitch ?? 0),
-              yaw: Number(scene.yaw ?? 0),
-              hfov: Number(scene.hfov ?? 120),
-              minHfov: Number(scene.minHfov ?? 55),
-              maxHfov: Number(scene.maxHfov ?? 140),
-              autoRotate: Number(scene.autoRotate ?? tourConfig.default?.autoRotate ?? -0.35),
-              autoRotateInactivityDelay: Number(scene.autoRotateInactivityDelay ?? tourConfig.default?.autoRotateInactivityDelay ?? 4000),
-              hotSpots,
+    () => Object.fromEntries(sceneIds.map((id) => {
+      const scene = tourConfig.scenes[id];
+      const hotSpots = (scene.hotSpots || [])
+        .filter((hotspot) => hotspot.sceneId && tourConfig.scenes[hotspot.sceneId])
+        .map((hotspot) => {
+          const target = tourConfig.scenes[hotspot.sceneId!];
+          const { label, iconType } = parseHotspotLabel(hotspot.text);
+          return {
+            pitch: Number(hotspot.pitch) || 0,
+            yaw: Number(hotspot.yaw) || 0,
+            type: "scene",
+            sceneId: hotspot.sceneId,
+            cssClass: "pakde-scene-hotspot",
+            createTooltipFunc: renderTourHotspot,
+            createTooltipArgs: {
+              label: label || target?.title || "Pindah Ruangan",
+              iconType,
+              targetImage: target?.thumbnail || "",
+              animated: true,
             },
-          ];
-        })
-      ),
+          };
+        });
+
+      return [id, {
+        type: scene.type || "equirectangular",
+        panorama: scene.panorama,
+        preview: scene.preview,
+        pitch: Number(scene.pitch ?? 0),
+        yaw: Number(scene.yaw ?? 0),
+        hfov: Number(scene.hfov ?? 120),
+        minHfov: Number(scene.minHfov ?? 55),
+        maxHfov: Number(scene.maxHfov ?? 140),
+        autoRotate: Number(scene.autoRotate ?? tourConfig.default?.autoRotate ?? -0.35),
+        autoRotateInactivityDelay: Number(scene.autoRotateInactivityDelay ?? tourConfig.default?.autoRotateInactivityDelay ?? 4000),
+        hotSpots,
+      }];
+    })),
     [sceneIds, tourConfig.default?.autoRotate, tourConfig.default?.autoRotateInactivityDelay, tourConfig.scenes]
   );
 
-  const playSceneAudio = useCallback(
-    (sceneId: string) => {
-      const audio = audioRef.current;
-      const source = tourConfig.scenes[sceneId]?.customAudioUrl;
-      if (!audio || !source) {
-        audio?.pause();
-        if (audio) audio.removeAttribute("src");
-        setIsAudioPlaying(false);
-        return;
-      }
-      if (audio.getAttribute("src") !== source) {
-        audio.pause();
-        audio.src = source;
-        audio.load();
-      }
-      audio.play().then(() => setIsAudioPlaying(true)).catch(() => setIsAudioPlaying(false));
-    },
-    [tourConfig.scenes]
-  );
+  const playSceneAudio = useCallback((sceneId: string) => {
+    const audio = audioRef.current;
+    const source = tourConfig.scenes[sceneId]?.customAudioUrl;
+    if (!audio || !source) {
+      audio?.pause();
+      if (audio) audio.removeAttribute("src");
+      setIsAudioPlaying(false);
+      return;
+    }
+    if (audio.getAttribute("src") !== source) {
+      audio.pause();
+      audio.src = source;
+      audio.load();
+    }
+    audio.play().then(() => setIsAudioPlaying(true)).catch(() => setIsAudioPlaying(false));
+  }, [tourConfig.scenes]);
 
   const scheduleAutoRotate = useCallback((delay = 4000) => {
     if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
     viewerInstance.current?.stopAutoRotate?.();
     if (!startedRef.current) return;
-
     rotateTimerRef.current = setTimeout(() => {
       const scene = tourConfig.scenes[currentSceneId];
       const speed = Number(scene?.autoRotate ?? tourConfig.default?.autoRotate ?? -0.35);
@@ -143,7 +133,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
     let viewer: PannellumViewer | null = null;
     let observer: ResizeObserver | null = null;
     const node = viewerRef.current;
-
     const markInteraction = () => scheduleAutoRotate(4000);
 
     try {
@@ -214,7 +203,6 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
     audioEnabledRef.current = withAudio;
     if (withAudio) playSceneAudio(currentSceneId);
     else setIsAudioPlaying(false);
-
     const viewer = viewerInstance.current;
     if (viewer && viewer.getHfov() < 110) viewer.setHfov(120, 700);
     scheduleAutoRotate(900);
@@ -233,10 +221,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
 
   const changeScene = (id: string) => {
     if (!tourConfig.scenes[id]) return;
-    if (id === currentSceneId) {
-      setShowGallery(false);
-      return;
-    }
+    if (id === currentSceneId) { setShowGallery(false); return; }
     setLoading(true);
     viewerInstance.current?.loadScene(id);
   };
@@ -253,14 +238,9 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
   };
 
   const assetsReady = useCallback(() => setEngineReady(true), []);
-  const assetsError = useCallback((message: string) => {
-    setLoading(false);
-    setViewerError(message);
-  }, []);
+  const assetsError = useCallback((message: string) => { setLoading(false); setViewerError(message); }, []);
 
-  if (!firstScene) {
-    return <div className="w-full h-screen bg-black text-white flex items-center justify-center">Virtual Tour belum tersedia.</div>;
-  }
+  if (!firstScene) return <div className="w-full h-screen bg-black text-white flex items-center justify-center">Virtual Tour belum tersedia.</div>;
 
   return (
     <div ref={viewerContainerRef} className="w-full h-[100dvh] bg-black relative overflow-hidden font-sans">
@@ -268,29 +248,13 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
       <Tour360Styles />
       <div id="public-tour-container" ref={viewerRef} className="absolute inset-0 cursor-move" />
       <TourViewerUI
-        tourConfig={tourConfig}
-        introPlanetUrl={introPlanetUrl}
-        exitUrl={exitUrl}
-        propertyTitle={propertyTitle}
-        currentSceneId={currentSceneId}
-        started={started}
-        loading={loading}
-        error={viewerError}
-        showTools={showTools}
-        showGallery={showGallery}
-        showGuide={showGuide}
-        isFullscreen={isFullscreen}
-        isAudioPlaying={isAudioPlaying}
-        onStart={startTour}
-        onRetry={() => setRetryKey((key) => key + 1)}
-        onToggleAudio={toggleAudio}
-        onToggleFullscreen={toggleFullscreen}
-        onPrev={() => moveScene(-1)}
-        onNext={() => moveScene(1)}
-        onScene={changeScene}
-        setShowTools={setShowTools}
-        setShowGallery={setShowGallery}
-        setShowGuide={setShowGuide}
+        tourConfig={tourConfig} introPlanetUrl={introPlanetUrl} exitUrl={exitUrl} propertyTitle={propertyTitle}
+        currentSceneId={currentSceneId} started={started} loading={loading} error={viewerError}
+        showTools={showTools} showGallery={showGallery} showGuide={showGuide}
+        isFullscreen={isFullscreen} isAudioPlaying={isAudioPlaying}
+        onStart={startTour} onRetry={() => setRetryKey((key) => key + 1)} onToggleAudio={toggleAudio}
+        onToggleFullscreen={toggleFullscreen} onPrev={() => moveScene(-1)} onNext={() => moveScene(1)} onScene={changeScene}
+        setShowTools={setShowTools} setShowGallery={setShowGallery} setShowGuide={setShowGuide}
       />
     </div>
   );
