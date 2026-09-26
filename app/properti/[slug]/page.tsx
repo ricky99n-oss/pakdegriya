@@ -26,12 +26,18 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
   if (error || !records?.length) notFound();
   const property = records[0];
 
-  const { data: mediaData } = await supabase.from("property_media").select("id, file_type").eq("property_id", property.id);
+  const { data: mediaData } = await supabase
+    .from("property_media")
+    .select("id, file_type, is_public")
+    .eq("property_id", property.id);
+
   const media = mediaData || [];
-  const cover = media.find((item) => item.file_type === "cover_public");
+  const accessible = (item: any) => Boolean(item.is_public) || isMember;
+  const cover = media.find((item) => item.file_type === "cover_public" && accessible(item));
   const galleryImages = media
-    .filter((item) => item.file_type === "cover_public" || (isMember && item.file_type === "gallery_private"))
+    .filter((item) => ["cover_public", "gallery_private"].includes(item.file_type) && accessible(item))
     .map((item) => ({ id: item.id }));
+  const hasPrivateGallery = media.some((item) => item.file_type === "gallery_private" && !item.is_public);
   const hasTour = media.some((item) => item.file_type === "panorama_private");
 
   return (
@@ -59,14 +65,14 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
         </section>
 
         <div className="w-full aspect-[4/3] md:aspect-[16/9] bg-gray-200 rounded-2xl md:rounded-3xl overflow-hidden relative shadow-lg">
-          {cover ? <Image src={`/api/media/${cover.id}`} alt={property.title} fill className="object-cover" priority /> : <div className="w-full h-full flex items-center justify-center text-gray-400">Tidak Ada Foto Cover</div>}
+          {cover ? <Image src={`/api/media/${cover.id}`} alt={property.title} fill className="object-cover" priority /> : <div className="w-full h-full flex items-center justify-center text-gray-400">Foto cover belum tersedia untuk akses ini.</div>}
         </div>
 
         <GallerySlider images={galleryImages} />
-        {!isMember && media.some((item) => item.file_type === "gallery_private") && (
+        {!isMember && hasPrivateGallery && (
           <div className="bg-white border border-[#D6A34A]/30 rounded-2xl p-4 flex items-center gap-3 text-sm text-[#4A2F1B]">
             <Lock size={20} className="text-[#D6A34A] shrink-0" />
-            <p><Link href="/auth/masuk" className="font-bold text-[#D6A34A] hover:underline">Masuk sebagai member</Link> untuk melihat seluruh galeri foto properti.</p>
+            <p><Link href={`/auth/masuk?next=${encodeURIComponent(`/properti/${slug}`)}`} className="font-bold text-[#D6A34A] hover:underline">Masuk sebagai member</Link> untuk melihat seluruh galeri privat properti.</p>
           </div>
         )}
 
@@ -97,7 +103,11 @@ function TourAccessCard({ slug, isMember }: { slug: string; isMember: boolean })
       {isMember ? (
         <Link href={`/properti/${slug}/tour`} prefetch={false} className="inline-block bg-[#D6A34A] text-[#281C15] font-bold px-8 py-3.5 rounded-full hover:bg-[#c2913b] shadow-lg">Mulai Virtual Tour</Link>
       ) : (
-        <div className="bg-white/10 p-4 rounded-2xl inline-block max-w-sm w-full border border-white/10"><Lock className="mx-auto mb-2 text-[#D6A34A]" size={24} /><p className="text-sm font-medium mb-3">Akses Virtual Tour Khusus Member</p><Link href="/auth/masuk" className="block w-full bg-[#D6A34A] text-[#4A2F1B] font-bold py-2.5 rounded-xl">Masuk / Daftar Member Gratis</Link></div>
+        <div className="bg-white/10 p-4 rounded-2xl inline-block max-w-sm w-full border border-white/10">
+          <Lock className="mx-auto mb-2 text-[#D6A34A]" size={24} />
+          <p className="text-sm font-medium mb-3">Akses Virtual Tour Khusus Member</p>
+          <Link href={`/auth/masuk?next=${encodeURIComponent(`/properti/${slug}/tour`)}`} className="block w-full bg-[#D6A34A] text-[#4A2F1B] font-bold py-2.5 rounded-xl">Masuk / Daftar Member Gratis</Link>
+        </div>
       )}
     </div>
   );
@@ -110,5 +120,5 @@ function PropertyStats({ property }: { property: any }) {
     { icon: <Maximize2 />, value: `${property.land_area || "-"} m²`, label: "Luas Tanah" },
     { icon: <HomeIcon />, value: `${property.building_area || "-"} m²`, label: "Luas Bangunan" },
   ];
-  return <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white p-4 md:p-6 rounded-3xl border border-[#D6A34A]/20 shadow-sm">{stats.map((stat) => <div key={stat.label} className="flex flex-col items-center text-center p-2 [&>svg]:text-[#D6A34A] [&>svg]:mb-2"><span className="text-[#D6A34A] mb-2">{stat.icon}</span><span className="text-lg font-black text-[#4A2F1B]">{stat.value}</span><span className="text-[10px] text-gray-500 uppercase font-bold">{stat.label}</span></div>)}</div>;
+  return <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white p-4 md:p-6 rounded-3xl border border-[#D6A34A]/20 shadow-sm">{stats.map((stat) => <div key={stat.label} className="flex flex-col items-center text-center p-2"><span className="text-[#D6A34A] mb-2">{stat.icon}</span><span className="text-lg font-black text-[#4A2F1B]">{stat.value}</span><span className="text-[10px] text-gray-500 uppercase font-bold">{stat.label}</span></div>)}</div>;
 }

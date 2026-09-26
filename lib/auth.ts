@@ -1,41 +1,48 @@
 import { cookies } from "next/headers";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { users } from "@/db/schema";
 import { getSupabase } from "@/lib/supabase";
 
 export async function validateRequest() {
   try {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get("supabase_access_token")?.value;
-
     if (!accessToken) return { user: null };
 
-    const supabase = getSupabase();
-    // Validasi token asli ke Supabase Auth
-    const { data, error } = await supabase.auth.getUser(accessToken);
-
+    const { data, error } = await getSupabase().auth.getUser(accessToken);
     if (error || !data?.user) return { user: null };
 
-    // Coba ambil profil dari tabel public.users kita
-    const { data: userRecords, error: dbError } = await supabase
-      .from("users")
-      .select("*")
-      .eq("email", data.user.email)
-      .limit(1);
+    const email = String(data.user.email || "").trim().toLowerCase();
+    if (email) {
+      const records = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          phone: users.phone,
+          role: users.role,
+        })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
 
-    if (!dbError && userRecords && userRecords.length > 0) {
-      return { user: userRecords[0] };
+      if (records.length) return { user: records[0] };
     }
 
-    // FALLBACK AMAN: Jika tabel terblokir RLS atau proses sinkronisasi terlambat,
-    // jangan tendang user. Izinkan masuk menggunakan data profil dasar Google.
-    return { 
+    // Akun valid dari Supabase tetap boleh masuk sebagai member. Profil lengkap
+    // akan dibuat pada proses login server-side dan nomor telepon diminta bila perlu.
+    return {
       user: {
         id: data.user.id,
         email: data.user.email,
-        name: data.user.user_metadata?.full_name || "Member",
-        role: "member"
-      } 
+        name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || "Member",
+        phone: null,
+        role: "member" as const,
+      },
     };
   } catch (error) {
+    console.error("validateRequest gagal:", error);
     return { user: null };
   }
 }

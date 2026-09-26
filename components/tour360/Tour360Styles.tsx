@@ -46,27 +46,34 @@ export default function Tour360Styles() {
         width:100%; height:100%; background:#000;
       }
       #tour-canvas-admin canvas, #public-tour-container canvas { display:block; }
-      .planet-curtain {
-        position:absolute; inset:0; z-index:50; background:#000;
-        display:flex; align-items:center; justify-content:center; overflow:hidden;
-        transition:opacity 1.2s ease, visibility 1.2s ease; pointer-events:none;
-      }
-      .planet-curtain.hidden { opacity:0; visibility:hidden; }
-      .planet-curtain.visible { opacity:1; visibility:visible; }
-      .planet-img {
-        width:100vw; height:100vh; object-fit:cover;
-        animation:pakde-spin-planet 120s linear infinite;
+
+      .planet-intro-image {
+        animation:pakde-spin-planet 70s linear infinite;
+        will-change:transform;
       }
       @keyframes pakde-float-pulse {
         0%,100% { box-shadow:0 0 0 0 rgba(255,255,255,.4); transform:translateY(0); }
         50% { box-shadow:0 0 0 10px rgba(255,255,255,0); transform:translateY(-5px); }
       }
       @keyframes pakde-spin-planet {
-        from { transform:scale(1.42) rotate(0deg); }
-        to { transform:scale(1.42) rotate(360deg); }
+        from { transform:rotate(0deg); }
+        to { transform:rotate(360deg); }
       }
+
       @media (max-width:768px) {
-        .door-label { opacity:1; transform:translateX(-50%); font-size:10px; padding:4px 8px; margin-bottom:5px; }
+        .door-label {
+          opacity:1; transform:translateX(-50%); font-size:10px;
+          padding:4px 8px; margin-bottom:5px; max-width:130px;
+          overflow:hidden; text-overflow:ellipsis;
+        }
+        .pakde-hotspot-dot { width:40px; height:40px; }
+        .pakde-hotspot-thumbnail { width:52px; height:52px; }
+      }
+
+      @media (prefers-reduced-motion:reduce) {
+        .planet-intro-image, .pakde-hotspot-animated .pakde-hotspot-dot {
+          animation:none !important;
+        }
       }
     `}</style>
   );
