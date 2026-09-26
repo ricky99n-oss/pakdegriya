@@ -3,79 +3,72 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
-// --- FUNGSI 1: LOGIN EMAIL (SUPABASE AUTH) ---
+export async function verifyHumanAction(token: string) {
+  return verifyTurnstileToken(token);
+}
+
 export async function masukAction(formData: FormData) {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const password = String(formData.get("password") || "");
+  const turnstileToken = String(formData.get("cf-turnstile-response") || "");
 
   if (!email || !password) return { error: "Email dan Password wajib diisi." };
+  const verification = await verifyTurnstileToken(turnstileToken);
+  if (!verification.success) return { error: verification.error || "Verifikasi keamanan gagal." };
 
   const supabase = getSupabase();
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (error || !data.session) {
-    return { error: "Email tidak ditemukan atau password salah." };
-  }
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.session) return { error: "Email tidak ditemukan atau password salah." };
 
   const cookieStore = await cookies();
   cookieStore.set("supabase_access_token", data.session.access_token, {
-    httpOnly: true, 
+    httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax", 
-    path: "/", 
-    maxAge: data.session.expires_in
+    sameSite: "lax",
+    path: "/",
+    maxAge: data.session.expires_in,
   });
 
   return redirect("/admin/dashboard");
 }
 
-// --- FUNGSI 2: LOGOUT (SUPABASE AUTH) ---
 export async function keluarAction() {
   const cookieStore = await cookies();
   cookieStore.delete("supabase_access_token");
-  const supabase = getSupabase();
-  await supabase.auth.signOut();
-  
+  try {
+    await getSupabase().auth.signOut();
+  } catch (error) {
+    console.error("Logout Supabase gagal:", error);
+  }
   return redirect("/auth/masuk");
 }
 
-// --- FUNGSI 3: DAFTAR MEMBER (SUPABASE AUTH) ---
 export async function daftarMemberAction(formData: FormData) {
-  const name = formData.get("name") as string;
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+  const name = String(formData.get("name") || "").trim();
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const password = String(formData.get("password") || "");
+  const turnstileToken = String(formData.get("cf-turnstile-response") || "");
 
   if (!name || !email || !password) return { error: "Semua data wajib diisi" };
+  if (password.length < 8) return { error: "Password minimal 8 karakter." };
+  const verification = await verifyTurnstileToken(turnstileToken);
+  if (!verification.success) return { error: verification.error || "Verifikasi keamanan gagal." };
 
-  const supabase = getSupabase();
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await getSupabase().auth.signUp({
     email,
     password,
-    options: {
-      data: {
-        // Penting: Disisipkan agar SQL Trigger bisa membaca nama user baru
-        full_name: name, 
-      }
-    }
+    options: { data: { full_name: name } },
   });
 
   if (error) {
-    if (error.message.includes("already registered") || error.message.includes("User already exists")) {
-      return { error: "Email sudah terdaftar!" };
-    }
+    if (error.message.includes("already registered") || error.message.includes("User already exists")) return { error: "Email sudah terdaftar!" };
     return { error: `Gagal mendaftar: ${error.message}` };
   }
-
-  // Catatan: Insert ke tabel public.users sudah diurus otomatis oleh SQL Trigger
-
-  return redirect("/auth/masuk");
+  return { success: true };
 }
 
-// --- FUNGSI 4: PENYIMPAN COOKIE (DIPANGGIL OLEH CALLBACK) ---
 export async function setSessionCookieAction(accessToken: string, expiresIn: number) {
   const cookieStore = await cookies();
   cookieStore.set("supabase_access_token", accessToken, {
@@ -83,6 +76,6 @@ export async function setSessionCookieAction(accessToken: string, expiresIn: num
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: expiresIn
+    maxAge: expiresIn,
   });
 }
