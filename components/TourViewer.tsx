@@ -81,6 +81,10 @@ export default function TourViewer({ tourConfig, introPlanetUrl }: { tourConfig:
       config.default.showZoomCtrl = false;
       config.default.showFullscreenCtrl = false;
       config.default.title = ""; 
+      
+      // === FIX LAYAR HITAM LOADING TERUS ===
+      // Menginstruksikan Pannellum untuk tidak menghitung ukuran file terlebih dahulu
+      config.default.dynamic = true;
 
       if (config.scenes) {
         Object.keys(config.scenes).forEach(sceneKey => {

@@ -1,16 +1,14 @@
 import { getRequestContext } from "@cloudflare/next-on-pages";
 import { createClient } from "@supabase/supabase-js";
 
-// Wajib untuk Cloudflare Pages Edge Runtime
 export const runtime = "edge";
 
-// Menjawab "Pemeriksaan Keamanan CORS" dari mesin WebGL 360°
 export async function OPTIONS() {
   const headers = new Headers();
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
   headers.set("Access-Control-Allow-Headers", "*");
-  headers.set("Access-Control-Max-Age", "86400"); // Cache izin selama 24 jam
+  headers.set("Access-Control-Max-Age", "86400"); 
   
   return new Response(null, { status: 204, headers });
 }
@@ -19,14 +17,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
 
   try {
-    // Mengambil env dengan cara paling aman di Cloudflare Edge
     const env = getRequestContext().env as any;
     const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     const supabase = createClient(supabaseUrl!, supabaseKey!);
 
-    // Ambil data metadata dari database
     const { data: media } = await supabase
       .from("property_media")
       .select("file_name, mime_type")
@@ -43,7 +39,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return new Response("R2 Error: Bucket belum di-binding", { status: 500 });
     }
 
-    // Mengambil file fisik dari Cloudflare R2
     const object = await bucket.get(media.file_name);
 
     if (!object) {
@@ -54,20 +49,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     object.writeHttpMetadata(headers);
     headers.set("etag", object.httpEtag);
     
-    // Header Izin Keamanan WebGL
+    // 1. Izin CORS Dasar (Mencegah Blokir WebGL)
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
     
-    // Header Cache untuk mempercepat loading
+    // 2. KUNCI PERBAIKAN: Mengizinkan Javascript/Pannellum membaca ukuran file
+    headers.set("Access-Control-Expose-Headers", "Content-Length, Accept-Ranges");
+    
+    // 3. Memberitahu Browser ukuran pasti file
+    headers.set("Content-Length", object.size.toString());
+    headers.set("Accept-Ranges", "bytes");
+
+    // 4. Pengoptimalan Cache
     headers.set("Cache-Control", "public, max-age=31536000, immutable");
     headers.set("Content-Type", media.mime_type || "image/jpeg");
-
-    // === KUNCI PERBAIKAN: Mencegah Layar Loading Hitam di Editor ===
-    // Memberitahu Pannellum ukuran asli file agar persentase loading bisa berjalan
-    headers.set("Content-Length", object.size.toString());
-    
-    // Mengizinkan Browser memuat gambar secara parsial (potongan)
-    headers.set("Accept-Ranges", "bytes");
 
     return new Response(object.body, { headers });
 
