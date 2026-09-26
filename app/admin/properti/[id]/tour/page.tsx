@@ -5,6 +5,8 @@ import { createSceneAction } from "./actions";
 import TourEditorWrapper from "@/components/TourEditorWrapper";
 import { getSupabase } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 export default async function KelolaTurProperti({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = getSupabase();
@@ -13,23 +15,34 @@ export default async function KelolaTurProperti({ params }: { params: Promise<{ 
   if (!propertyRecord || propertyRecord.length === 0) notFound();
   const property = propertyRecord[0];
 
-  // Eksekusi pemanggilan database paralel
-  const [mediaRes, scenesRes, hotspotsRes] = await Promise.all([
+  // 1. Mengambil Media dan Ruangan terlebih dahulu
+  const [mediaRes, scenesRes] = await Promise.all([
     supabase.from("property_media").select("*").eq("property_id", id),
-    supabase.from("scenes").select("*").eq("property_id", id),
-    // Anggap hotspots tabel mandiri tanpa relasi langsung property_id
-    supabase.from("hotspots").select("*") 
+    supabase.from("scenes").select("*").eq("property_id", id)
   ]);
 
   const allMedia = mediaRes.data || [];
+  const scenesData = scenesRes.data || [];
+
+  // 2. MENCEGAH ERROR 1102 CLOUDFLARE: 
+  // Hanya ambil hotspot yang terkait dengan ruangan di properti ini
+  let hotspotsData: any[] = [];
+  if (scenesData.length > 0) {
+    const sceneIds = scenesData.map(s => s.id);
+    const { data } = await supabase
+      .from("hotspots")
+      .select("*")
+      .in("scene_id", sceneIds);
+    hotspotsData = data || [];
+  }
+
   const panoramas = allMedia.filter(m => m.file_type === "panorama_private");
   const audios = allMedia.filter(m => m.file_type === "audio_private").map(a => ({
     id: a.id,
-    fileName: a.file_name // Dikonversi karena dibutuhkan oleh komponen UI Client
+    fileName: a.file_name 
   }));
   
-  // Konversi property name yang dipakai oleh Client Component (React)
-  const existingScenes = (scenesRes.data || []).map(s => ({
+  const existingScenes = scenesData.map(s => ({
     id: s.id,
     mediaId: s.media_id,
     name: s.name,
@@ -39,7 +52,7 @@ export default async function KelolaTurProperti({ params }: { params: Promise<{ 
     audioMediaId: s.audio_media_id
   }));
 
-  const allHotspots = (hotspotsRes.data || []).map(h => ({
+  const allHotspots = hotspotsData.map(h => ({
     id: h.id,
     sceneId: h.scene_id,
     targetSceneId: h.target_scene_id,

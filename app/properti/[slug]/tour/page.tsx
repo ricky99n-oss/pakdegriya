@@ -10,7 +10,6 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
   const { slug } = await params;
   const supabase = getSupabase();
   
-  // 1. Ambil data properti berdasarkan Slug (REST API)
   const { data: propertyRecord } = await supabase
     .from("properties")
     .select("id")
@@ -22,27 +21,35 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
   }
   const property = propertyRecord[0];
 
-  // 2. Ambil semua ruangan, hotspot, dan media secara paralel
-  const [scenesRes, hotspotsRes, mediaRes] = await Promise.all([
+  // 1. Ambil Data Ruangan dan Media Saja Dulu
+  const [scenesRes, mediaRes] = await Promise.all([
     supabase.from("scenes").select(`
       id, name, is_first_scene:is_first_scene, 
       initial_pitch:initial_pitch, initial_yaw:initial_yaw, 
       media_id:media_id, audio_media_id:audio_media_id
     `).eq("property_id", property.id),
     
-    supabase.from("hotspots").select(`
-      id, scene_id:scene_id, target_scene_id:target_scene_id, 
-      pitch, yaw, label
-    `),
-    
     supabase.from("property_media").select("id, file_type:file_type").eq("property_id", property.id)
   ]);
 
   const allScenes = scenesRes.data || [];
-  const allHotspots = hotspotsRes.data || [];
   const allMedia = mediaRes.data || [];
 
-  // TAMPILAN JIKA BELUM ADA VIRTUAL TOUR (DITAMBAH TOMBOL KEMBALI)
+  // 2. MENCEGAH ERROR 1102 CLOUDFLARE: Filter hotspot secara ketat
+  let allHotspots: any[] = [];
+  if (allScenes.length > 0) {
+    const sceneIds = allScenes.map(s => s.id);
+    const { data } = await supabase
+      .from("hotspots")
+      .select(`
+        id, scene_id:scene_id, target_scene_id:target_scene_id, 
+        pitch, yaw, label
+      `)
+      .in("scene_id", sceneIds);
+    allHotspots = data || [];
+  }
+
+  // TAMPILAN JIKA BELUM ADA VIRTUAL TOUR
   if (allScenes.length === 0) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-[#281C15] text-[#D6A34A] font-sans p-6 text-center">
@@ -61,14 +68,11 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
     );
   }
 
-  // 3. Tentukan Ruangan Pertama (Berdasarkan setelan di Admin)
   const firstScene = allScenes.find(s => s.is_first_scene) || allScenes[0];
   
-  // 4. Cari Media "Little Planet"
   const planetMedia = allMedia.find(m => m.file_type === "intro_planet_public");
   const introPlanetUrl = planetMedia ? `/api/media/${planetMedia.id}` : undefined;
 
-  // 5. Susun JSON Config untuk mesin Pannellum
   const tourConfig: any = {
     default: {
       firstScene: firstScene.id,
