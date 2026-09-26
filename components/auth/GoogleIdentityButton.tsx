@@ -35,6 +35,19 @@ type PhoneState = {
   userName?: string;
 };
 
+function isMobileLikeBrowser() {
+  if (typeof navigator === "undefined" || typeof window === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || window.matchMedia("(pointer: coarse)").matches;
+}
+
+function buildRedirectState(nextPath: string, turnstileToken: string) {
+  return encodeURIComponent(JSON.stringify({
+    next: nextPath || "/",
+    turnstile: turnstileToken,
+  }));
+}
+
 export default function GoogleIdentityButton({
   turnstileToken,
   requestedNext = "",
@@ -45,34 +58,70 @@ export default function GoogleIdentityButton({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
+  const pendingRef = useRef(false);
+  const tokenRef = useRef(turnstileToken);
+  const nextRef = useRef(requestedNext);
+  const onErrorRef = useRef(onError);
+  const onTokenConsumedRef = useRef(onTokenConsumed);
+
   const [scriptReady, setScriptReady] = useState(false);
   const [pending, setPending] = useState(false);
+  const [redirectMode, setRedirectMode] = useState<boolean | null>(null);
   const [phoneState, setPhoneState] = useState<PhoneState>({ open: false, redirectTo: "/" });
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
-  useEffect(() => {
-    if (!scriptReady || !clientId || !containerRef.current || !window.google?.accounts?.id || initializedRef.current) return;
+  useEffect(() => { tokenRef.current = turnstileToken; }, [turnstileToken]);
+  useEffect(() => { nextRef.current = requestedNext; }, [requestedNext]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
+  useEffect(() => { onTokenConsumedRef.current = onTokenConsumed; }, [onTokenConsumed]);
+  useEffect(() => { setRedirectMode(isMobileLikeBrowser()); }, []);
 
-    window.google.accounts.id.initialize({
+  useEffect(() => {
+    if (
+      redirectMode === null ||
+      !scriptReady ||
+      !clientId ||
+      !containerRef.current ||
+      !window.google?.accounts?.id ||
+      initializedRef.current
+    ) return;
+
+    const googleId = window.google.accounts.id;
+    const loginUri = `${window.location.origin}/auth/google-redirect`;
+
+    const config: Record<string, unknown> = {
       client_id: clientId,
       auto_select: false,
       cancel_on_tap_outside: true,
-      ux_mode: "popup",
-      callback: async (response: { credential?: string }) => {
-        if (!response?.credential || pending) return;
-        if (!turnstileToken) {
-          onError("Selesaikan verifikasi keamanan terlebih dahulu.");
+      ux_mode: redirectMode ? "redirect" : "popup",
+    };
+
+    if (redirectMode) {
+      config.login_uri = loginUri;
+    } else {
+      config.callback = async (response: { credential?: string }) => {
+        if (!response?.credential || pendingRef.current) return;
+
+        const latestTurnstileToken = tokenRef.current;
+        if (!latestTurnstileToken) {
+          onErrorRef.current("Selesaikan verifikasi keamanan terlebih dahulu.");
           return;
         }
 
+        pendingRef.current = true;
         setPending(true);
-        onError("");
+        onErrorRef.current("");
+
         try {
-          const result = await googleIdTokenLoginAction(response.credential, turnstileToken, requestedNext || null);
-          onTokenConsumed?.();
+          const result = await googleIdTokenLoginAction(
+            response.credential,
+            latestTurnstileToken,
+            nextRef.current || null
+          );
+          onTokenConsumedRef.current?.();
 
           if (!result.success || !result.redirectTo) {
-            onError(result.error || "Login Google gagal. Silakan coba lagi.");
+            onErrorRef.current(result.error || "Login Google gagal. Silakan coba lagi.");
             return;
           }
 
@@ -88,35 +137,41 @@ export default function GoogleIdentityButton({
           window.location.replace(result.redirectTo);
         } catch (error) {
           console.error("Google identity login failed:", error);
-          onTokenConsumed?.();
-          onError("Login Google gagal karena koneksi ke server terputus.");
+          onTokenConsumedRef.current?.();
+          onErrorRef.current("Login Google gagal karena koneksi ke server terputus.");
         } finally {
+          pendingRef.current = false;
           setPending(false);
         }
-      },
-    });
+      };
+    }
+
+    googleId.initialize(config);
 
     containerRef.current.innerHTML = "";
-    window.google.accounts.id.renderButton(containerRef.current, {
+    googleId.renderButton(containerRef.current, {
       theme: "outline",
       size: "large",
       shape: "rectangular",
       text: mode === "signup" ? "signup_with" : "signin_with",
       width: Math.min(420, containerRef.current.clientWidth || 420),
       logo_alignment: "left",
+      ...(redirectMode
+        ? { state: buildRedirectState(nextRef.current, tokenRef.current) }
+        : {}),
     });
-    initializedRef.current = true;
-  }, [clientId, mode, onError, onTokenConsumed, pending, requestedNext, scriptReady, turnstileToken]);
 
+    initializedRef.current = true;
+  }, [clientId, mode, redirectMode, scriptReady]);
+
+  // Di mode redirect, state pada tombol membawa Turnstile token. Ketika token
+  // berubah / expired, render ulang tombol agar state tidak memakai token lama.
   useEffect(() => {
-    // Credential callback harus selalu membaca token Turnstile terbaru.
-    if (initializedRef.current && scriptReady) {
-      initializedRef.current = false;
-      setScriptReady(false);
-      queueMicrotask(() => setScriptReady(true));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turnstileToken]);
+    if (!redirectMode || !initializedRef.current || !scriptReady) return;
+    initializedRef.current = false;
+    setScriptReady(false);
+    queueMicrotask(() => setScriptReady(true));
+  }, [redirectMode, turnstileToken, requestedNext, scriptReady]);
 
   if (!clientId) {
     return (
@@ -125,6 +180,8 @@ export default function GoogleIdentityButton({
       </div>
     );
   }
+
+  const effectiveDisabled = disabled || pending || redirectMode === null;
 
   return (
     <>
@@ -135,7 +192,10 @@ export default function GoogleIdentityButton({
         onError={() => onError("Library Google Identity gagal dimuat.")}
       />
 
-      <div className={`relative min-h-[44px] w-full flex justify-center ${disabled ? "opacity-50 pointer-events-none" : ""}`} aria-busy={pending}>
+      <div
+        className={`relative min-h-[44px] w-full flex justify-center ${effectiveDisabled ? "opacity-50 pointer-events-none" : ""}`}
+        aria-busy={pending}
+      >
         <div ref={containerRef} className="w-full flex justify-center" />
         {pending && (
           <div className="absolute inset-0 bg-white/90 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-[#4A2F1B] border border-gray-200">
