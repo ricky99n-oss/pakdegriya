@@ -20,7 +20,9 @@ const nextConfig: NextConfig = {
     remotePatterns: [{ protocol: "https", hostname: "**.supabase.co" }],
   },
   experimental: {
-    serverActions: { bodySizeLimit: "50mb" },
+    // Upload media besar tidak lagi lewat Server Actions. Batasi payload action
+    // agar request multipart besar tidak kembali memenuhi memori Worker.
+    serverActions: { bodySizeLimit: "4mb" },
   },
   async headers() {
     return [
