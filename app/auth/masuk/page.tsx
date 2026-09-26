@@ -4,12 +4,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { masukAction } from "../actions";
-import { LogIn } from "lucide-react";
+import { CheckCircle2, LogIn } from "lucide-react";
 import TurnstileWidget from "@/components/security/TurnstileWidget";
 import GoogleIdentityButton from "@/components/auth/GoogleIdentityButton";
 
 export default function HalamanMasuk() {
   const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
@@ -20,9 +21,11 @@ export default function HalamanMasuk() {
     const params = new URLSearchParams(window.location.search);
     const requested = params.get("next") || "";
     const googleError = params.get("google_error") || "";
+    const verified = params.get("verified") === "1";
 
     if (requested.startsWith("/") && !requested.startsWith("//")) setNextPath(requested);
     if (googleError) setErrorMsg(googleError);
+    if (verified) setSuccessMsg("Email berhasil diverifikasi. Silakan masuk menggunakan akun Anda.");
   }, []);
 
   const resetTurnstile = () => {
@@ -43,10 +46,17 @@ export default function HalamanMasuk() {
     formData.set("cf-turnstile-response", turnstileToken);
     formData.set("next", nextPath);
 
-    const res = await masukAction(formData);
-    if (res?.error) {
-      setErrorMsg(res.error);
+    try {
+      const res = await masukAction(formData);
+      if (res?.error) {
+        setErrorMsg(res.error);
+        resetTurnstile();
+      }
+    } catch (error) {
+      console.error("login failed:", error);
+      setErrorMsg("Koneksi ke server gagal. Silakan coba lagi.");
       resetTurnstile();
+    } finally {
       setIsLoading(false);
     }
   };
@@ -61,24 +71,14 @@ export default function HalamanMasuk() {
             <p className="text-[#281C15]/70 mt-2 font-medium">Selamat datang kembali di Pakde Griya.</p>
           </div>
 
+          {successMsg && <div className="bg-green-50 text-green-700 p-4 rounded-xl text-sm font-bold mb-5 text-center border border-green-200 shadow-sm flex items-center justify-center gap-2"><CheckCircle2 size={18} /> {successMsg}</div>}
           {errorMsg && <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-bold mb-6 text-center border border-red-200 shadow-sm">{errorMsg}</div>}
 
           <div className="mb-5">
-            <TurnstileWidget
-              resetKey={turnstileResetKey}
-              onToken={setTurnstileToken}
-              onExpire={() => setErrorMsg("Verifikasi keamanan kedaluwarsa. Silakan ulangi.")}
-            />
+            <TurnstileWidget resetKey={turnstileResetKey} onToken={setTurnstileToken} onExpire={() => setErrorMsg("Verifikasi keamanan kedaluwarsa. Silakan ulangi.")} />
           </div>
 
-          <GoogleIdentityButton
-            turnstileToken={turnstileToken}
-            requestedNext={nextPath}
-            mode="login"
-            disabled={isLoading || (turnstileConfigured && !turnstileToken)}
-            onError={setErrorMsg}
-            onTokenConsumed={resetTurnstile}
-          />
+          <GoogleIdentityButton turnstileToken={turnstileToken} requestedNext={nextPath} mode="login" disabled={isLoading || (turnstileConfigured && !turnstileToken)} onError={setErrorMsg} onTokenConsumed={resetTurnstile} />
 
           <div className="flex items-center my-6"><div className="flex-1 border-t border-gray-200" /><span className="px-4 text-[10px] text-gray-400 font-bold uppercase tracking-wider">Atau dengan Email</span><div className="flex-1 border-t border-gray-200" /></div>
 

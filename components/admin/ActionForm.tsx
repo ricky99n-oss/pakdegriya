@@ -34,7 +34,19 @@ export default function ActionForm({
     setPending(true);
     setResult(null);
     try {
-      const response = await action(new FormData(event.currentTarget));
+      const form = event.currentTarget;
+      const formData = new FormData(form);
+
+      // FormData(form) tidak selalu membawa name/value dari tombol submit.
+      // Tambahkan submitter secara eksplisit agar action seperti createSceneAction
+      // tetap menerima mediaId ketika tombol "+" ditekan.
+      const nativeEvent = event.nativeEvent as SubmitEvent;
+      const submitter = nativeEvent.submitter as HTMLButtonElement | HTMLInputElement | null;
+      if (submitter?.name) {
+        formData.set(submitter.name, submitter.value);
+      }
+
+      const response = await action(formData);
       setResult(response);
 
       if (response.success) {

@@ -47,6 +47,14 @@ export default function Tour360Styles() {
       }
       #tour-canvas-admin canvas, #public-tour-container canvas { display:block; }
 
+      /* Loader bawaan Pannellum diganti loader Pakde Griya agar lebih modern. */
+      #public-tour-container .pnlm-load-box,
+      #public-tour-container .pnlm-lbox,
+      #public-tour-container .pnlm-loading,
+      #public-tour-container .pnlm-loading-box {
+        display:none !important;
+      }
+
       .planet-intro-image {
         animation:pakde-spin-planet 70s linear infinite;
         will-change:transform;

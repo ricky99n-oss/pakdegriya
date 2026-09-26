@@ -204,9 +204,13 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
   const startTour = (withAudio: boolean) => {
     startedRef.current = true;
     setStarted(true);
+    setShowGuide(true);
     audioEnabledRef.current = withAudio;
     if (withAudio) playSceneAudio(currentSceneIdRef.current);
-    else setIsAudioPlaying(false);
+    else {
+      audioRef.current?.pause();
+      setIsAudioPlaying(false);
+    }
     const viewer = viewerInstance.current;
     if (viewer && viewer.getHfov() < 110) viewer.setHfov(120, 700);
     scheduleAutoRotate(900);

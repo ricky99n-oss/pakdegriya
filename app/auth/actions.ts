@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase, updateAuthUserWithAccessToken } from "@/lib/supabase";
 import {
   createMemberProfile,
   ensureUserProfile,
@@ -27,10 +27,7 @@ function normalizePhone(value: string) {
 }
 
 function logServerError(label: string, error: unknown) {
-  const cause = error && typeof error === "object" && "cause" in error
-    ? (error as { cause?: any }).cause
-    : undefined;
-
+  const cause = error && typeof error === "object" && "cause" in error ? (error as { cause?: any }).cause : undefined;
   console.error(label, {
     message: error instanceof Error ? error.message : String(error),
     causeMessage: cause?.message,
@@ -53,6 +50,10 @@ function destinationForRole(roleValue: string, requestedNext?: string | null) {
   }
 
   return isAdmin ? "/admin/dashboard" : "/";
+}
+
+function siteUrl() {
+  return String(process.env.NEXT_PUBLIC_SITE_URL || "https://pakdegriya.com").replace(/\/$/, "");
 }
 
 async function authContextFromToken(accessToken: string) {
@@ -92,7 +93,11 @@ export async function masukAction(formData: FormData) {
 
   const supabase = getSupabase();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error || !data.session) return { error: "Email tidak ditemukan atau password salah." };
+  if (error || !data.session) {
+    const message = String(error?.message || "").toLowerCase();
+    if (message.includes("email not confirmed")) return { error: "Email belum diverifikasi. Periksa inbox atau folder spam Anda." };
+    return { error: "Email tidak ditemukan atau password salah." };
+  }
 
   let destination: string;
   try {
@@ -107,25 +112,15 @@ export async function masukAction(formData: FormData) {
   redirect(destination);
 }
 
-export async function googleIdTokenLoginAction(
-  idToken: string,
-  turnstileToken: string,
-  requestedNext?: string | null
-) {
+export async function googleIdTokenLoginAction(idToken: string, turnstileToken: string, requestedNext?: string | null) {
   try {
     if (!idToken) return { success: false, error: "Token Google tidak tersedia." };
 
     const verification = await verifyTurnstileToken(turnstileToken);
-    if (!verification.success) {
-      return { success: false, error: verification.error || "Verifikasi keamanan gagal." };
-    }
+    if (!verification.success) return { success: false, error: verification.error || "Verifikasi keamanan gagal." };
 
     const supabase = getSupabase();
-    const { data, error } = await supabase.auth.signInWithIdToken({
-      provider: "google",
-      token: idToken,
-    });
-
+    const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token: idToken });
     if (error || !data.session || !data.user) {
       console.error("signInWithIdToken gagal:", error);
       return { success: false, error: "Akun Google gagal diverifikasi. Silakan coba lagi." };
@@ -137,7 +132,6 @@ export async function googleIdTokenLoginAction(
 
     const role = String(profile.role || "member").toLowerCase();
     const isAdmin = role === "admin" || role === "superadmin";
-
     return {
       success: true,
       redirectTo: destination,
@@ -150,11 +144,7 @@ export async function googleIdTokenLoginAction(
   }
 }
 
-export async function completeOAuthLoginAction(
-  accessToken: string,
-  expiresIn: number,
-  requestedNext?: string | null
-) {
+export async function completeOAuthLoginAction(accessToken: string, expiresIn: number, requestedNext?: string | null) {
   try {
     const { authUser, profile } = await authContextFromToken(accessToken);
     const destination = destinationForRole(String(profile.role), requestedNext);
@@ -162,7 +152,6 @@ export async function completeOAuthLoginAction(
 
     const role = String(profile.role || "member").toLowerCase();
     const isAdmin = role === "admin" || role === "superadmin";
-
     return {
       success: true,
       redirectTo: destination,
@@ -175,15 +164,11 @@ export async function completeOAuthLoginAction(
   }
 }
 
-export async function saveMemberPhoneAction(rawPhone: string) {
+export async function saveMemberPhoneAction(rawPhone: string, acceptedTerms = false, marketingOptIn = false) {
   try {
     const phone = normalizePhone(rawPhone);
-    if (!phone) {
-      return {
-        success: false,
-        error: "Nomor telepon tidak valid. Gunakan nomor Indonesia aktif, misalnya 0812...",
-      };
-    }
+    if (!phone) return { success: false, error: "Nomor telepon tidak valid. Gunakan nomor Indonesia aktif, misalnya 0812..." };
+    if (!acceptedTerms) return { success: false, error: "Anda harus menyetujui Syarat & Ketentuan Pakde Griya." };
 
     const cookieStore = await cookies();
     const accessToken = cookieStore.get("supabase_access_token")?.value;
@@ -194,6 +179,15 @@ export async function saveMemberPhoneAction(rawPhone: string) {
     if (!email) return { success: false, error: "Email akun tidak ditemukan." };
 
     await updateUserPhone(email, phone);
+    await updateAuthUserWithAccessToken(accessToken, {
+      data: {
+        ...(authUser.user_metadata || {}),
+        phone,
+        terms_accepted_at: new Date().toISOString(),
+        marketing_opt_in: marketingOptIn,
+      },
+    });
+
     return { success: true, phone };
   } catch (error) {
     logServerError("saveMemberPhoneAction gagal", error);
@@ -204,13 +198,7 @@ export async function saveMemberPhoneAction(rawPhone: string) {
 export async function keluarAction() {
   const cookieStore = await cookies();
   cookieStore.delete("supabase_access_token");
-
-  try {
-    await getSupabase().auth.signOut();
-  } catch (error) {
-    console.error("Logout Supabase gagal:", error);
-  }
-
+  try { await getSupabase().auth.signOut(); } catch (error) { console.error("Logout Supabase gagal:", error); }
   redirect("/auth/masuk");
 }
 
@@ -220,11 +208,12 @@ export async function daftarMemberAction(formData: FormData) {
   const password = String(formData.get("password") || "");
   const phone = normalizePhone(String(formData.get("phone") || ""));
   const turnstileToken = String(formData.get("cf-turnstile-response") || "");
+  const acceptedTerms = formData.get("acceptTerms") === "on";
+  const marketingOptIn = formData.get("marketingOptIn") === "on";
 
-  if (!name || !email || !password || !phone) {
-    return { error: "Nama, email, nomor telepon, dan password wajib diisi dengan benar." };
-  }
+  if (!name || !email || !password || !phone) return { error: "Nama, email, nomor telepon, dan password wajib diisi dengan benar." };
   if (password.length < 8) return { error: "Password minimal 8 karakter." };
+  if (!acceptedTerms) return { error: "Anda harus menyetujui Syarat & Ketentuan untuk membuat akun." };
 
   const verification = await verifyTurnstileToken(turnstileToken);
   if (!verification.success) return { error: verification.error || "Verifikasi keamanan gagal." };
@@ -232,33 +221,34 @@ export async function daftarMemberAction(formData: FormData) {
   const { data, error } = await getSupabase().auth.signUp({
     email,
     password,
-    options: { data: { full_name: name, phone } },
+    options: {
+      emailRedirectTo: `${siteUrl()}/auth/masuk?verified=1`,
+      data: {
+        full_name: name,
+        phone,
+        terms_accepted_at: new Date().toISOString(),
+        marketing_opt_in: marketingOptIn,
+      },
+    },
   });
 
   if (error) {
-    if (error.message.includes("already registered") || error.message.includes("User already exists")) {
-      return { error: "Email sudah terdaftar!" };
-    }
+    if (error.message.includes("already registered") || error.message.includes("User already exists")) return { error: "Email sudah terdaftar!" };
     return { error: `Gagal mendaftar: ${error.message}` };
   }
 
   if (data.user) {
     try {
-      await createMemberProfile({
-        id: data.user.id,
-        email,
-        name,
-        phone,
-      });
+      await createMemberProfile({ id: data.user.id, email, name, phone });
     } catch (profileError) {
       logServerError("Gagal membuat profil member setelah signup", profileError);
-      return {
-        error: "Akun dibuat, tetapi profil belum dapat disiapkan. Silakan coba login beberapa saat lagi.",
-      };
+      return { error: "Akun dibuat, tetapi profil belum dapat disiapkan. Silakan coba login beberapa saat lagi." };
     }
   }
 
-  return { success: true };
+  // Jika Confirm Email aktif di Supabase, session akan null sampai user klik email.
+  // UI tetap mengarahkan user ke halaman instruksi verifikasi agar alurnya konsisten.
+  return { success: true, requiresEmailVerification: !data.session, email };
 }
 
 export async function setSessionCookieAction(accessToken: string, expiresIn: number) {

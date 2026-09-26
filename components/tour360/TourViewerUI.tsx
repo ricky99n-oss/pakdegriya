@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   AlertTriangle,
   ArrowLeftFromLine,
@@ -7,9 +8,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Headphones,
   Info,
   LayoutGrid,
-  Loader2,
   Maximize,
   Minimize,
   MousePointer2,
@@ -51,6 +52,7 @@ export default function TourViewerUI(props: Props) {
   const sceneIds = Object.keys(props.tourConfig.scenes || {});
   const sceneTitle = props.tourConfig.scenes[props.currentSceneId]?.title || "Virtual Tour";
   const canStart = !props.loading && !props.error && !!props.currentSceneId;
+  const [showStartOptions, setShowStartOptions] = useState(false);
 
   return (
     <>
@@ -66,10 +68,10 @@ export default function TourViewerUI(props: Props) {
               <button
                 type="button"
                 disabled={!canStart}
-                onClick={() => props.onStart(true)}
+                onClick={() => setShowStartOptions(true)}
                 className="group relative w-[min(72vw,62vh)] aspect-square rounded-full focus:outline-none focus-visible:ring-4 focus-visible:ring-[#D6A34A]/70 disabled:cursor-wait"
-                aria-label="Masuk ke Virtual Tour 360 derajat"
-                title={canStart ? "Klik planet untuk masuk ke Virtual Tour" : "Menyiapkan panorama"}
+                aria-label="Pilih cara memulai Virtual Tour 360 derajat"
+                title={canStart ? "Klik planet untuk memulai Virtual Tour" : "Menyiapkan panorama"}
               >
                 <span className="absolute inset-[4%] rounded-full bg-black/30 blur-2xl scale-95" aria-hidden="true" />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -84,7 +86,7 @@ export default function TourViewerUI(props: Props) {
               <button
                 type="button"
                 disabled={!canStart}
-                onClick={() => props.onStart(true)}
+                onClick={() => setShowStartOptions(true)}
                 className="w-52 h-52 rounded-full border border-[#D6A34A]/40 bg-[#281C15] text-[#D6A34A] font-black text-xl shadow-2xl disabled:opacity-50"
               >
                 Mulai 360°
@@ -93,13 +95,40 @@ export default function TourViewerUI(props: Props) {
 
             <div className="mt-5 min-h-12 flex flex-col items-center justify-center">
               {props.loading && !props.error ? (
-                <p className="text-white/60 text-xs md:text-sm flex items-center gap-2"><Loader2 size={15} className="animate-spin" /> Menyiapkan panorama resolusi penuh...</p>
+                <div className="flex items-center gap-3 text-white/65 text-xs md:text-sm">
+                  <ModernSpinner size="sm" /> Menyiapkan panorama resolusi penuh...
+                </div>
               ) : props.error ? (
                 <ErrorMessage message={props.error} onRetry={props.onRetry} compact />
               ) : (
-                <p className="text-white/80 text-sm md:text-base font-bold animate-pulse">Klik planet untuk masuk</p>
+                <p className="text-white/80 text-sm md:text-base font-bold">Klik planet untuk masuk</p>
               )}
             </div>
+          </div>
+
+          {showStartOptions && canStart && (
+            <div className="absolute inset-0 z-[80] bg-black/70 backdrop-blur-md flex items-center justify-center p-5" onClick={() => setShowStartOptions(false)}>
+              <div className="w-full max-w-md rounded-3xl border border-[#D6A34A]/30 bg-[#17120e]/95 p-6 md:p-8 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}>
+                <div className="w-14 h-14 rounded-2xl bg-[#D6A34A]/15 text-[#D6A34A] mx-auto mb-4 flex items-center justify-center"><Headphones size={28} /></div>
+                <h2 className="text-white text-2xl font-black">Mulai Virtual Tour</h2>
+                <p className="text-white/60 text-sm mt-2 mb-6">Pilih pengalaman tur. Audio dapat dinyalakan atau dimatikan lagi kapan saja dari toolbar.</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button type="button" onClick={() => props.onStart(true)} className="h-14 rounded-2xl bg-[#D6A34A] text-[#281C15] font-black flex items-center justify-center gap-2 hover:bg-[#e0b35f] transition-colors"><Volume2 size={20} /> Dengan Audio</button>
+                  <button type="button" onClick={() => props.onStart(false)} className="h-14 rounded-2xl border border-white/15 bg-white/5 text-white font-black flex items-center justify-center gap-2 hover:bg-white/10 transition-colors"><VolumeX size={20} /> Tanpa Audio</button>
+                </div>
+                <button type="button" onClick={() => setShowStartOptions(false)} className="mt-5 text-xs text-white/50 hover:text-white">Kembali</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {props.started && props.loading && !props.error && (
+        <div className="absolute inset-0 z-40 pointer-events-none flex items-center justify-center">
+          <div className="rounded-3xl bg-black/60 border border-white/10 backdrop-blur-xl px-7 py-6 shadow-2xl flex flex-col items-center gap-3">
+            <ModernSpinner size="lg" />
+            <p className="text-white text-sm font-black">Memuat panorama...</p>
+            <p className="text-white/45 text-[11px]">Menyiapkan kualitas terbaik</p>
           </div>
         </div>
       )}
@@ -112,18 +141,15 @@ export default function TourViewerUI(props: Props) {
 
       {props.started && (
         <>
-          {/* Header mobile selalu terlihat agar user tahu sedang berada di viewer dan dapat keluar. */}
-          <header className="md:hidden absolute top-0 inset-x-0 z-30 h-14 px-3 flex items-center justify-between gap-3 bg-black/70 backdrop-blur-xl border-b border-white/10 pt-[env(safe-area-inset-top)]">
+          <header className="md:hidden absolute top-0 inset-x-0 z-30 min-h-14 px-3 py-2 flex items-center justify-between gap-3 bg-black/72 backdrop-blur-xl border-b border-white/10 pt-[max(.5rem,env(safe-area-inset-top))]">
             <div className="min-w-0 flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-[#D6A34A] text-[#281C15] flex items-center justify-center font-black shrink-0">P</div>
               <div className="min-w-0 leading-tight">
-                <p className="text-[10px] uppercase tracking-wider text-[#D6A34A] font-black">Pakde Griya</p>
+                <p className="text-[9px] uppercase tracking-wider text-[#D6A34A] font-black">Pakde Griya</p>
                 <p className="text-white text-sm font-bold truncate">{sceneTitle}</p>
               </div>
             </div>
-            <a href={props.exitUrl} className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center border border-white/10" aria-label="Keluar dari Virtual Tour" title="Keluar dari Virtual Tour">
-              <X size={20} />
-            </a>
+            <a href={props.exitUrl} className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center border border-white/10 shrink-0" aria-label="Keluar dari Virtual Tour" title="Keluar dari Virtual Tour"><X size={20} /></a>
           </header>
 
           <div className="hidden md:block absolute top-6 left-6 z-20 pointer-events-none max-w-[65vw]">
@@ -131,24 +157,11 @@ export default function TourViewerUI(props: Props) {
             <h1 className="text-white text-2xl lg:text-3xl font-black drop-shadow-lg truncate">{sceneTitle}</h1>
           </div>
 
-          <a
-            href={props.exitUrl}
-            className="hidden md:flex absolute top-6 right-6 z-30 h-11 px-4 rounded-full bg-black/65 border border-white/15 text-white items-center gap-2 backdrop-blur-md hover:border-[#D6A34A]/60 hover:text-[#D6A34A] transition-colors text-xs font-black"
-            aria-label="Keluar dari Virtual Tour"
-            title="Keluar dari Virtual Tour"
-          >
-            <ArrowLeftFromLine size={17} /> Keluar Viewer
-          </a>
+          <a href={props.exitUrl} className="hidden md:flex absolute top-6 right-6 z-30 h-11 px-4 rounded-full bg-black/65 border border-white/15 text-white items-center gap-2 backdrop-blur-md hover:border-[#D6A34A]/60 hover:text-[#D6A34A] transition-colors text-xs font-black" aria-label="Keluar dari Virtual Tour" title="Keluar dari Virtual Tour"><ArrowLeftFromLine size={17} /> Keluar Viewer</a>
 
-          {/* Desktop side utilities */}
-          <ViewerToolButton className="hidden md:flex absolute bottom-6 left-6" label="Panduan navigasi" onClick={() => props.setShowGuide(true)}>
-            <Info size={21} />
-          </ViewerToolButton>
-          <ViewerToolButton className="hidden md:flex absolute bottom-6 right-6" label={props.isAudioPlaying ? "Matikan suara" : "Nyalakan suara"} onClick={props.onToggleAudio}>
-            {props.isAudioPlaying ? <Volume2 size={21} /> : <VolumeX size={21} />}
-          </ViewerToolButton>
+          <ViewerToolButton className="hidden md:flex absolute bottom-6 left-6" label="Panduan navigasi" onClick={() => props.setShowGuide(true)}><Info size={21} /></ViewerToolButton>
+          <ViewerToolButton className="hidden md:flex absolute bottom-6 right-6" label={props.isAudioPlaying ? "Matikan suara" : "Nyalakan suara"} onClick={props.onToggleAudio}>{props.isAudioPlaying ? <Volume2 size={21} /> : <VolumeX size={21} />}</ViewerToolButton>
 
-          {/* Desktop main dock */}
           <div className={`hidden md:block absolute bottom-6 left-1/2 -translate-x-1/2 z-20 transition-all ${props.showTools ? "opacity-100" : "translate-y-24 opacity-0 pointer-events-none"}`}>
             <div className="bg-black/80 backdrop-blur-md border border-[#D6A34A]/30 rounded-full px-5 py-2.5 flex items-center gap-3 shadow-2xl">
               <ToolIcon label="Ruangan sebelumnya" onClick={props.onPrev}><ChevronLeft size={25} /></ToolIcon>
@@ -162,12 +175,9 @@ export default function TourViewerUI(props: Props) {
           </div>
 
           {!props.showTools && (
-            <button type="button" onClick={() => props.setShowTools(true)} className="hidden md:block absolute bottom-0 left-1/2 -translate-x-1/2 z-20 bg-black/80 text-[#D6A34A] px-6 py-1 rounded-t-xl border border-[#D6A34A]/30" aria-label="Tampilkan toolbar" title="Tampilkan toolbar">
-              <ChevronUp size={24} />
-            </button>
+            <button type="button" onClick={() => props.setShowTools(true)} className="hidden md:block absolute bottom-0 left-1/2 -translate-x-1/2 z-20 bg-black/80 text-[#D6A34A] px-6 py-1 rounded-t-xl border border-[#D6A34A]/30" aria-label="Tampilkan toolbar" title="Tampilkan toolbar"><ChevronUp size={24} /></button>
           )}
 
-          {/* Mobile dock: satu baris, safe-area aware, tidak ada tombol yang menumpuk. */}
           <nav className="md:hidden absolute z-30 left-2 right-2 bottom-[max(.5rem,env(safe-area-inset-bottom))] h-14 rounded-2xl bg-black/82 border border-[#D6A34A]/30 backdrop-blur-xl shadow-2xl grid grid-cols-6 items-center px-1" aria-label="Kontrol Virtual Tour">
             <MobileTool label="Sebelumnya" onClick={props.onPrev}><ChevronLeft size={22} /></MobileTool>
             <MobileTool label="Ruangan" onClick={() => props.setShowGallery(true)}><LayoutGrid size={20} /></MobileTool>
@@ -180,25 +190,16 @@ export default function TourViewerUI(props: Props) {
           {props.showGallery && (
             <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-xl flex flex-col p-4 md:p-10 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
               <div className="max-w-6xl w-full mx-auto flex items-center justify-between mb-5 md:mb-8">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[.2em] text-white/40 font-black">Virtual Tour</p>
-                  <h3 className="text-xl md:text-2xl font-black text-[#D6A34A]">Pilih Ruangan</h3>
-                </div>
+                <div><p className="text-[10px] uppercase tracking-[.2em] text-white/40 font-black">Virtual Tour</p><h3 className="text-xl md:text-2xl font-black text-[#D6A34A]">Pilih Ruangan</h3></div>
                 <button type="button" onClick={() => props.setShowGallery(false)} className="w-11 h-11 text-white bg-white/10 rounded-full flex items-center justify-center" aria-label="Tutup daftar ruangan" title="Tutup daftar ruangan"><X size={25} /></button>
               </div>
-
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 max-w-6xl w-full mx-auto overflow-y-auto overscroll-contain pb-4">
                 {sceneIds.map((id) => {
                   const scene = props.tourConfig.scenes[id];
                   const active = id === props.currentSceneId;
                   return (
                     <button type="button" key={id} onClick={() => props.onScene(id)} className={`relative rounded-2xl overflow-hidden aspect-video border-2 bg-[#17120e] transition-all ${active ? "border-[#D6A34A] ring-2 ring-[#D6A34A]/20" : "border-white/10 hover:border-white/40"}`} aria-label={`Buka ruangan ${scene.title}`}>
-                      {scene.thumbnail ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img loading="lazy" src={scene.thumbnail} alt={`Thumbnail panorama 360 ${scene.title}`} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[#D6A34A]/60"><LayoutGrid size={32} /></div>
-                      )}
+                      {scene.thumbnail ? <img loading="lazy" src={scene.thumbnail} alt={`Thumbnail panorama 360 ${scene.title}`} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[#D6A34A]/60"><LayoutGrid size={32} /></div>}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
                       <p className={`absolute inset-x-0 bottom-0 p-2.5 md:p-3 text-xs md:text-sm font-black truncate text-left ${active ? "text-[#D6A34A]" : "text-white"}`}>{scene.title}</p>
                     </button>
@@ -212,6 +213,17 @@ export default function TourViewerUI(props: Props) {
         </>
       )}
     </>
+  );
+}
+
+function ModernSpinner({ size }: { size: "sm" | "lg" }) {
+  const box = size === "lg" ? "w-12 h-12" : "w-5 h-5";
+  return (
+    <span className={`relative ${box} inline-block`} aria-hidden="true">
+      <span className="absolute inset-0 rounded-full border-2 border-white/15" />
+      <span className="absolute inset-0 rounded-full border-2 border-transparent border-t-[#D6A34A] border-r-[#D6A34A]/60 animate-spin" />
+      {size === "lg" && <span className="absolute inset-[38%] rounded-full bg-[#D6A34A] shadow-[0_0_15px_rgba(214,163,74,.9)]" />}
+    </span>
   );
 }
 
@@ -229,11 +241,7 @@ function ViewerToolButton({ label, onClick, children, className = "" }: { label:
 }
 
 function MobileTool({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} aria-label={label} title={label} className="h-12 min-w-0 text-[#D6A34A] flex flex-col items-center justify-center gap-0.5 rounded-xl active:bg-white/10">
-      {children}<span className="text-[8px] leading-none font-bold truncate max-w-full px-0.5">{label}</span>
-    </button>
-  );
+  return <button type="button" onClick={onClick} aria-label={label} title={label} className="h-12 min-w-0 text-[#D6A34A] flex flex-col items-center justify-center gap-0.5 rounded-xl active:bg-white/10">{children}<span className="text-[8px] leading-none font-bold truncate max-w-full px-0.5">{label}</span></button>;
 }
 
 function Divider() { return <div className="w-px h-6 bg-[#D6A34A]/30 mx-1" />; }
@@ -259,11 +267,12 @@ function NavigationGuide({ onClose }: { onClose: () => void }) {
     <div className="absolute inset-0 z-[70] bg-black/75 backdrop-blur-sm flex items-center justify-center p-5" onClick={onClose}>
       <div className="bg-[#111]/95 border border-[#D6A34A]/30 rounded-3xl p-6 md:p-8 max-w-2xl w-full text-center relative" onClick={(event) => event.stopPropagation()}>
         <button type="button" onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white" aria-label="Tutup panduan"><X size={24} /></button>
-        <h3 className="text-xl md:text-2xl font-bold text-white mb-6">Panduan Navigasi <span className="text-[#D6A34A]">360°</span></h3>
+        <h3 className="text-xl md:text-2xl font-bold text-white mb-2">Cara Menggunakan <span className="text-[#D6A34A]">Virtual Tour 360°</span></h3>
+        <p className="text-white/50 text-xs mb-6">Panduan ini selalu dapat dibuka kembali lewat tombol info di toolbar.</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8">
           {items.map(([Icon, title, text]) => <div key={title} className="flex md:flex-col items-center text-left md:text-center text-gray-300 gap-4 md:gap-0"><div className="w-12 h-12 md:w-16 md:h-16 shrink-0 rounded-full bg-white/5 flex items-center justify-center md:mb-4 text-[#D6A34A]"><Icon size={27} /></div><div><p className="font-bold text-white mb-1">{title}</p><p className="text-xs">{text}</p></div></div>)}
         </div>
-        <button type="button" onClick={onClose} className="mt-7 px-8 py-3 bg-[#D6A34A] text-black font-bold rounded-full">Mengerti</button>
+        <button type="button" onClick={onClose} className="mt-7 px-8 py-3 bg-[#D6A34A] text-black font-bold rounded-full">Mulai Jelajah</button>
       </div>
     </div>
   );
