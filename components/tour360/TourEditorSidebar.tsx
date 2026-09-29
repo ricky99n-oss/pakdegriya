@@ -1,8 +1,9 @@
 "use client";
 
-import { Crosshair, Save, Target, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Crosshair, Save, Target, Trash2, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import {
-  createHotspotAction,
   deleteHotspotAction,
   setInitialViewAction,
 } from "@/app/admin/properti/[id]/tour/actions";
@@ -46,39 +47,130 @@ export default function TourEditorSidebar({
           </button>
         </ActionForm>
 
-        <ActionForm action={createHotspotAction} className="space-y-3">
-          <input type="hidden" name="propertyId" value={propertyId} />
-          <input type="hidden" name="sceneId" value={currentScene.id} />
-          <div className="grid grid-cols-2 gap-3">
-            <CoordinateField label="PITCH (Vertikal)" name="pitch" value={pitch} />
-            <CoordinateField label="YAW (Horizontal)" name="yaw" value={yaw} />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-[#281C15] mb-1">Pilih Gaya Ikon</label>
-            <select name="iconType" className="w-full border border-[#D6A34A]/50 p-2.5 rounded-lg bg-white text-[#281C15] text-sm focus:outline-none focus:ring-1 focus:ring-[#D6A34A]">
-              <option value="door">🚪 Ikon Pintu Klasik</option>
-              <option value="arrow">⬆️ Ikon Panah Arah</option>
-              <option value="thumbnail">🖼️ Thumbnail Foto Ruangan</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-[#281C15] mb-1">Pilih Ruangan Tujuan</label>
-            <select name="targetSceneId" required className="w-full border border-[#D6A34A]/50 p-2.5 rounded-lg bg-white text-[#281C15] text-sm focus:outline-none focus:ring-1 focus:ring-[#D6A34A]">
-              <option value="">-- Pilih Tujuan --</option>
-              {scenes.filter((scene) => scene.id !== currentScene.id).map((scene) => <option key={scene.id} value={scene.id}>{scene.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-[#281C15] mb-1">Label Tombol</label>
-            <input type="text" name="label" required maxLength={80} className="w-full border border-[#D6A34A]/50 p-2.5 rounded-lg bg-white text-[#281C15] text-sm focus:outline-none focus:ring-1 focus:ring-[#D6A34A]" placeholder="Mis: Menuju Dapur..." />
-          </div>
-          <button type="submit" disabled={!hasCoords || viewerBusy} className="w-full flex items-center justify-center gap-2 bg-[#D6A34A] text-[#281C15] font-bold py-3 px-4 rounded-lg hover:bg-[#c2913b] transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
-            <Save size={16} /> Simpan Titik Hotspot
-          </button>
-        </ActionForm>
+        <HotspotCreateForm
+          propertyId={propertyId}
+          sceneId={currentScene.id}
+          scenes={scenes}
+          pitch={pitch}
+          yaw={yaw}
+          disabled={!hasCoords || viewerBusy}
+        />
       </div>
       <HotspotList hotspots={hotspots} scenes={scenes} propertyId={propertyId} />
     </div>
+  );
+}
+
+function HotspotCreateForm({
+  propertyId,
+  sceneId,
+  scenes,
+  pitch,
+  yaw,
+  disabled,
+}: {
+  propertyId: string;
+  sceneId: string;
+  scenes: EditorScene[];
+  pitch: CoordinateValue;
+  yaw: CoordinateValue;
+  disabled: boolean;
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending || disabled) return;
+
+    const form = event.currentTarget;
+    const targetSceneId = String(new FormData(form).get("targetSceneId") || "");
+    const label = String(new FormData(form).get("label") || "").trim();
+    const iconType = String(new FormData(form).get("iconType") || "door");
+
+    setPending(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/admin/tour/hotspot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          propertyId,
+          sceneId,
+          targetSceneId,
+          pitch,
+          yaw,
+          label,
+          iconType,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || "Hotspot gagal disimpan.");
+      }
+
+      setSuccess(payload.message || "Hotspot berhasil disimpan.");
+      form.reset();
+      router.refresh();
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Koneksi ke server gagal. Silakan coba lagi."
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3" aria-busy={pending}>
+      <fieldset disabled={pending || disabled} className="contents">
+        <div className="grid grid-cols-2 gap-3">
+          <CoordinateField label="PITCH (Vertikal)" name="pitch" value={pitch} />
+          <CoordinateField label="YAW (Horizontal)" name="yaw" value={yaw} />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-[#281C15] mb-1">Pilih Gaya Ikon</label>
+          <select name="iconType" defaultValue="door" className="w-full border border-[#D6A34A]/50 p-2.5 rounded-lg bg-white text-[#281C15] text-sm focus:outline-none focus:ring-1 focus:ring-[#D6A34A]">
+            <option value="door">🚪 Ikon Pintu Klasik</option>
+            <option value="arrow">⬆️ Ikon Panah Arah</option>
+            <option value="thumbnail">🖼️ Thumbnail Foto Ruangan</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-[#281C15] mb-1">Pilih Ruangan Tujuan</label>
+          <select name="targetSceneId" required className="w-full border border-[#D6A34A]/50 p-2.5 rounded-lg bg-white text-[#281C15] text-sm focus:outline-none focus:ring-1 focus:ring-[#D6A34A]">
+            <option value="">-- Pilih Tujuan --</option>
+            {scenes.filter((scene) => scene.id !== sceneId).map((scene) => <option key={scene.id} value={scene.id}>{scene.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-[#281C15] mb-1">Label Tombol</label>
+          <input type="text" name="label" required maxLength={80} className="w-full border border-[#D6A34A]/50 p-2.5 rounded-lg bg-white text-[#281C15] text-sm focus:outline-none focus:ring-1 focus:ring-[#D6A34A] placeholder-gray-400" placeholder="Mis: Menuju Dapur..." />
+        </div>
+        <button type="submit" className="w-full flex items-center justify-center gap-2 bg-[#D6A34A] text-[#281C15] font-bold py-3 px-4 rounded-lg hover:bg-[#c2913b] transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+          {pending ? <><Loader2 size={16} className="animate-spin" /> Menyimpan...</> : <><Save size={16} /> Simpan Titik Hotspot</>}
+        </button>
+      </fieldset>
+
+      {(success || error) && (
+        <div className={`text-xs rounded-lg border p-3 flex items-start gap-2 ${success ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-700"}`}>
+          {success ? <CheckCircle2 size={16} className="shrink-0 mt-0.5" /> : <XCircle size={16} className="shrink-0 mt-0.5" />}
+          <span>{success || error}</span>
+        </div>
+      )}
+    </form>
   );
 }
 
