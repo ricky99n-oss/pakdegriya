@@ -1,8 +1,18 @@
 import { getRequestContext } from "@cloudflare/next-on-pages";
-import { createClient } from "@supabase/supabase-js";
-import { validateRequest } from "@/lib/auth";
+import { getMediaRecord, hasMediaSession, type MediaRecord, type MediaAccessConfig } from "@/lib/media-access";
 
 export const runtime = "edge";
+
+type MediaObject = { size: number; httpEtag: string };
+type MediaBucket = {
+  head: (key: string) => Promise<MediaObject | null>;
+  get: (key: string, options?: { range: { offset: number; length: number } }) => Promise<(MediaObject & { body: ReadableStream<Uint8Array> }) | null>;
+};
+type MediaEnv = {
+  NEXT_PUBLIC_SUPABASE_URL?: string;
+  NEXT_PUBLIC_SUPABASE_ANON_KEY?: string;
+  R2_MEDIA_BUCKET?: MediaBucket;
+};
 
 function corsHeaders() {
   const headers = new Headers();
@@ -11,10 +21,11 @@ function corsHeaders() {
   headers.set("Access-Control-Allow-Headers", "Range, Content-Type, If-None-Match");
   headers.set("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges, ETag");
   headers.set("Access-Control-Max-Age", "86400");
+  headers.set("Cache-Control", "no-store");
   return headers;
 }
 
-function mediaHeaders(media: any, contentLength?: number, etag?: string, preview = false) {
+function mediaHeaders(media: MediaRecord, contentLength?: number, etag?: string, preview = false) {
   const headers = corsHeaders();
   const isPublic = Boolean(media.is_public);
   headers.set("Content-Type", preview ? "image/jpeg" : media.mime_type || "application/octet-stream");
@@ -52,34 +63,27 @@ function parseRange(value: string, total: number): ParsedRange | null {
 }
 
 async function mediaContext(id: string) {
-  const env = getRequestContext().env as any;
+  const env = getRequestContext().env as MediaEnv;
   const url = env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error("Supabase environment belum dikonfigurasi.");
 
-  const { data: media, error } = await createClient(url, key)
-    .from("property_media")
-    .select("file_name, preview_file_name, mime_type, file_type, property_id, is_public")
-    .eq("id", id)
-    .limit(1)
-    .single();
-
-  if (error || !media) return { media: null, bucket: null };
-  return { media, bucket: env.R2_MEDIA_BUCKET };
+  const config: MediaAccessConfig = { url, anonKey: key };
+  const media = await getMediaRecord(id, config);
+  return { media, bucket: env.R2_MEDIA_BUCKET, config };
 }
 
-async function authorized(media: any) {
+async function authorized(media: MediaRecord, request: Request, config: MediaAccessConfig) {
   if (media.is_public) return true;
-  const { user } = await validateRequest();
-  return Boolean(user);
+  return hasMediaSession(request, config);
 }
 
-function selectObject(media: any, request: Request) {
+function selectObject(media: MediaRecord, request: Request) {
   const wantsPreview = new URL(request.url).searchParams.get("preview") === "1";
-  const hasPreview = wantsPreview && Boolean(media.preview_file_name);
+  const previewName = wantsPreview ? media.preview_file_name : null;
   return {
-    objectKey: hasPreview ? media.preview_file_name : media.file_name,
-    preview: hasPreview,
+    objectKey: previewName || media.file_name,
+    preview: Boolean(previewName),
   };
 }
 
@@ -90,9 +94,9 @@ export async function OPTIONS() {
 export async function HEAD(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { media, bucket } = await mediaContext(id);
+    const { media, bucket, config } = await mediaContext(id);
     if (!media) return new Response(null, { status: 404, headers: corsHeaders() });
-    if (!(await authorized(media))) return new Response(null, { status: 401, headers: corsHeaders() });
+    if (!(await authorized(media, request, config))) return new Response(null, { status: 401, headers: corsHeaders() });
     if (!bucket) return new Response(null, { status: 500, headers: corsHeaders() });
 
     const { objectKey, preview } = selectObject(media, request);
@@ -108,9 +112,9 @@ export async function HEAD(request: Request, { params }: { params: Promise<{ id:
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { media, bucket } = await mediaContext(id);
+    const { media, bucket, config } = await mediaContext(id);
     if (!media) return new Response("Media tidak ditemukan", { status: 404, headers: corsHeaders() });
-    if (!(await authorized(media))) return new Response("Login diperlukan untuk media ini", { status: 401, headers: corsHeaders() });
+    if (!(await authorized(media, request, config))) return new Response("Login diperlukan untuk media ini", { status: 401, headers: corsHeaders() });
     if (!bucket) return new Response("R2 bucket belum dikonfigurasi", { status: 500, headers: corsHeaders() });
 
     const { objectKey, preview } = selectObject(media, request);
@@ -139,6 +143,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const headers = mediaHeaders(media, object.size, object.httpEtag, preview);
     const ifNoneMatch = request.headers.get("If-None-Match");
     if (ifNoneMatch && object.httpEtag && ifNoneMatch === object.httpEtag) {
+      await object.body.cancel();
       return new Response(null, { status: 304, headers });
     }
     return new Response(object.body, { status: 200, headers });

@@ -31,10 +31,12 @@ export default async function KelolaTurProperti({ params }: { params: Promise<{ 
   }
 
   const panoramas = allMedia.filter((media) => media.file_type === "panorama_private");
+  const previewMediaIds = new Set(panoramas.filter((media) => media.preview_file_name).map((media) => media.id));
   const audios = allMedia.filter((media) => media.file_type === "audio_private").map((audio) => ({ id: audio.id, fileName: audio.file_name }));
   const existingScenes = scenesData.map((scene) => ({
     id: scene.id,
     mediaId: scene.media_id,
+    hasPreview: previewMediaIds.has(scene.media_id),
     name: scene.name,
     sortOrder: scene.sort_order,
     isFirstScene: scene.is_first_scene,
@@ -74,8 +76,12 @@ export default async function KelolaTurProperti({ params }: { params: Promise<{ 
               <ActionForm key={pano.id} action={createSceneAction} className={`flex items-center gap-3 bg-white p-3 rounded-xl border ${isRegistered ? "border-green-300 bg-green-50" : "border-[#D6A34A]/50"} shadow-sm`}>
                 <input type="hidden" name="propertyId" value={property.id} />
                 <div className="w-16 h-12 bg-gray-200 rounded-lg overflow-hidden shrink-0 relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/api/media/${pano.id}`} alt="Thumbnail panorama" className="w-full h-full object-cover" />
+                  {pano.preview_file_name ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={`/api/media/${pano.id}?preview=1`} loading="lazy" decoding="async" alt="Thumbnail panorama" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="w-full h-full flex items-center justify-center text-[#4A2F1B]/50" title="Pratinjau belum tersedia"><Map size={20} aria-hidden="true" /></span>
+                  )}
                   {isRegistered && <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center"><span className="text-green-800 text-xs font-bold">✔</span></div>}
                 </div>
                 <input type="text" name={`name_${pano.id}`} placeholder="Ketik Nama Ruangan..." defaultValue={isRegistered ? registeredScene.name : ""} disabled={isRegistered} required={!isRegistered} maxLength={255} className="w-full border-none focus:ring-0 text-sm bg-transparent font-bold text-[#281C15] placeholder-gray-400 disabled:opacity-70" />

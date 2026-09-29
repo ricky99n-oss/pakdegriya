@@ -45,7 +45,7 @@ export default function TourEditor({ existingScenes, propertyId, allHotspots, av
         createTooltipArgs: {
           label: label || target?.name || "Menuju Ruangan",
           iconType,
-          targetImage: target?.mediaId ? `/api/media/${target.mediaId}` : "",
+          targetImage: target?.mediaId && target.hasPreview ? `/api/media/${target.mediaId}?preview=1` : "",
         },
       };
     }),

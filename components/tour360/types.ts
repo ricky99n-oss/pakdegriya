@@ -22,6 +22,7 @@ declare global { interface Window { pannellum?: PannellumGlobal; } }
 
 export type EditorScene = {
   id: string; name: string; mediaId: string; sortOrder?: number;
+  hasPreview?: boolean;
   initialPitch?: number | null; initialYaw?: number | null; isFirstScene?: boolean;
   audioMediaId?: string | null; [key: string]: any;
 };
