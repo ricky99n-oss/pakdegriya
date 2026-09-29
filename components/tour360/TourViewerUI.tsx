@@ -36,6 +36,8 @@ type Props = {
   showGuide: boolean;
   isFullscreen: boolean;
   isAudioPlaying: boolean;
+  audioEnabled: boolean;
+  audioError: string;
   onStart: (withAudio: boolean) => void;
   onRetry: () => void;
   onToggleAudio: () => void;
@@ -160,7 +162,7 @@ export default function TourViewerUI(props: Props) {
           <a href={props.exitUrl} className="hidden md:flex absolute top-6 right-6 z-30 h-11 px-4 rounded-full bg-black/65 border border-white/15 text-white items-center gap-2 backdrop-blur-md hover:border-[#D6A34A]/60 hover:text-[#D6A34A] transition-colors text-xs font-black" aria-label="Keluar dari Virtual Tour" title="Keluar dari Virtual Tour"><ArrowLeftFromLine size={17} /> Keluar Viewer</a>
 
           <ViewerToolButton className="hidden md:flex absolute bottom-6 left-6" label="Panduan navigasi" onClick={() => props.setShowGuide(true)}><Info size={21} /></ViewerToolButton>
-          <ViewerToolButton className="hidden md:flex absolute bottom-6 right-6" label={props.isAudioPlaying ? "Matikan suara" : "Nyalakan suara"} onClick={props.onToggleAudio}>{props.isAudioPlaying ? <Volume2 size={21} /> : <VolumeX size={21} />}</ViewerToolButton>
+          <ViewerToolButton className="hidden md:flex absolute bottom-6 right-6" label={props.audioEnabled ? "Matikan suara" : "Nyalakan suara"} onClick={props.onToggleAudio}>{props.isAudioPlaying ? <Volume2 size={21} /> : <VolumeX size={21} />}</ViewerToolButton>
 
           <div className={`hidden md:block absolute bottom-6 left-1/2 -translate-x-1/2 z-20 transition-all ${props.showTools ? "opacity-100" : "translate-y-24 opacity-0 pointer-events-none"}`}>
             <div className="bg-black/80 backdrop-blur-md border border-[#D6A34A]/30 rounded-full px-5 py-2.5 flex items-center gap-3 shadow-2xl">
@@ -182,10 +184,12 @@ export default function TourViewerUI(props: Props) {
             <MobileTool label="Sebelumnya" onClick={props.onPrev}><ChevronLeft size={22} /></MobileTool>
             <MobileTool label="Ruangan" onClick={() => props.setShowGallery(true)}><LayoutGrid size={20} /></MobileTool>
             <MobileTool label="Panduan" onClick={() => props.setShowGuide(true)}><Info size={20} /></MobileTool>
-            <MobileTool label={props.isAudioPlaying ? "Mute" : "Audio"} onClick={props.onToggleAudio}>{props.isAudioPlaying ? <Volume2 size={20} /> : <VolumeX size={20} />}</MobileTool>
+            <MobileTool label={props.audioEnabled ? "Mute" : "Audio"} onClick={props.onToggleAudio}>{props.isAudioPlaying ? <Volume2 size={20} /> : <VolumeX size={20} />}</MobileTool>
             <MobileTool label="Fullscreen" onClick={props.onToggleFullscreen}>{props.isFullscreen ? <Minimize size={19} /> : <Maximize size={19} />}</MobileTool>
             <MobileTool label="Berikutnya" onClick={props.onNext}><ChevronRight size={22} /></MobileTool>
           </nav>
+
+          {props.audioError && <div role="status" className="absolute z-40 bottom-24 right-4 left-4 md:left-auto md:max-w-sm rounded-xl bg-black/85 border border-[#D6A34A]/40 px-4 py-3 text-white text-xs">{props.audioError}</div>}
 
           {props.showGallery && (
             <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-xl flex flex-col p-4 md:p-10 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">

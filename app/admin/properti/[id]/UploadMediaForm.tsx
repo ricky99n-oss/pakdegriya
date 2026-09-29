@@ -1,5 +1,6 @@
 "use client";
 
+import { useAutoDismiss } from "@/lib/use-auto-dismiss";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, UploadCloud, XCircle } from "lucide-react";
@@ -95,6 +96,7 @@ export default function UploadMediaForm({ propertyId }: { propertyId: string }) 
     type: "success" | "error";
     text: string;
   } | null>(null);
+  useAutoDismiss(message, setMessage);
   const [stage, setStage] = useState("");
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {

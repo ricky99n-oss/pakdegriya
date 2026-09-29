@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { resolveTourAudioId } from "@/lib/tour-audio";
 import TourViewer from "@/components/TourViewer";
 import { getSupabase } from "@/lib/supabase";
 import { validateRequest } from "@/lib/auth";
@@ -31,7 +32,7 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
       .eq("property_id", property.id)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true }),
-    supabase.from("property_media").select("id, file_type, is_public").eq("property_id", property.id),
+    supabase.from("property_media").select("id, file_type, is_public").eq("property_id", property.id).order("created_at", { ascending: true }).order("id", { ascending: true }),
   ]);
 
   const allScenes = scenesRes.data || [];
@@ -90,6 +91,7 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
     const configuredSpeed = Math.abs(Number(scene.auto_rotate_speed));
     const slowSpeed = configuredSpeed > 0 && configuredSpeed <= 0.8 ? configuredSpeed : 0.35;
 
+    const audioMediaId = resolveTourAudioId(scene.audio_media_id, allMedia);
     tourConfig.scenes[scene.id] = {
       title: scene.name,
       type: "equirectangular",
@@ -103,7 +105,7 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
       maxHfov: 140,
       autoRotate: -slowSpeed,
       autoRotateInactivityDelay: 4000,
-      customAudioUrl: scene.audio_media_id ? `/api/media/${scene.audio_media_id}` : null,
+      customAudioUrl: audioMediaId ? `/api/media/${audioMediaId}` : null,
       hotSpots: sceneHotspots,
     };
   });

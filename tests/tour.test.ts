@@ -120,7 +120,7 @@ describe("tour JSON mutations", () => {
     expect(state.writes).toEqual([]);
   });
 
-  it.each(["createHotspot", "setInitialView", "deleteHotspot"])("requires admin for %s", async (operation) => {
+  it.each(["createHotspot", "setInitialView", "deleteHotspot", "updateSceneAudio"])("requires admin for %s", async (operation) => {
     state.admin = false;
     const response = await request(operation);
     expect(await response.json()).toMatchObject({ success: false, error: expect.stringContaining("Sesi admin") });
@@ -152,6 +152,21 @@ describe("tour JSON mutations", () => {
     expect((await request("deleteHotspot", { propertyId: otherPropertyId, hotspotId })).status).toBe(400);
     expect(state.rows.scenes[0]).not.toHaveProperty("initial_pitch");
     expect(state.rows.hotspots).toHaveLength(1);
+  });
+
+  it("saves selected audio and automatic/silent modes with property validation", async () => {
+    const audioId = "55555555-5555-4555-8555-555555555555";
+    state.rows.property_media = [{ id: audioId, property_id: propertyId, file_type: "audio_private" }];
+    expect((await request("updateSceneAudio", { propertyId, sceneId, audioMediaId: audioId })).status).toBe(200);
+    expect(state.rows.scenes[0].audio_media_id).toBe(audioId);
+    expect((await request("updateSceneAudio", { propertyId, sceneId, audioMediaId: "none" })).status).toBe(200);
+    expect(state.rows.scenes[0].audio_media_id).toBe("none");
+    expect((await request("updateSceneAudio", { propertyId, sceneId, audioMediaId: "auto" })).status).toBe(200);
+    expect(state.rows.scenes[0].audio_media_id).toBe(null);
+    state.rows.property_media[0].property_id = otherPropertyId;
+    expect((await request("updateSceneAudio", { propertyId, sceneId, audioMediaId: audioId })).status).toBe(400);
+    expect(state.rows.scenes[0].audio_media_id).toBe(null);
+    expect((await request("updateSceneAudio", { propertyId: otherPropertyId, sceneId, audioMediaId: "none" })).status).toBe(400);
   });
 
   it("returns database errors as JSON and does not claim success", async () => {

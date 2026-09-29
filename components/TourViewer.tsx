@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createTourAudioController, type TourAudioState } from "@/lib/tour-audio";
 import PannellumAssets from "./tour360/PannellumAssets";
 import Tour360Styles from "./tour360/Tour360Styles";
 import TourViewerUI from "./tour360/TourViewerUI";
@@ -18,8 +19,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
   const viewerContainerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const viewerInstance = useRef<PannellumViewer | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioEnabledRef = useRef(false);
+  const audioController = useRef<ReturnType<typeof createTourAudioController> | null>(null);
   const startedRef = useRef(false);
   const rotateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sceneIds = useMemo(() => Object.keys(tourConfig?.scenes || {}), [tourConfig?.scenes]);
@@ -36,7 +36,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
   const [showGallery, setShowGallery] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [audioState, setAudioState] = useState<TourAudioState>({ enabled: false, playing: false, error: "" });
 
   const pannellumScenes = useMemo(
     () => Object.fromEntries(sceneIds.map((id) => {
@@ -80,20 +80,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
   );
 
   const playSceneAudio = useCallback((sceneId: string) => {
-    const audio = audioRef.current;
-    const source = tourConfig.scenes[sceneId]?.customAudioUrl;
-    if (!audio || !source) {
-      audio?.pause();
-      if (audio) audio.removeAttribute("src");
-      setIsAudioPlaying(false);
-      return;
-    }
-    if (audio.getAttribute("src") !== source) {
-      audio.pause();
-      audio.src = source;
-      audio.load();
-    }
-    audio.play().then(() => setIsAudioPlaying(true)).catch(() => setIsAudioPlaying(false));
+    audioController.current?.play(tourConfig.scenes[sceneId]?.customAudioUrl);
   }, [tourConfig.scenes]);
 
   const scheduleAutoRotate = useCallback((delay = 4000) => {
@@ -109,18 +96,15 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
   }, [tourConfig.default?.autoRotate, tourConfig.scenes]);
 
   useEffect(() => {
-    const audio = new Audio();
-    audio.loop = true;
-    audio.preload = "none";
-    audioRef.current = audio;
+    const controller = createTourAudioController(new Audio(), setAudioState);
+    audioController.current = controller;
     const onFullscreen = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onFullscreen);
     return () => {
-      audio.pause();
-      audio.removeAttribute("src");
+      controller.destroy();
       if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
       document.removeEventListener("fullscreenchange", onFullscreen);
-      audioRef.current = null;
+      audioController.current = null;
     };
   }, []);
 
@@ -168,7 +152,7 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
         setLoading(true);
         setShowGallery(false);
         viewer?.stopAutoRotate?.();
-        if (audioEnabledRef.current) playSceneAudio(sceneId);
+        if (audioController.current?.enabled) playSceneAudio(sceneId);
       });
       viewer.on("error", (message: unknown) => {
         setLoading(false);
@@ -205,26 +189,16 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
     startedRef.current = true;
     setStarted(true);
     setShowGuide(true);
-    audioEnabledRef.current = withAudio;
     if (withAudio) playSceneAudio(currentSceneIdRef.current);
-    else {
-      audioRef.current?.pause();
-      setIsAudioPlaying(false);
-    }
+    else audioController.current?.stop();
     const viewer = viewerInstance.current;
     if (viewer && viewer.getHfov() < 110) viewer.setHfov(120, 700);
     scheduleAutoRotate(900);
   };
 
   const toggleAudio = () => {
-    if (audioEnabledRef.current && isAudioPlaying) {
-      audioEnabledRef.current = false;
-      audioRef.current?.pause();
-      setIsAudioPlaying(false);
-    } else {
-      audioEnabledRef.current = true;
-      playSceneAudio(currentSceneIdRef.current);
-    }
+    if (audioController.current?.enabled) audioController.current.stop();
+    else playSceneAudio(currentSceneIdRef.current);
   };
 
   const changeScene = (id: string) => {
@@ -254,12 +228,12 @@ export default function TourViewer({ tourConfig, introPlanetUrl, exitUrl = "/", 
     <div ref={viewerContainerRef} className="w-full h-[100dvh] bg-black relative overflow-hidden font-sans">
       <PannellumAssets onReady={assetsReady} onError={assetsError} />
       <Tour360Styles />
-      <div id="public-tour-container" ref={viewerRef} className="absolute inset-0 cursor-move" />
+      <div id="public-tour-container" ref={viewerRef} className="absolute inset-0 z-0 isolate cursor-move" />
       <TourViewerUI
         tourConfig={tourConfig} introPlanetUrl={introPlanetUrl} exitUrl={exitUrl} propertyTitle={propertyTitle}
         currentSceneId={currentSceneId} started={started} loading={loading} error={viewerError}
         showTools={showTools} showGallery={showGallery} showGuide={showGuide}
-        isFullscreen={isFullscreen} isAudioPlaying={isAudioPlaying}
+        isFullscreen={isFullscreen} isAudioPlaying={audioState.playing} audioEnabled={audioState.enabled} audioError={audioState.error}
         onStart={startTour} onRetry={() => setRetryKey((key) => key + 1)} onToggleAudio={toggleAudio}
         onToggleFullscreen={toggleFullscreen} onPrev={() => moveScene(-1)} onNext={() => moveScene(1)} onScene={changeScene}
         setShowTools={setShowTools} setShowGallery={setShowGallery} setShowGuide={setShowGuide}

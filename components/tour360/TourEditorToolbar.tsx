@@ -1,5 +1,6 @@
 "use client";
 
+import { useAutoDismiss } from "@/lib/use-auto-dismiss";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, GripVertical, Layers, Loader2, Star, XCircle } from "lucide-react";
@@ -21,6 +22,8 @@ export default function TourEditorToolbar({ scenes, propertyId, activeSceneId, o
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
+
+  useAutoDismiss(notice, setNotice);
 
   useEffect(() => setItems(scenes), [scenes]);
 

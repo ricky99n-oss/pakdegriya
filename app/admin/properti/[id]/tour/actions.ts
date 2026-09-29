@@ -282,12 +282,21 @@ export async function updateSceneAudioAction(formData: FormData): Promise<AdminA
     await requireAdmin();
     const sceneId = String(formData.get("sceneId") || "");
     const propertyId = String(formData.get("propertyId") || "");
-    const audioMediaId = String(formData.get("audioMediaId") || "none");
-    const { error } = await getSupabaseAdmin()
-      .from("scenes")
-      .update({ audio_media_id: audioMediaId === "none" ? null : audioMediaId })
-      .eq("id", sceneId);
+    const audioMediaId = String(formData.get("audioMediaId") || "auto");
+    if (!isTourId(sceneId) || !isTourId(propertyId)) return actionError("Data ruangan tidak valid.");
+    if (!(await scenesBelongToProperty(propertyId, [sceneId]))) return actionError("Ruangan tidak ditemukan pada properti ini.");
+    const admin = getSupabaseAdmin();
+    if (audioMediaId !== "auto" && audioMediaId !== "none") {
+      if (!isTourId(audioMediaId)) return actionError("Audio tidak valid.");
+      const { data, error } = await admin.from("property_media").select("id").eq("id", audioMediaId).eq("property_id", propertyId).eq("file_type", "audio_private").maybeSingle();
+      if (error) throw error;
+      if (!data) return actionError("Audio tidak ditemukan pada properti ini.");
+    }
+    const { data, error } = await admin.from("scenes")
+      .update({ audio_media_id: audioMediaId === "auto" ? null : audioMediaId })
+      .eq("id", sceneId).eq("property_id", propertyId).select("id");
     if (error) throw error;
+    if (!data?.length) return actionError("Ruangan tidak ditemukan.");
     revalidatePath(tourPath(propertyId));
     return actionSuccess("Audio ruangan berhasil diperbarui.");
   } catch (error) {

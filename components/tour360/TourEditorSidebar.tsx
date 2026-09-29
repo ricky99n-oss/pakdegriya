@@ -5,12 +5,14 @@ import {
   createHotspot,
   deleteHotspot,
   setInitialView,
+  updateSceneAudio,
 } from "@/lib/tour-client";
 import ActionForm from "@/components/admin/ActionForm";
 import { parseHotspotLabel } from "./hotspot";
 import type { CoordinateValue, EditorHotspot, EditorScene } from "./types";
 
 type Props = {
+  availableAudios: { id: string; fileName: string }[];
   currentScene: EditorScene;
   scenes: EditorScene[];
   hotspots: EditorHotspot[];
@@ -22,7 +24,7 @@ type Props = {
 };
 
 export default function TourEditorSidebar({
-  currentScene, scenes, hotspots, propertyId, pitch, yaw, viewerBusy, onCapture,
+  availableAudios, currentScene, scenes, hotspots, propertyId, pitch, yaw, viewerBusy, onCapture,
 }: Props) {
   const hasCoords = pitch !== "" && yaw !== "" && Number.isFinite(pitch) && Number.isFinite(yaw);
 
@@ -77,6 +79,17 @@ export default function TourEditorSidebar({
           </button>
         </ActionForm>
       </div>
+      <ActionForm action={updateSceneAudio} className="bg-white p-5 rounded-xl border border-gray-200 space-y-3">
+        <h3 className="font-bold text-[#4A2F1B]">Audio Ruangan</h3>
+        <input type="hidden" name="propertyId" value={propertyId} />
+        <input type="hidden" name="sceneId" value={currentScene.id} />
+        <select key={`${currentScene.id}:${currentScene.audioMediaId}`} name="audioMediaId" aria-label="Audio ruangan" defaultValue={currentScene.audioMediaId || "auto"} className="w-full rounded-lg border p-2 text-sm">
+          <option value="auto">Otomatis: audio pertama properti</option><option value="none">Tanpa audio</option>
+          {availableAudios.map((audio) => <option key={audio.id} value={audio.id}>{audio.fileName}</option>)}
+        </select>
+        <p className="text-xs text-gray-500">Unggah audio di halaman properti, lalu pilih di sini. Pengunjung dapat menyalakan atau mematikan suara.</p>
+        <button type="submit" className="bg-[#4A2F1B] text-white rounded-lg px-4 py-2 text-sm font-bold">Simpan Audio</button>
+      </ActionForm>
       <HotspotList hotspots={hotspots} scenes={scenes} propertyId={propertyId} />
     </div>
   );

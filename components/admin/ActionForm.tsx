@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, XCircle, X } from "lucide-react";
+import { useAutoDismiss } from "@/lib/use-auto-dismiss";
 import type { AdminActionResult } from "@/lib/admin-action";
 
 type Props = {
@@ -25,6 +26,8 @@ export default function ActionForm({
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<AdminActionResult | null>(null);
+
+  useAutoDismiss(result, setResult);
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -78,7 +81,7 @@ export default function ActionForm({
       </form>
 
       {result && (
-        <div className="fixed inset-x-0 top-5 z-[9999] flex justify-center px-4 pointer-events-none">
+        <div role={result.success ? "status" : "alert"} className="fixed inset-x-0 top-5 z-[9999] flex justify-center px-4 pointer-events-none">
           <div className={`pointer-events-auto max-w-md w-full rounded-2xl shadow-2xl border p-4 flex gap-3 ${result.success ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-700"}`}>
             {result.success ? <CheckCircle2 className="shrink-0 mt-0.5" size={21} /> : <XCircle className="shrink-0 mt-0.5" size={21} />}
             <div className="flex-1">

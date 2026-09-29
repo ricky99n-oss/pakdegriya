@@ -1,7 +1,7 @@
-import Link from "next/link";
+import AdminNavigation from "@/components/admin/AdminNavigation";
 import { validateRequest } from "../../lib/auth";
 import { redirect } from "next/navigation";
-import { LayoutDashboard, Home, UserCircle, ExternalLink } from "lucide-react";
+import { UserCircle } from "lucide-react";
 import LogoutButton from "@/components/admin/LogoutButton";
 
 export const runtime = "edge";
@@ -24,20 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
 
-        <nav className="flex-1 px-4 py-5 space-y-2">
-          <Link href="/admin/dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/75 hover:text-white hover:bg-white/10 transition-all group">
-            <LayoutDashboard size={19} className="group-hover:text-[#D6A34A] transition-colors" />
-            <span className="font-medium text-sm">Dashboard</span>
-          </Link>
-          <Link href="/admin/properti" className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white text-[#4A2F1B] shadow-md transition-all font-bold">
-            <Home size={19} className="text-[#D6A34A]" />
-            <span className="text-sm">Kelola Properti</span>
-          </Link>
-          <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-all">
-            <ExternalLink size={18} />
-            <span className="text-sm font-medium">Lihat Website</span>
-          </Link>
-        </nav>
+        <AdminNavigation />
 
         <div className="p-4 mt-auto">
           <div className="p-3 rounded-2xl bg-black/20 backdrop-blur-sm border border-white/10">
@@ -55,14 +42,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       <div className="md:hidden sticky top-0 z-50 bg-[#4A2F1B] text-white border-b border-[#D6A34A]/20 shadow-lg">
         <div className="h-16 px-4 flex items-center justify-between gap-3">
-          <Link href="/admin/dashboard" className="flex items-center gap-2 min-w-0">
+          <a href="/admin/dashboard" className="flex items-center gap-2 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-[#D6A34A] text-[#4A2F1B] flex items-center justify-center font-black shrink-0">P</div>
             <div className="min-w-0"><p className="font-black text-sm truncate">Pakde Griya</p><p className="text-[9px] uppercase tracking-wider text-[#D6A34A]">Admin Panel</p></div>
-          </Link>
-          <div className="flex items-center gap-1">
-            <Link href="/admin/dashboard" className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/10" aria-label="Dashboard"><LayoutDashboard size={19} /></Link>
-            <Link href="/admin/properti" className="w-10 h-10 rounded-xl flex items-center justify-center bg-white text-[#4A2F1B]" aria-label="Kelola Properti"><Home size={19} /></Link>
-          </div>
+          </a>
+          <AdminNavigation mobile />
         </div>
       </div>
 

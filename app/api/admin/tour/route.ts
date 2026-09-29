@@ -2,6 +2,7 @@ import {
   createHotspotAction,
   deleteHotspotAction,
   setInitialViewAction,
+  updateSceneAudioAction,
 } from "@/app/admin/properti/[id]/tour/actions";
 import { actionError, type AdminActionResult } from "@/lib/admin-action";
 
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
     switch (body.operation) {
       case "createHotspot": result = await createHotspotAction(formData); break;
       case "deleteHotspot": result = await deleteHotspotAction(formData); break;
+      case "updateSceneAudio": result = await updateSceneAudioAction(formData); break;
       case "setInitialView": result = await setInitialViewAction(formData); break;
       default: return json(actionError("Operasi tur tidak dikenal."), 400);
     }

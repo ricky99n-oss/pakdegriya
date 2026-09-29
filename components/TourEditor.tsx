@@ -14,11 +14,10 @@ type Props = {
   existingScenes: EditorScene[];
   propertyId: string;
   allHotspots: EditorHotspot[];
-  availableAudios: any[];
+  availableAudios: { id: string; fileName: string }[];
 };
 
 export default function TourEditor({ existingScenes, propertyId, allHotspots, availableAudios }: Props) {
-  void availableAudios;
   const viewerRef = useRef<HTMLDivElement>(null);
   const viewerInstance = useRef<PannellumViewer | null>(null);
   const preferredFirst = existingScenes.find((scene) => scene.isFirstScene)?.id;
@@ -147,6 +146,7 @@ export default function TourEditor({ existingScenes, propertyId, allHotspots, av
             pitch={pitch}
             yaw={yaw}
             viewerBusy={loading || !!viewerError}
+            availableAudios={availableAudios}
             onCapture={handleCapture}
           />
         </div>
