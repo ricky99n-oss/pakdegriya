@@ -6,6 +6,8 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdmin, adminActionErrorMessage } from "@/lib/admin-auth";
 import { actionError, actionSuccess, type AdminActionResult } from "@/lib/admin-action";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function revalidatePropertyMedia(propertyId: string) {
   revalidatePath(`/admin/properti/${propertyId}`);
   revalidatePath(`/admin/properti/${propertyId}/tour`);
@@ -20,9 +22,11 @@ export async function updateMediaVisibilityAction(
 
     const mediaId = String(formData.get("mediaId") || "");
     const propertyId = String(formData.get("propertyId") || "");
-    const makePublic = String(formData.get("makePublic") || "") === "true";
+    const visibility = formData.get("makePublic");
+    if (visibility !== "true" && visibility !== "false") return actionError("Status publik media tidak valid.");
+    const makePublic = visibility === "true";
 
-    if (!mediaId || !propertyId) return actionError("Data media tidak valid.");
+    if (!UUID.test(mediaId) || !UUID.test(propertyId)) return actionError("Data media tidak valid.");
 
     const { data, error } = await getSupabaseAdmin()
       .from("property_media")
@@ -55,7 +59,7 @@ export async function deleteMediaAction(
 
     const mediaId = String(formData.get("mediaId") || "");
     const propertyId = String(formData.get("propertyId") || "");
-    if (!mediaId || !propertyId) return actionError("Data media tidak valid.");
+    if (!UUID.test(mediaId) || !UUID.test(propertyId)) return actionError("Data media tidak valid.");
 
     const admin = getSupabaseAdmin();
     const { data: record, error: lookupError } = await admin
@@ -77,7 +81,7 @@ export async function deleteMediaAction(
     if (dbError) throw new Error(`Metadata media gagal dihapus: ${dbError.message}`);
 
     try {
-      const env = getRequestContext().env as any;
+      const env = getRequestContext().env as { R2_MEDIA_BUCKET?: { delete: (key: string) => Promise<void> } };
       const bucket = env.R2_MEDIA_BUCKET;
       if (bucket) {
         await bucket.delete(record.file_name);

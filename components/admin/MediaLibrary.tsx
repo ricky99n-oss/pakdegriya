@@ -1,6 +1,9 @@
+"use client";
+
 import { FileText, Globe2, Headphones, ImageIcon, Lock, Sparkles, Trash2, View } from "lucide-react";
 import ActionForm from "@/components/admin/ActionForm";
-import { deleteMediaAction, updateMediaVisibilityAction } from "@/app/admin/properti/[id]/actions";
+import { deleteMedia, updateMediaVisibility } from "@/lib/media-client";
+import MediaThumbnail from "./MediaThumbnail";
 
 type MediaItem = {
   id: string;
@@ -57,7 +60,7 @@ function MediaCard({ propertyId, media }: { propertyId: string; media: MediaItem
   const isPdf = media.mime_type === "application/pdf";
   const isPanorama = media.file_type === "panorama_private";
   const isPublic = Boolean(media.is_public);
-  const imageUrl = `/api/media/${media.id}${isPanorama ? "?preview=1" : ""}`;
+  const imageUrl = `/api/media/${media.id}?thumbnail=2${media.preview_file_name ? "&preview=1" : ""}`;
 
   return (
     <article className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm group">
@@ -66,9 +69,10 @@ function MediaCard({ propertyId, media }: { propertyId: string; media: MediaItem
           <div className="w-full h-full flex flex-col items-center justify-center text-[#4A2F1B] bg-[#FFF7E8] px-4"><Headphones size={38} className="text-[#D6A34A] mb-3" /><span className="text-xs font-bold text-center break-all line-clamp-2">{media.file_name}</span></div>
         ) : isPdf ? (
           <div className="w-full h-full flex flex-col items-center justify-center text-[#4A2F1B] bg-gray-50"><FileText size={38} className="text-[#D6A34A] mb-3" /><span className="text-xs font-bold">Dokumen PDF</span></div>
+        ) : isPanorama && !media.preview_file_name ? (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-500"><View size={32} /><span className="text-xs">Pratinjau belum tersedia. Buka editor 360°.</span></div>
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl} alt={media.file_name} loading="lazy" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300" />
+          <MediaThumbnail key={imageUrl} src={imageUrl} alt={media.file_name} />
         )}
 
         <div className="absolute top-2 left-2">
@@ -81,11 +85,11 @@ function MediaCard({ propertyId, media }: { propertyId: string; media: MediaItem
       <div className="p-3.5 space-y-3">
         <p className="text-[11px] font-mono text-gray-400 truncate" title={media.file_name}>{media.file_name}</p>
         <div className="grid grid-cols-[1fr_auto] gap-2">
-          <ActionForm action={updateMediaVisibilityAction} refreshOnSuccess>
+          <ActionForm action={updateMediaVisibility} refreshOnSuccess>
             <input type="hidden" name="propertyId" value={propertyId} /><input type="hidden" name="mediaId" value={media.id} /><input type="hidden" name="makePublic" value={isPublic ? "false" : "true"} />
             <button type="submit" className={`w-full h-9 rounded-lg text-xs font-black border transition-colors ${isPublic ? "bg-red-50 text-red-600 border-red-100 hover:bg-red-100" : "bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100"}`}>{isPublic ? "Jadikan Privat" : "Jadikan Publik"}</button>
           </ActionForm>
-          <ActionForm action={deleteMediaAction} confirmMessage="Hapus media ini secara permanen?">
+          <ActionForm action={deleteMedia} confirmMessage="Hapus media ini secara permanen?">
             <input type="hidden" name="mediaId" value={media.id} /><input type="hidden" name="propertyId" value={propertyId} /><input type="hidden" name="fileName" value={media.file_name} />
             <button type="submit" className="h-9 w-9 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-colors" aria-label="Hapus media" title="Hapus media"><Trash2 size={16} /></button>
           </ActionForm>

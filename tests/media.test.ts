@@ -49,6 +49,7 @@ describe("lightweight private media access", () => {
     expect(response.status).toBe(200);
     expect(response.body).toBe(stored.body);
     expect(response.bodyUsed).toBe(false);
+    expect(response.headers.get("x-media-size")).toBe("11");
     expect(response.headers.get("cache-control")).toContain("private, no-store");
     expect(response.headers.get("vary")).toContain("Cookie");
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -153,6 +154,7 @@ describe("R2 streaming and compatibility", () => {
     const response = await GET(request({ ...cookie, Range: String(range) }), params);
     expect(response.status).toBe(206);
     expect(response.headers.get("content-range")).toBe(contentRange);
+    expect(response.headers.get("x-media-size")).toBe(String(length));
     expect(bucket.get).toHaveBeenCalledWith("master.png", { range: { offset, length } });
   });
 

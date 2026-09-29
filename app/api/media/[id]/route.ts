@@ -19,7 +19,7 @@ function corsHeaders() {
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
   headers.set("Access-Control-Allow-Headers", "Range, Content-Type, If-None-Match");
-  headers.set("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges, ETag");
+  headers.set("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges, ETag, X-Media-Size");
   headers.set("Access-Control-Max-Age", "86400");
   headers.set("Cache-Control", "no-store");
   return headers;
@@ -36,7 +36,11 @@ function mediaHeaders(media: MediaRecord, contentLength?: number, etag?: string,
     isPublic ? "public, max-age=86400, stale-while-revalidate=604800" : "private, no-store, max-age=0"
   );
   headers.set("Vary", isPublic ? "Range" : "Cookie, Range");
-  if (typeof contentLength === "number") headers.set("Content-Length", String(contentLength));
+  if (typeof contentLength === "number") {
+    headers.set("Content-Length", String(contentLength));
+    // Survives proxies that strip Content-Length or apply transport compression.
+    headers.set("X-Media-Size", String(contentLength));
+  }
   if (etag) headers.set("ETag", etag);
   return headers;
 }
