@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/admin-auth";
-import MemberManager from "@/components/admin/MemberManager";
+import MemberManager from "@/components/admin/MemberManagerWrapper";
 export const dynamic = "force-dynamic";
 export default async function MembersPage() {
   await requireAdmin();
