@@ -4,9 +4,33 @@ import { revalidatePath } from "next/cache";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdmin, adminActionErrorMessage } from "@/lib/admin-auth";
 import { actionError, actionSuccess, type AdminActionResult } from "@/lib/admin-action";
+import { isTourId, readTourCoordinates } from "@/lib/tour-input";
 
 function tourPath(propertyId: string) {
   return `/admin/properti/${propertyId}/tour`;
+}
+
+async function scenesBelongToProperty(propertyId: string, sceneIds: string[]) {
+  const { data, error } = await getSupabaseAdmin()
+    .from("scenes")
+    .select("id")
+    .eq("property_id", propertyId)
+    .in("id", sceneIds);
+  if (error) throw error;
+  return sceneIds.every((id) => data?.some((scene) => scene.id === id));
+}
+
+function tourErrorMessage(error: unknown) {
+  // PostgREST errors are plain objects, not Error instances.
+  if (error && typeof error === "object" && "code" in error) {
+    switch (error.code) {
+      case "23503": return "Ruangan sudah berubah atau dihapus. Muat ulang halaman lalu pilih kembali.";
+      case "42501": return "Database menolak perubahan tur. Periksa izin akses database pada server.";
+      case "42703":
+      case "PGRST204": return "Struktur database tur belum sesuai. Periksa migration Supabase.";
+    }
+  }
+  return adminActionErrorMessage(error);
 }
 
 async function getOrderedScenes(propertyId: string) {
@@ -154,18 +178,19 @@ export async function createHotspotAction(formData: FormData): Promise<AdminActi
     const rawLabel = String(formData.get("label") || "").trim().slice(0, 180);
     const iconType = String(formData.get("iconType") || "door");
     const label = `${rawLabel}|||${["door", "arrow", "thumbnail"].includes(iconType) ? iconType : "door"}`;
-    const pitch = Number(formData.get("pitch"));
-    const yaw = Number(formData.get("yaw"));
-    if (!sceneId || !targetSceneId || !propertyId || !rawLabel || !Number.isFinite(pitch) || !Number.isFinite(yaw)) {
+    const coordinates = readTourCoordinates(formData);
+    if (!isTourId(sceneId) || !isTourId(targetSceneId) || !isTourId(propertyId) || !rawLabel || !coordinates) {
       return actionError("Koordinat, label, atau tujuan hotspot tidak valid.");
+    }
+    if (sceneId === targetSceneId || !await scenesBelongToProperty(propertyId, [sceneId, targetSceneId])) {
+      return actionError("Ruangan asal dan tujuan harus berbeda dan berada pada properti yang sama.");
     }
 
     const { error } = await getSupabaseAdmin().from("hotspots").insert({
       id: crypto.randomUUID(),
       scene_id: sceneId,
       target_scene_id: targetSceneId,
-      pitch,
-      yaw,
+      ...coordinates,
       label,
     });
     if (error) throw error;
@@ -173,7 +198,7 @@ export async function createHotspotAction(formData: FormData): Promise<AdminActi
     return actionSuccess("Hotspot berhasil disimpan.");
   } catch (error) {
     console.error("createHotspotAction:", error);
-    return actionError(adminActionErrorMessage(error));
+    return actionError(tourErrorMessage(error));
   }
 }
 
@@ -182,12 +207,21 @@ export async function deleteHotspotAction(formData: FormData): Promise<AdminActi
     await requireAdmin();
     const hotspotId = String(formData.get("hotspotId") || "");
     const propertyId = String(formData.get("propertyId") || "");
-    const { error } = await getSupabaseAdmin().from("hotspots").delete().eq("id", hotspotId);
+    if (!isTourId(hotspotId) || !isTourId(propertyId)) return actionError("Hotspot tidak valid.");
+    const supabase = getSupabaseAdmin();
+    const { data: hotspot, error: lookupError } = await supabase.from("hotspots").select("scene_id").eq("id", hotspotId).maybeSingle();
+    if (lookupError) throw lookupError;
+    if (!hotspot || !await scenesBelongToProperty(propertyId, [hotspot.scene_id])) {
+      return actionError("Hotspot tidak ditemukan pada properti ini. Muat ulang halaman.");
+    }
+    const { data, error } = await supabase.from("hotspots").delete().eq("id", hotspotId).eq("scene_id", hotspot.scene_id).select("id");
     if (error) throw error;
+    if (!data?.length) return actionError("Hotspot sudah dihapus. Muat ulang halaman.");
     revalidatePath(tourPath(propertyId));
     return actionSuccess("Hotspot berhasil dihapus.");
   } catch (error) {
-    return actionError(adminActionErrorMessage(error));
+    console.error("deleteHotspotAction:", error);
+    return actionError(tourErrorMessage(error));
   }
 }
 
@@ -266,19 +300,22 @@ export async function setInitialViewAction(formData: FormData): Promise<AdminAct
     await requireAdmin();
     const sceneId = String(formData.get("sceneId") || "");
     const propertyId = String(formData.get("propertyId") || "");
-    const pitch = Number(formData.get("pitch") || formData.get("initialPitch") || 0);
-    const yaw = Number(formData.get("yaw") || formData.get("initialYaw") || 0);
-    if (!Number.isFinite(pitch) || !Number.isFinite(yaw)) {
+    const coordinates = readTourCoordinates(formData);
+    if (!isTourId(sceneId) || !isTourId(propertyId) || !coordinates) {
       return actionError("Koordinat pandangan awal tidak valid.");
     }
-    const { error } = await getSupabaseAdmin()
+    const { data, error } = await getSupabaseAdmin()
       .from("scenes")
-      .update({ initial_pitch: pitch, initial_yaw: yaw })
-      .eq("id", sceneId);
+      .update({ initial_pitch: coordinates.pitch, initial_yaw: coordinates.yaw })
+      .eq("id", sceneId)
+      .eq("property_id", propertyId)
+      .select("id");
     if (error) throw error;
+    if (!data?.length) return actionError("Ruangan tidak ditemukan pada properti ini. Muat ulang halaman.");
     revalidatePath(tourPath(propertyId));
     return actionSuccess("Pandangan awal berhasil disimpan.");
   } catch (error) {
-    return actionError(adminActionErrorMessage(error));
+    console.error("setInitialViewAction:", error);
+    return actionError(tourErrorMessage(error));
   }
 }

@@ -2,10 +2,10 @@
 
 import { Crosshair, Save, Target, Trash2 } from "lucide-react";
 import {
-  createHotspotAction,
-  deleteHotspotAction,
-  setInitialViewAction,
-} from "@/app/admin/properti/[id]/tour/actions";
+  createHotspot,
+  deleteHotspot,
+  setInitialView,
+} from "@/lib/tour-client";
 import ActionForm from "@/components/admin/ActionForm";
 import { parseHotspotLabel } from "./hotspot";
 import type { CoordinateValue, EditorHotspot, EditorScene } from "./types";
@@ -24,7 +24,7 @@ type Props = {
 export default function TourEditorSidebar({
   currentScene, scenes, hotspots, propertyId, pitch, yaw, viewerBusy, onCapture,
 }: Props) {
-  const hasCoords = pitch !== "" && yaw !== "";
+  const hasCoords = pitch !== "" && yaw !== "" && Number.isFinite(pitch) && Number.isFinite(yaw);
 
   return (
     <div className="w-full xl:w-1/3 flex flex-col gap-4">
@@ -36,17 +36,17 @@ export default function TourEditorSidebar({
           <Crosshair size={16} /> Tangkap Titik Koordinat
         </button>
 
-        <ActionForm action={setInitialViewAction} className="mb-4 pb-4 border-b border-[#D6A34A]/30">
+        <ActionForm action={setInitialView} className="mb-4 pb-4 border-b border-[#D6A34A]/30">
           <input type="hidden" name="sceneId" value={currentScene.id} />
           <input type="hidden" name="propertyId" value={propertyId} />
           <input type="hidden" name="pitch" value={pitch === "" ? currentScene.initialPitch ?? 0 : pitch} />
           <input type="hidden" name="yaw" value={yaw === "" ? currentScene.initialYaw ?? 0 : yaw} />
-          <button type="submit" disabled={!hasCoords} className="w-full text-xs px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-bold hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          <button type="submit" disabled={!hasCoords || viewerBusy} className="w-full text-xs px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-bold hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
             Jadikan Pandangan Awal Kamera
           </button>
         </ActionForm>
 
-        <ActionForm action={createHotspotAction} className="space-y-3">
+        <ActionForm action={createHotspot} className="space-y-3">
           <input type="hidden" name="propertyId" value={propertyId} />
           <input type="hidden" name="sceneId" value={currentScene.id} />
           <div className="grid grid-cols-2 gap-3">
@@ -98,7 +98,7 @@ function HotspotList({ hotspots, scenes, propertyId }: { hotspots: EditorHotspot
             return (
               <div key={hotspot.id} className="flex items-center justify-between gap-3 bg-gray-50 p-2.5 rounded-lg border border-gray-100 text-xs shadow-sm">
                 <div className="min-w-0"><p className="font-bold text-[#4A2F1B] truncate">{target}</p><p className="text-[10px] text-gray-500 uppercase truncate">{iconType} | {label}</p></div>
-                <ActionForm action={deleteHotspotAction} confirmMessage={`Hapus hotspot menuju ${target}?`}>
+                <ActionForm action={deleteHotspot} confirmMessage={`Hapus hotspot menuju ${target}?`}>
                   <input type="hidden" name="hotspotId" value={hotspot.id} />
                   <input type="hidden" name="propertyId" value={propertyId} />
                   <button type="submit" className="text-red-500 hover:text-white hover:bg-red-500 p-1.5 rounded-md transition-colors" title="Hapus Hotspot"><Trash2 size={14} /></button>
