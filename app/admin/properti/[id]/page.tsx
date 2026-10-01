@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ImagePlus, Save } from "lucide-react";
-import { togglePublishStatus, updatePropertyAction } from "../actions";
+import { togglePublishStatus } from "../actions";
 import UploadMediaForm from "./UploadMediaForm";
 import ActionForm from "@/components/admin/ActionForm";
+import PropertyDetailsForm from "@/components/admin/PropertyDetailsForm";
 import MediaLibrary from "@/components/admin/MediaLibrary";
 import { getSupabase } from "@/lib/supabase";
 
@@ -83,7 +84,7 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#D6A34A]/20">
         <h2 className="text-xl font-bold text-[#4A2F1B] mb-6 border-b border-gray-100 pb-4">Detail Informasi</h2>
-        <ActionForm action={updatePropertyAction} className="space-y-4">
+        <PropertyDetailsForm>
           <input type="hidden" name="propertyId" value={property.id} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Field label="Judul Iklan"><input type="text" name="title" defaultValue={property.title} required maxLength={255} className={inputClass} /></Field>
@@ -124,7 +125,7 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
               <Save size={18} /> Simpan Perubahan
             </button>
           </div>
-        </ActionForm>
+        </PropertyDetailsForm>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[330px_1fr] gap-8 items-start">
