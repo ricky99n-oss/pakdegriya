@@ -25,6 +25,16 @@ Alternatif URL-prefix property: pilih `https://pakdegriya.com/`, gunakan metode 
 
 ## Pemeriksaan setelah deploy
 
+### Build Cloudflare Pages
+
+`npm run build` memakai `next build --webpack`. Pertahankan flag ini selama memakai `@cloudflare/next-on-pages`: adapter tersebut mengekstrak chunk Webpack bersama agar kode framework tidak terduplikasi di setiap route. Build Turbopack pada commit SEO menghasilkan bundle Pages Functions 29.419.313 byte dan ditolak karena melewati batas 25 MiB, walaupun tahap kompilasi Next.js berhasil.
+
+Perintah build di Cloudflare tetap `npx @cloudflare/next-on-pages@1`, dengan output `.vercel/output/static`. Sebelum deployment, jalankan perintah yang sama secara lokal dan periksa ukuran worker; keberhasilan `next build` saja belum memastikan bundle dapat diunggah. Setelah push, pastikan status deployment Cloudflare sukses sebelum mengirim ulang sitemap di Search Console.
+
+Sesudah `next build --webpack` berhasil, script `cleanup-next-export.mjs` membersihkan metadata sementara `export-detail.json` yang tertinggal pada build server Next 16.3. Tanpa pembersihan ini builder dapat salah menganggap aplikasi SSR sebagai static export yang gagal. Script hanya berjalan setelah build sukses, memeriksa manifest serta BUILD_ID, dan mempertahankan metadata bila konfigurasi benar-benar memakai `output: export`.
+
+### URL publik
+
 - `/robots.txt`: HTTP 200, baris Sitemap mengarah ke domain HTTPS di atas. Cloudflare dapat menambahkan komentar content signals; pastikan directives aplikasi tetap tersedia.
 - `/sitemap.xml`: HTTP 200 dengan XML yang dapat dibaca; tidak mengandung URL admin/auth/profil/tour/draft. Saat database tidak tersedia, endpoint gagal, bukan memberi sitemap parsial yang seolah berhasil.
 - View Source satu listing: title/deskripsi berbeda, canonical URL benar, JSON-LD sesuai harga dan alamat umum; cover untuk metadata harus berstatus publik.
