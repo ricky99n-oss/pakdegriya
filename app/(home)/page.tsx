@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { pageMetadata, siteSchema, SITE_DESCRIPTION, propertyCategories } from "@/lib/seo";
+import JsonLd from "@/components/JsonLd";
 import Image from "next/image";
 import { Building2, Compass, MessageCircle, ShieldCheck, Sparkles } from "lucide-react";
 import { validateRequest } from "@/lib/auth";
@@ -8,6 +10,8 @@ import { loadPublicProperties } from "@/lib/property-listing";
 import Footer from "@/components/Footer";
 import PublicHeader from "@/components/PublicHeader";
 import { getSupabase } from "@/lib/supabase";
+
+export const metadata = pageMetadata("Rumah, Tanah & Ruko di Batu dan Malang Raya", SITE_DESCRIPTION, "/");
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +30,7 @@ async function loadHomeData() {
         .select("id")
         .eq("property_id", prop.id)
         .eq("file_type", "cover_public")
+        .eq("is_public", true)
         .limit(1);
 
       return { ...prop, coverId: cover?.[0]?.id || null };
@@ -36,23 +41,7 @@ async function loadHomeData() {
 }
 
 export default async function BerandaPublik() {
-  const data = await loadHomeData().catch((error) => {
-    console.error("Kesalahan saat memuat halaman beranda:", error);
-    return null;
-  });
-  if (!data) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFF7E8] p-6 text-center">
-        <div className="bg-white p-10 rounded-3xl shadow-xl border border-red-200 max-w-lg w-full">
-          <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6"><span className="text-4xl font-black">!</span></div>
-          <h1 className="text-2xl font-black text-[#4A2F1B] mb-3">Terjadi Gangguan Sistem</h1>
-          <p className="text-gray-600 font-medium mb-8">Kami belum dapat memuat data properti saat ini. Silakan coba beberapa saat lagi.</p>
-          <Link href="/" className="inline-block bg-[#D6A34A] text-[#4A2F1B] px-8 py-3 rounded-xl font-bold hover:bg-[#c2913b] transition-colors">Coba Muat Ulang</Link>
-        </div>
-      </div>
-    );
-  }
-  const { user, propertiDenganCover } = data;
+  const { user, propertiDenganCover } = await loadHomeData();
   return (
     <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] flex flex-col relative overflow-hidden">
       <div
@@ -65,6 +54,7 @@ export default async function BerandaPublik() {
         }}
       />
 
+      <JsonLd data={siteSchema()} />
       <PublicHeader user={user} />
       <MemberWelcomeModal isMember={Boolean(user)} />
 
@@ -75,10 +65,10 @@ export default async function BerandaPublik() {
               <Sparkles size={14} className="text-[#D6A34A]" /> Tuku gak tuku sak karepmu
             </span>
             <h1 className="text-4xl md:text-6xl font-black tracking-tight text-[#4A2F1B] leading-tight">
-              Temukan Hunian Impian di <span className="text-[#D6A34A]">PakdeGriya.com</span>
+              Rumah, Tanah &amp; Properti di <span className="text-[#D6A34A]">Batu dan Malang Raya</span>
             </h1>
             <p className="text-lg text-[#281C15]/80 leading-relaxed font-medium">
-              Survei virtual 360° sebelum survei langsung. Dijamin transparan, aman, dan dibimbing langsung oleh tim profesional Pakde Griya.
+              Cari rumah, tanah, ruko, villa, atau apartemen untuk dibeli maupun disewa. Survei virtual 360° sebelum survei langsung. Dijamin transparan, aman, dan dibimbing langsung oleh tim profesional Pakde Griya.
             </p>
             <div className="flex flex-wrap gap-4 pt-2">
               <a
@@ -114,6 +104,10 @@ export default async function BerandaPublik() {
             </div>
           </div>
 
+          <nav aria-label="Kategori properti" className="mb-8 flex flex-wrap gap-3">
+            {Object.entries(propertyCategories).map(([key, category]) => <Link key={key} href={`/properti/kategori/${key}`} className="rounded-full border border-[#D6A34A]/40 bg-white px-4 py-2 text-sm font-bold text-[#4A2F1B] hover:bg-[#D6A34A]">{category.label}</Link>)}
+            <Link href="/properti" className="rounded-full bg-[#4A2F1B] px-4 py-2 text-sm font-bold text-white">Semua Properti</Link>
+          </nav>
           {propertiDenganCover.length === 0 ? (
             <div className="bg-white rounded-3xl p-12 text-center border border-[#D6A34A]/20 shadow-sm">
               <Building2 size={48} className="mx-auto text-gray-300 mb-3" />

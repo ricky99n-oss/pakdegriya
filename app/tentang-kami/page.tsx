@@ -1,3 +1,5 @@
+import { pageMetadata } from "@/lib/seo";
+export const metadata = pageMetadata('Tentang Pakde Griya, Broker Properti Batu & Malang', 'Kenali Pakde Griya: layanan pemasaran dan pendampingan properti di Batu dan Malang Raya dengan informasi listing dan Virtual Tour 360°.', '/tentang-kami');
 import { Compass, Handshake, ScanLine, ShieldCheck, Sparkles, Target } from "lucide-react";
 import StaticPublicHeader from "@/components/StaticPublicHeader";
 import Footer from "@/components/Footer";

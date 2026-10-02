@@ -1,3 +1,5 @@
+import { pageMetadata } from "@/lib/seo";
+export const metadata = pageMetadata('Syarat & Ketentuan', 'Ketentuan penggunaan website, akun member, survei properti, dan kanal transaksi resmi Pakde Griya.', '/syarat-ketentuan');
 import { AlertTriangle, BadgeCheck, Mail, MessageCircle, ShieldCheck } from "lucide-react";
 import StaticPublicHeader from "@/components/StaticPublicHeader";
 import Footer from "@/components/Footer";

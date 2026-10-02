@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+import JsonLd from "@/components/JsonLd";
+import { getPublicProperty, getPublicCover } from "@/lib/public-property";
+import { SITE_URL, pageMetadata, propertyDescription, propertyPath, propertySchema, breadcrumbs, isPropertyCategory, propertyCategories, catalogPath } from "@/lib/seo";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -12,19 +16,22 @@ import GallerySlider from "@/components/GallerySlider";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const property = await getPublicProperty(slug);
+  if (!property) notFound();
+  const coverId = await getPublicCover(property.id);
+  return pageMetadata(property.title, propertyDescription(property), propertyPath(property.slug), coverId ? `${SITE_URL}/api/media/${coverId}` : undefined);
+}
+
 export default async function DetailPropertiPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { user } = await validateRequest();
   const isMember = Boolean(user);
   const supabase = getSupabase();
 
-  const { data: records, error } = await supabase
-    .from("properties")
-    .select("*")
-    .eq("slug", slug)
-    .limit(1);
-  if (error || !records?.length) notFound();
-  const property = records[0];
+  const property = await getPublicProperty(slug);
+  if (!property) notFound();
 
   const { data: mediaData } = await supabase
     .from("property_media")
@@ -38,21 +45,28 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
     .filter((item) => ["cover_public", "gallery_private"].includes(item.file_type) && accessible(item))
     .map((item) => ({ id: item.id }));
   const hasPrivateGallery = media.some((item) => item.file_type === "gallery_private" && !item.is_public);
+  const category = String(property.property_type);
+  const publicCover = media.find((item) => item.file_type === "cover_public" && item.is_public);
   const hasTour = media.some((item) => item.file_type === "panorama_private");
 
   return (
     <div className="min-h-screen bg-[#FFF7E8] text-[#281C15] flex flex-col">
       <div className="bg-pakde-pattern" aria-hidden="true" />
       <PublicHeader user={user} />
+      <JsonLd data={propertySchema(property, publicCover ? `${SITE_URL}/api/media/${publicCover.id}` : undefined)} />
+      <JsonLd data={breadcrumbs([{ name: "Beranda", path: "/" }, { name: "Properti", path: "/properti" }, { name: property.title, path: propertyPath(property.slug) }])} />
 
       <main className="flex-grow max-w-4xl w-full mx-auto px-4 mt-6 md:mt-8 space-y-6 md:space-y-8 relative z-10 pb-24">
         <Link href="/" prefetch={false} className="inline-flex items-center gap-2 text-sm text-[#4A2F1B]/70 hover:text-[#D6A34A] font-bold"><ArrowLeft size={18} /> Kembali ke Beranda</Link>
 
+        <nav aria-label="Breadcrumb" className="flex flex-wrap gap-2 text-sm text-[#4A2F1B]">
+          <Link href="/">Beranda</Link><span aria-hidden="true">/</span><Link href="/properti">Properti</Link><span aria-hidden="true">/</span><span aria-current="page">{property.title}</span>
+        </nav>
         <section>
           <div className="flex items-start justify-between gap-4 mb-3">
             <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#D6A34A] uppercase tracking-wider">
               {property.is_hot_item ? <HotItemBadge /> : null}
-              <span className="bg-[#D6A34A]/10 px-2 py-1 rounded">{property.property_type}</span>
+              {isPropertyCategory(category) ? <Link href={catalogPath(category)} className="bg-[#D6A34A]/10 px-2 py-1 rounded">{propertyCategories[category].label}</Link> : <span>{property.property_type}</span>}
               <span>•</span><span>{String(property.transaction_type).replace("_", " ")}</span>
             </div>
             <ShareButton title={property.title} slug={property.slug} className="w-10 h-10 shrink-0" />

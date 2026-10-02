@@ -9,6 +9,8 @@ import { actionError, actionSuccess, type AdminActionResult } from "@/lib/admin-
 function revalidateProperty(propertyId?: string) {
   revalidatePath("/");
   revalidatePath("/admin/properti");
+  revalidatePath("/properti", "layout");
+  revalidatePath("/sitemap.xml");
   if (propertyId) revalidatePath(`/admin/properti/${propertyId}`);
 }
 

@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      { source: "/:section(admin|auth|profil)/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
       {
         source: "/(.*)",
         headers: [

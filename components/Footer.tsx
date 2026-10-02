@@ -58,9 +58,12 @@ export default function Footer() {
         <div>
           <h3 className="text-lg font-bold text-[#D6A34A] mb-6">Informasi</h3>
           <ul className="space-y-3 text-sm text-[#FFF7E8]/80 font-medium">
+            <li><Link href="/properti/kategori/rumah" className="hover:text-[#D6A34A]">▸ Rumah di Batu & Malang</Link></li>
+            <li><Link href="/properti/kategori/tanah" className="hover:text-[#D6A34A]">▸ Tanah & Kavling</Link></li>
+            <li><Link href="/properti/kategori/ruko" className="hover:text-[#D6A34A]">▸ Ruko</Link></li>
             <li><Link href="/tentang-kami" className="hover:text-[#D6A34A] hover:pl-2 transition-all">▸ Tentang Kami</Link></li>
             <li><Link href="/syarat-ketentuan" className="hover:text-[#D6A34A] hover:pl-2 transition-all">▸ Syarat & Ketentuan</Link></li>
-            <li><Link href="/#properti" className="hover:text-[#D6A34A] hover:pl-2 transition-all">▸ Cari Properti</Link></li>
+            <li><Link href="/properti" className="hover:text-[#D6A34A] hover:pl-2 transition-all">▸ Cari Properti</Link></li>
             <li><a href="https://wa.me/6285815999953" target="_blank" rel="noopener noreferrer" className="hover:text-[#D6A34A] hover:pl-2 transition-all inline-flex items-center gap-1">▸ Kontak Resmi <ExternalLink size={12} /></a></li>
           </ul>
         </div>

@@ -1,3 +1,5 @@
+import { NO_INDEX } from "@/lib/seo";
+export const metadata = NO_INDEX;
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -21,7 +23,7 @@ export default async function PublicTourPage({ params }: { params: Promise<{ slu
   }
 
   const supabase = getSupabase();
-  const { data: propertyRecord } = await supabase.from("properties").select("id, title").eq("slug", slug).limit(1);
+  const { data: propertyRecord } = await supabase.from("properties").select("id, title").eq("slug", slug).eq("publish_status", "published").limit(1);
   if (!propertyRecord?.length) notFound();
   const property = propertyRecord[0];
 

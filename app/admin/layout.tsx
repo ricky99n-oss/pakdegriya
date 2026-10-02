@@ -1,3 +1,5 @@
+import { NO_INDEX } from "@/lib/seo";
+export const metadata = NO_INDEX;
 import AdminNavigation from "@/components/admin/AdminNavigation";
 import { validateRequest } from "../../lib/auth";
 import { redirect } from "next/navigation";

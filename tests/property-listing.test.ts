@@ -9,10 +9,12 @@ function database(results: unknown[]) {
     client: { from: (table: string) => {
       const calls: unknown[] = [["from", table]]; queries.push(calls);
       const query = {
+        returns: async () => results.shift(),
         select: (value: string) => { calls.push(["select", value]); return query; },
         eq: (key: string, value: unknown) => { calls.push(["eq", key, value]); return query; },
         order: (key: string, options: unknown) => { calls.push(["order", key, options]); return query; },
-        limit: async (value: number) => { calls.push(["limit", value]); return results.shift(); },
+        limit: (value: number) => { calls.push(["limit", value]); return query; },
+        range: (start: number, end: number) => { calls.push(["range", start, end]); return query; },
       }; return query;
     } } as unknown as Parameters<typeof loadPublicProperties>[0],
   };
