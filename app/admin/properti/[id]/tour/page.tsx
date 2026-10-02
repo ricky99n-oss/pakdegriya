@@ -1,9 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Map } from "lucide-react";
-import { createSceneAction } from "./actions";
 import TourEditorWrapper from "@/components/TourEditorWrapper";
-import ActionForm from "@/components/admin/ActionForm";
+import CreateSceneForm from "@/components/admin/CreateSceneForm";
 import { getSupabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -73,8 +72,9 @@ export default async function KelolaTurProperti({ params }: { params: Promise<{ 
             const registeredScene = existingScenes.find((scene: any) => scene.mediaId === pano.id);
             const isRegistered = !!registeredScene;
             return (
-              <ActionForm key={pano.id} action={createSceneAction} className={`flex items-center gap-3 bg-white p-3 rounded-xl border ${isRegistered ? "border-green-300 bg-green-50" : "border-[#D6A34A]/50"} shadow-sm`}>
+              <CreateSceneForm key={pano.id} className={`flex items-center gap-3 bg-white p-3 rounded-xl border ${isRegistered ? "border-green-300 bg-green-50" : "border-[#D6A34A]/50"} shadow-sm`}>
                 <input type="hidden" name="propertyId" value={property.id} />
+                <input type="hidden" name="mediaId" value={pano.id} />
                 <div className="w-16 h-12 bg-gray-200 rounded-lg overflow-hidden shrink-0 relative">
                   {pano.preview_file_name ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -85,8 +85,8 @@ export default async function KelolaTurProperti({ params }: { params: Promise<{ 
                   {isRegistered && <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center"><span className="text-green-800 text-xs font-bold">✔</span></div>}
                 </div>
                 <input type="text" name={`name_${pano.id}`} placeholder="Ketik Nama Ruangan..." defaultValue={isRegistered ? registeredScene.name : ""} disabled={isRegistered} required={!isRegistered} maxLength={255} className="w-full border-none focus:ring-0 text-sm bg-transparent font-bold text-[#281C15] placeholder-gray-400 disabled:opacity-70" />
-                <button type="submit" name="mediaId" value={pano.id} disabled={isRegistered} className="w-10 h-10 rounded-lg bg-[#4A2F1B] text-[#D6A34A] flex items-center justify-center hover:bg-[#281C15] disabled:bg-gray-200 disabled:text-gray-400 shrink-0 transition-colors">{isRegistered ? "✔" : "+"}</button>
-              </ActionForm>
+                <button type="submit" aria-label="Tambahkan ruangan ke tur" disabled={isRegistered} className="w-10 h-10 rounded-lg bg-[#4A2F1B] text-[#D6A34A] flex items-center justify-center hover:bg-[#281C15] disabled:bg-gray-200 disabled:text-gray-400 shrink-0 transition-colors">{isRegistered ? "✔" : "+"}</button>
+              </CreateSceneForm>
             );
           })}
         </div>

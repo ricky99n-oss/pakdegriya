@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { revalidatePath } from "next/cache";
 import { POST } from "@/app/api/admin/tour/route";
-import { createHotspot, deleteHotspot, setInitialView } from "@/lib/tour-client";
+import { createScene, createHotspot, deleteHotspot, setInitialView } from "@/lib/tour-client";
 
 type Row = Record<string, unknown>;
 const state = vi.hoisted(() => ({
@@ -34,6 +35,7 @@ vi.mock("@/lib/supabase", () => ({
       };
       const query = {
         select: () => query,
+        order: () => query,
         eq: (name: string, value: unknown) => { filters.push((row) => row[name] === value); return query; },
         in: (name: string, values: unknown[]) => { filters.push((row) => values.includes(row[name])); return query; },
         insert: (row: Row) => { method = "insert"; values = row; return query; },
@@ -51,6 +53,8 @@ const propertyId = "11111111-1111-4111-8111-111111111111";
 const sceneId = "22222222-2222-4222-8222-222222222222";
 const targetSceneId = "33333333-3333-4333-8333-333333333333";
 const otherPropertyId = "44444444-4444-4444-8444-444444444444";
+const mediaId = "55555555-5555-4555-8555-555555555555";
+const sceneFields = { propertyId, mediaId, [`name_${mediaId}`]: "Lokasi" };
 const origin = "https://pakdegriya.test";
 const fields = { propertyId, sceneId, targetSceneId, pitch: "1.53", yaw: "41.05", label: "Menuju Dapur", iconType: "door" };
 const form = (values: Record<string, string> = fields) => {
@@ -68,6 +72,7 @@ beforeEach(() => {
   state.rows = {
     scenes: [{ id: sceneId, property_id: propertyId }, { id: targetSceneId, property_id: propertyId }],
     hotspots: [],
+    property_media: [{ id: mediaId, property_id: propertyId, file_type: "panorama_private" }],
   };
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -120,7 +125,7 @@ describe("tour JSON mutations", () => {
     expect(state.writes).toEqual([]);
   });
 
-  it.each(["createHotspot", "setInitialView", "deleteHotspot", "updateSceneAudio"])("requires admin for %s", async (operation) => {
+  it.each(["createScene", "createHotspot", "setInitialView", "deleteHotspot", "updateSceneAudio"])("requires admin for %s", async (operation) => {
     state.admin = false;
     const response = await request(operation);
     expect(await response.json()).toMatchObject({ success: false, error: expect.stringContaining("Sesi admin") });
@@ -216,5 +221,63 @@ describe("transport error feedback", () => {
     vi.stubGlobal("fetch", fetchMock);
     expect(await createHotspot(form())).toMatchObject({ success: false, error: expect.stringContaining("memeriksa hasil") });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe("panorama registration", () => {
+  it("registers the first panorama through client -> JSON API -> database and safely handles a repeated submission", async () => {
+    state.rows.scenes = [];
+    const fetchMock = connectClientToRoute();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await createScene(form(sceneFields))).toMatchObject({ success: true });
+    expect(state.rows.scenes).toEqual([expect.objectContaining({
+      property_id: propertyId, media_id: mediaId, name: "Lokasi", sort_order: 0, is_first_scene: true,
+    })]);
+    expect(await createScene(form(sceneFields))).toMatchObject({ success: true });
+    expect(state.rows.scenes).toHaveLength(1);
+    expect(state.writes).toEqual(["insert:scenes"]);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/admin/tour");
+    expect(fetchMock.mock.calls[0][1].headers).not.toHaveProperty("Next-Action");
+  });
+
+  it("appends another panorama without changing the first scene", async () => {
+    state.rows.scenes[0].is_first_scene = true;
+    expect((await request("createScene", sceneFields)).status).toBe(200);
+    expect(state.rows.scenes[0].is_first_scene).toBe(true);
+    expect(state.rows.scenes[2]).toMatchObject({ sort_order: 2, is_first_scene: false });
+  });
+
+  it.each([
+    { ...sceneFields, mediaId: "" },
+    { ...sceneFields, propertyId: "invalid" },
+    { ...sceneFields, [`name_${mediaId}`]: " " },
+    { ...sceneFields, [`name_${mediaId}`]: "a".repeat(256) },
+  ])("rejects invalid scene fields without a write", async (values) => {
+    expect((await request("createScene", values)).status).toBe(400);
+    expect(state.writes).toEqual([]);
+  });
+
+  it.each(["wrong-property", "wrong-type", "deleted"])("rejects %s media without a write", async (reason) => {
+    if (reason === "wrong-property") state.rows.property_media[0].property_id = otherPropertyId;
+    if (reason === "wrong-type") state.rows.property_media[0].file_type = "audio_private";
+    if (reason === "deleted") state.rows.property_media = [];
+    expect((await request("createScene", sceneFields)).status).toBe(400);
+    expect(state.writes).toEqual([]);
+  });
+
+  it("reports a missing schema as a database setup error", async () => {
+    state.databaseError = { code: "42703", message: "sort_order missing" };
+    const response = await request("createScene", sceneFields);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ success: false, error: expect.stringContaining("migration Supabase") });
+  });
+
+  it("does not claim a committed scene failed when cache refresh fails", async () => {
+    vi.mocked(revalidatePath).mockImplementationOnce(() => { throw new Error("Cache unavailable"); });
+    const response = await request("createScene", sceneFields);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ success: true, message: expect.stringContaining("tersimpan") });
+    expect(state.writes).toEqual(["insert:scenes"]);
   });
 });

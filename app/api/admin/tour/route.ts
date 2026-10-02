@@ -1,4 +1,5 @@
 import {
+  createSceneAction,
   createHotspotAction,
   deleteHotspotAction,
   setInitialViewAction,
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
     // RSC response is required. Each action checks requireAdmin before any write.
     let result: AdminActionResult;
     switch (body.operation) {
+      case "createScene": result = await createSceneAction(formData); break;
       case "createHotspot": result = await createHotspotAction(formData); break;
       case "deleteHotspot": result = await deleteHotspotAction(formData); break;
       case "updateSceneAudio": result = await updateSceneAudioAction(formData); break;

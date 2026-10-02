@@ -1,6 +1,6 @@
 import type { AdminActionResult } from "./admin-action";
 
-type TourOperation = "createHotspot" | "deleteHotspot" | "setInitialView" | "updateSceneAudio";
+type TourOperation = "createScene" | "createHotspot" | "deleteHotspot" | "setInitialView" | "updateSceneAudio";
 
 async function submitTourChange(operation: TourOperation, formData: FormData): Promise<AdminActionResult> {
   try {
@@ -33,6 +33,7 @@ async function submitTourChange(operation: TourOperation, formData: FormData): P
   }
 }
 
+export const createScene = (formData: FormData) => submitTourChange("createScene", formData);
 export const createHotspot = (formData: FormData) => submitTourChange("createHotspot", formData);
 export const deleteHotspot = (formData: FormData) => submitTourChange("deleteHotspot", formData);
 export const setInitialView = (formData: FormData) => submitTourChange("setInitialView", formData);

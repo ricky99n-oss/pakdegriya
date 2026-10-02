@@ -74,7 +74,9 @@ export async function createSceneAction(formData: FormData): Promise<AdminAction
     const propertyId = String(formData.get("propertyId") || "");
     const mediaId = String(formData.get("mediaId") || "");
     const name = String(formData.get(`name_${mediaId}`) || "").trim();
-    if (!propertyId || !mediaId || !name) return actionError("Data ruangan belum lengkap.");
+    if (!isTourId(propertyId) || !isTourId(mediaId) || !name || name.length > 255) {
+      return actionError("Data ruangan tidak valid. Pilih panorama dan isi nama maksimal 255 karakter.");
+    }
 
     const supabase = getSupabaseAdmin();
     const { data: media, error: mediaError } = await supabase
@@ -88,6 +90,13 @@ export async function createSceneAction(formData: FormData): Promise<AdminAction
       return actionError("Panorama tidak valid atau tidak lagi tersedia.");
     }
 
+    // A lost response can leave the panorama registered. Do not insert it again
+    // when the admin reloads or submits the same form a second time.
+    const { data: registered, error: registeredError } = await supabase.from("scenes")
+      .select("id").eq("property_id", propertyId).eq("media_id", mediaId);
+    if (registeredError) throw registeredError;
+    if (registered?.length) return actionSuccess("Panorama sudah terdaftar pada tur 360°.");
+
     const existingScenes = await getOrderedScenes(propertyId);
     const { error } = await supabase.from("scenes").insert({
       id: crypto.randomUUID(),
@@ -98,11 +107,16 @@ export async function createSceneAction(formData: FormData): Promise<AdminAction
       is_first_scene: existingScenes.length === 0,
     });
     if (error) throw error;
-    revalidatePath(tourPath(propertyId));
+    try {
+      revalidatePath(tourPath(propertyId));
+    } catch (error) {
+      console.error("Scene saved, but cache revalidation failed:", error);
+      return actionSuccess("Ruangan tersimpan. Muat ulang halaman untuk melihat tur terbaru.");
+    }
     return actionSuccess("Ruangan berhasil ditambahkan ke tur 360°.");
   } catch (error) {
     console.error("createSceneAction:", error);
-    return actionError(adminActionErrorMessage(error));
+    return actionError(tourErrorMessage(error));
   }
 }
 
