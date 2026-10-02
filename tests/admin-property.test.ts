@@ -29,6 +29,10 @@ vi.mock("@/lib/supabase", () => ({
       let values: Record<string, unknown> = {};
       let id: unknown;
       const query = {
+        insert: async (payload: Record<string, unknown>) => {
+          if (state.databaseError) return { error: state.databaseError };
+          state.writes++; state.row = payload; return { error: null };
+        },
         update: (payload: Record<string, unknown>) => { values = payload; return query; },
         eq: (key: string, value: unknown) => { expect(key).toBe("id"); id = value; return query; },
         select: () => query,
@@ -191,5 +195,40 @@ describe("property publication", () => {
     expect(await (await publishRequest()).json()).toMatchObject({ success: true, message: expect.stringContaining("tersimpan") });
     expect(state.row?.publish_status).toBe("published");
     expect(state.writes).toBe(1);
+  });
+});
+
+
+describe("Hot Item and Nego settings", () => {
+  it.each(["true", "false"])("saves explicit flags %s through the protected endpoint", async (value) => {
+    const response = await request({ operation: "updateProperty", fields: { ...fields, isHotItem: value, isNegotiable: value } });
+    expect(response.status).toBe(200);
+    expect(state.row).toMatchObject({ is_hot_item: value === "true", is_negotiable: value === "true", price: 800000000 });
+  });
+  it("preserves flags when an older form omits them", async () => {
+    Object.assign(state.row!, { is_hot_item: true, is_negotiable: true });
+    await request();
+    expect(state.row).toMatchObject({ is_hot_item: true, is_negotiable: true });
+  });
+  it("rejects malformed booleans without writing", async () => {
+    expect((await request({ operation: "updateProperty", fields: { ...fields, isHotItem: "yes" } })).status).toBe(400);
+    expect(state.writes).toBe(0);
+  });
+  it("creates a draft with both options through JSON", async () => {
+    const response = await request({ operation: "createProperty", fields: { ...fields, code: "PG-NEW", isHotItem: "true", isNegotiable: "true" } });
+    expect(response.status).toBe(200);
+    expect(state.row).toMatchObject({ code: "PG-NEW", price: 800000000, is_hot_item: true, is_negotiable: true, publish_status: "draft" });
+  });
+  it("requires admin for creation before accessing the privileged client", async () => {
+    state.admin = false;
+    expect((await request({ operation: "createProperty", fields: { ...fields, code: "PG-NEW" } })).status).toBe(400);
+    expect(state.adminClient).not.toHaveBeenCalled();
+  });
+  it("explains the required migration rather than reporting a successful save", async () => {
+    state.databaseError = { code: "PGRST204", message: "Could not find the is_hot_item column" };
+    const response = await request({ operation: "updateProperty", fields: { ...fields, isHotItem: "true" } });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ success: false, error: expect.stringContaining("pembaruan database") });
+    expect(state.writes).toBe(0);
   });
 });

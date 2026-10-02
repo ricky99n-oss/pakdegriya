@@ -50,6 +50,8 @@ export const properties = pgTable("properties", {
   description: text("description"),
   publicSummary: text("public_summary"),
   price: doublePrecision("price").notNull(),
+  isHotItem: boolean("is_hot_item").default(false).notNull(),
+  isNegotiable: boolean("is_negotiable").default(false).notNull(),
   transactionType: transactionTypeEnum("transaction_type").notNull(),
   propertyType: propertyTypeEnum("property_type").notNull(),
   generalLocation: varchar("general_location", { length: 255 }).notNull(),

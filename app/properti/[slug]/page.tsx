@@ -7,6 +7,7 @@ import { getSupabase } from "@/lib/supabase";
 import ShareButton from "@/components/ShareButton";
 import Footer from "@/components/Footer";
 import PublicHeader from "@/components/PublicHeader";
+import { HotItemBadge, NegoBadge } from "@/components/PropertyBadges";
 import GallerySlider from "@/components/GallerySlider";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
 
   const { data: records, error } = await supabase
     .from("properties")
-    .select("id, code, slug, title, price, property_type, transaction_type, general_location, land_area, building_area, bedrooms, bathrooms, public_summary, publish_status")
+    .select("*")
     .eq("slug", slug)
     .limit(1);
   if (error || !records?.length) notFound();
@@ -50,6 +51,7 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
         <section>
           <div className="flex items-start justify-between gap-4 mb-3">
             <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#D6A34A] uppercase tracking-wider">
+              {property.is_hot_item ? <HotItemBadge /> : null}
               <span className="bg-[#D6A34A]/10 px-2 py-1 rounded">{property.property_type}</span>
               <span>•</span><span>{String(property.transaction_type).replace("_", " ")}</span>
             </div>
@@ -57,7 +59,7 @@ export default async function DetailPropertiPage({ params }: { params: Promise<{
           </div>
           <h1 className="text-2xl md:text-4xl font-black text-[#4A2F1B] leading-tight mb-2">{property.title}</h1>
           <p className="flex items-center gap-1.5 text-gray-500 font-medium mb-4"><MapPin size={18} /> {property.general_location}</p>
-          <div className="text-2xl md:text-3xl font-black text-[#4A2F1B]">Rp {Number(property.price).toLocaleString("id-ID")}</div>
+          <div className="flex flex-wrap items-center gap-3"><span className="text-2xl md:text-3xl font-black text-[#4A2F1B]">Rp {Number(property.price).toLocaleString("id-ID")}</span>{property.is_negotiable ? <NegoBadge /> : null}</div>
         </section>
 
         <div className="w-full aspect-[4/3] md:aspect-[16/9] bg-gray-200 rounded-2xl md:rounded-3xl overflow-hidden relative shadow-lg">

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowLeft, ImagePlus, Save } from "lucide-react";
 import UploadMediaForm from "./UploadMediaForm";
 import PropertyPublishForm from "@/components/admin/PropertyPublishForm";
+import PriceInput from "@/components/admin/PriceInput";
+import PropertyFlagsFields from "@/components/admin/PropertyFlagsFields";
 import PropertyDetailsForm from "@/components/admin/PropertyDetailsForm";
 import MediaLibrary from "@/components/admin/MediaLibrary";
 import { getSupabase } from "@/lib/supabase";
@@ -88,7 +90,7 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Field label="Judul Iklan"><input type="text" name="title" defaultValue={property.title} required maxLength={255} className={inputClass} /></Field>
             <Field label="Slug URL"><input type="text" name="slug" defaultValue={property.slug} required maxLength={255} className={inputClass} /></Field>
-            <Field label="Harga (Angka)"><input type="number" name="price" min="0" defaultValue={property.price} required className={inputClass} /></Field>
+            <Field label="Harga (Rp)"><PriceInput defaultValue={property.price} className={inputClass} /></Field>
             <Field label="Lokasi Umum"><input type="text" name="generalLocation" defaultValue={property.general_location} required maxLength={255} className={inputClass} /></Field>
             <Field label="Tipe Transaksi">
               <select name="transactionType" defaultValue={property.transaction_type} className={inputClass}>
@@ -114,6 +116,8 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
             <MiniNumber label="Luas Tanah (m²)" name="landArea" value={property.land_area || 0} />
             <MiniNumber label="Luas Bangunan (m²)" name="buildingArea" value={property.building_area || 0} />
           </div>
+
+          <PropertyFlagsFields isHotItem={property.is_hot_item} isNegotiable={property.is_negotiable} />
 
           <Field label="Ringkasan Properti (Publik)">
             <textarea name="publicSummary" defaultValue={property.public_summary || ""} rows={4} maxLength={5000} className={inputClass} />

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus, Building2, Edit2, Trash2 } from "lucide-react";
 import { hapusPropertiAction } from "./actions";
 import ActionForm from "@/components/admin/ActionForm";
+import { HotItemBadge, NegoBadge } from "@/components/PropertyBadges";
 import { getSupabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function DaftarPropertiPage() {
   const { data } = await getSupabase()
     .from("properties")
-    .select("id, title, code, property_type, transaction_type, price, publish_status")
+    .select("*")
     .order("updated_at", { ascending: false });
   const properties = data || [];
 
@@ -29,7 +30,7 @@ export default async function DaftarPropertiPage() {
                 <tr><td colSpan={5} className="p-10 text-center text-gray-400"><div className="flex flex-col items-center gap-3"><div className="p-4 bg-gray-50 rounded-full"><Building2 size={32} className="text-gray-300" /></div><p>Belum ada data properti. Silakan tambah baru.</p></div></td></tr>
               ) : properties.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50/50 transition-colors group">
-                  <td className="p-5"><p className="font-bold text-[#281C15] text-base">{item.title}</p><p className="text-xs text-gray-400 font-mono mt-1">{item.code}</p></td>
+                  <td className="p-5"><p className="font-bold text-[#281C15] text-base">{item.title}</p><p className="text-xs text-gray-400 font-mono mt-1">{item.code}</p><div className="flex flex-wrap gap-2 mt-2">{item.is_hot_item ? <HotItemBadge /> : null}{item.is_negotiable ? <NegoBadge /> : null}</div></td>
                   <td className="p-5"><span className="inline-flex items-center px-2.5 py-1 rounded-md bg-[#FFF7E8] text-[#4A2F1B] text-xs font-semibold capitalize border border-[#D6A34A]/30">{item.property_type}</span><p className="text-xs text-gray-500 mt-2 capitalize font-medium">{item.transaction_type.replace("_", " ")}</p></td>
                   <td className="p-5"><p className="font-bold text-[#4A2F1B]">Rp {Number(item.price).toLocaleString("id-ID")}</p></td>
                   <td className="p-5"><span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase ${item.publish_status === "published" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>{item.publish_status}</span></td>

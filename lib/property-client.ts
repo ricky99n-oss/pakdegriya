@@ -1,5 +1,9 @@
 import type { AdminActionResult } from "./admin-action";
 
+export async function createProperty(formData: FormData): Promise<AdminActionResult> {
+  return propertyRequest("createProperty", formData);
+}
+
 export async function updateProperty(formData: FormData): Promise<AdminActionResult> {
   return propertyRequest("updateProperty", formData);
 }
@@ -8,7 +12,7 @@ export async function setPublishStatus(formData: FormData): Promise<AdminActionR
   return propertyRequest("setPublishStatus", formData);
 }
 
-async function propertyRequest(operation: "updateProperty" | "setPublishStatus", formData: FormData): Promise<AdminActionResult> {
+async function propertyRequest(operation: "createProperty" | "updateProperty" | "setPublishStatus", formData: FormData): Promise<AdminActionResult> {
   try {
     // Use a stable JSON endpoint instead of the page's Server Action / RSC transport.
     const response = await fetch("/api/admin/properties", {

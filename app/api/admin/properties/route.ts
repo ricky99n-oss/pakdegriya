@@ -1,4 +1,5 @@
 import { setPropertyPublishStatusAction, updatePropertyAction } from "@/app/admin/properti/actions";
+import { createPropertyAction } from "@/app/admin/properti/tambah/actions";
 import { actionError, type AdminActionResult } from "@/lib/admin-action";
 
 export const runtime = "edge";
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
     // RSC response is required. Each action checks requireAdmin before any write.
     let result: AdminActionResult;
     switch (body.operation) {
+      case "createProperty": result = await createPropertyAction(formData); break;
       case "updateProperty": result = await updatePropertyAction(formData); break;
       case "setPublishStatus": result = await setPropertyPublishStatusAction(formData); break;
       default: return json(actionError("Operasi properti tidak dikenal."), 400);

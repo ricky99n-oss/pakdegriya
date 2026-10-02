@@ -1,5 +1,6 @@
 "use server";
 
+import { readPropertyFlags, isMissingPropertyFlags, propertyFlagsSetupMessage } from "@/lib/property-flags";
 import { revalidatePath } from "next/cache";
 import { getSupabase, getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdmin, adminActionErrorMessage } from "@/lib/admin-auth";
@@ -79,6 +80,7 @@ export async function updatePropertyAction(formData: FormData): Promise<AdminAct
     const propertyId = String(formData.get("propertyId") || "");
     const title = String(formData.get("title") || "").trim();
     const slug = String(formData.get("slug") || "").trim().toLowerCase();
+    const flags = readPropertyFlags(formData);
     const rawPrice = String(formData.get("price") ?? "").trim();
     const price = Number(rawPrice);
     const generalLocation = String(formData.get("generalLocation") || "").trim();
@@ -106,6 +108,7 @@ export async function updatePropertyAction(formData: FormData): Promise<AdminAct
     // Only use the privileged client after requireAdmin. The anonymous client
     // can be blocked by RLS or report success while updating zero rows.
     const { data, error } = await getSupabaseAdmin().from("properties").update({
+      ...flags,
       title,
       slug,
       price,
@@ -121,6 +124,7 @@ export async function updatePropertyAction(formData: FormData): Promise<AdminAct
     }).eq("id", propertyId).select("id").maybeSingle();
     if (error) {
       console.error("updatePropertyAction database:", error);
+      if (isMissingPropertyFlags(error)) return actionError(propertyFlagsSetupMessage);
       return actionError(error.code === "23505"
         ? "Slug URL sudah digunakan properti lain. Gunakan slug yang berbeda."
         : "Perubahan properti gagal disimpan ke database. Silakan coba lagi.");

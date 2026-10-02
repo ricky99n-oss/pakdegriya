@@ -4,7 +4,9 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Save, XCircle } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createPropertyAction } from "./actions";
+import { createProperty } from "@/lib/property-client";
+import PriceInput from "@/components/admin/PriceInput";
+import PropertyFlagsFields from "@/components/admin/PropertyFlagsFields";
 
 export default function TambahPropertiPage() {
   const router = useRouter();
@@ -24,7 +26,7 @@ export default function TambahPropertiPage() {
     setLoading(true);
     setNotice(null);
     try {
-      const result = await createPropertyAction(new FormData(event.currentTarget));
+      const result = await createProperty(new FormData(event.currentTarget));
       if (!result.success) {
         setNotice({ type: "error", text: result.error || "Gagal menyimpan properti." });
         return;
@@ -52,11 +54,12 @@ export default function TambahPropertiPage() {
             <Field label="Kode Properti"><input type="text" name="code" required maxLength={50} placeholder="Mis: PG-001" className={inputClass} /></Field>
             <div className="md:col-span-2"><Field label="Judul Iklan"><input type="text" name="title" required maxLength={255} value={title} onChange={handleTitle} placeholder="Rumah Nyaman Siap Huni di Pusat Kota" className={`${inputClass} text-lg font-semibold`} /></Field></div>
             <div className="md:col-span-2"><Field label="Slug URL"><div className="flex items-center"><span className="bg-gray-100 border border-gray-300 border-r-0 p-3 rounded-l-xl text-gray-500 text-sm hidden md:block">pakdegriya.com/properti/</span><input type="text" name="slug" required maxLength={255} value={slug} onChange={(event) => setSlug(event.target.value)} className={`${inputClass} md:rounded-l-none`} /></div></Field></div>
-            <Field label="Harga (Angka Saja)"><input type="number" name="price" min="0" required placeholder="500000000" className={inputClass} /></Field>
+            <Field label="Harga (Rp)"><PriceInput className={inputClass} /></Field>
             <Field label="Lokasi Umum"><input type="text" name="generalLocation" required maxLength={255} placeholder="Batu, Jawa Timur" className={inputClass} /></Field>
             <Field label="Tipe Transaksi"><select name="transactionType" className={inputClass}><option value="jual">Jual</option><option value="sewa_bulan">Sewa Bulanan</option><option value="sewa_tahun">Sewa Tahunan</option></select></Field>
             <Field label="Jenis Properti"><select name="propertyType" className={inputClass}><option value="rumah">Rumah</option><option value="tanah">Tanah</option><option value="villa">Villa</option><option value="ruko">Ruko</option><option value="apartemen">Apartemen</option></select></Field>
           </div>
+          <PropertyFlagsFields />
           <div className="pt-6 border-t border-gray-100"><button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 bg-[#D6A34A] text-[#281C15] font-bold text-lg py-4 rounded-xl hover:bg-[#c2913b] shadow-lg disabled:opacity-50">{loading ? "Menyimpan..." : <><Save size={24} /> Simpan sebagai Draft</>}</button></div>
         </form>
       </div>
