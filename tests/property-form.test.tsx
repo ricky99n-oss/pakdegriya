@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PropertyDetailsForm from "@/components/admin/PropertyDetailsForm";
+import PropertyPublishForm from "@/components/admin/PropertyPublishForm";
 const refresh = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); refresh.mockClear(); });
@@ -31,5 +32,30 @@ describe("property edit form", () => {
     expect(screen.getByRole("alert").textContent).toContain("Sesi admin");
     expect((screen.getByLabelText("Harga") as HTMLInputElement).value).toBe("800000000");
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("property publish form", () => {
+  it.each([true, false])("sends publication through JSON and refreshes only on success=%s", async (success) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(success
+      ? { success: true, message: "Properti berhasil diterbitkan." }
+      : { success: false, error: "Status publikasi gagal disimpan." }), {
+      status: success ? 200 : 400, headers: { "Content-Type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PropertyPublishForm>
+      <input type="hidden" name="propertyId" value="d3966a45-feb6-4dd3-b5f6-c6205cb804e8" />
+      <input type="hidden" name="publishStatus" value="published" />
+      <button type="submit">Terbitkan ke Publik</button>
+    </PropertyPublishForm>);
+    await act(async () => { fireEvent.click(screen.getByText("Terbitkan ke Publik")); });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/admin/properties");
+    expect(JSON.parse(init.body)).toEqual({ operation: "setPublishStatus", fields: {
+      propertyId: "d3966a45-feb6-4dd3-b5f6-c6205cb804e8", publishStatus: "published",
+    } });
+    expect(screen.getByRole(success ? "status" : "alert").textContent).toContain(success ? "berhasil diterbitkan" : "gagal disimpan");
+    expect(refresh).toHaveBeenCalledTimes(success ? 1 : 0);
   });
 });

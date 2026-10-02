@@ -1,4 +1,4 @@
-import { updatePropertyAction } from "@/app/admin/properti/actions";
+import { setPropertyPublishStatusAction, updatePropertyAction } from "@/app/admin/properti/actions";
 import { actionError, type AdminActionResult } from "@/lib/admin-action";
 
 export const runtime = "edge";
@@ -46,6 +46,7 @@ export async function POST(request: Request) {
     let result: AdminActionResult;
     switch (body.operation) {
       case "updateProperty": result = await updatePropertyAction(formData); break;
+      case "setPublishStatus": result = await setPropertyPublishStatusAction(formData); break;
       default: return json(actionError("Operasi properti tidak dikenal."), 400);
     }
     return json(result, result.success ? 200 : 400);

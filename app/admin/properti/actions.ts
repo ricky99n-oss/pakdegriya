@@ -37,18 +37,38 @@ export async function createProperty(formData: FormData): Promise<AdminActionRes
   }
 }
 
-export async function togglePublishStatus(formData: FormData): Promise<AdminActionResult> {
+export async function setPropertyPublishStatusAction(formData: FormData): Promise<AdminActionResult> {
   try {
     await requireAdmin();
     const propertyId = String(formData.get("propertyId") || "");
-    const currentStatus = String(formData.get("currentStatus") || "draft");
-    const newStatus = currentStatus === "published" ? "draft" : "published";
-    const { error } = await getSupabase().from("properties").update({ publish_status: newStatus }).eq("id", propertyId);
-    if (error) throw error;
-    revalidateProperty(propertyId);
+    // Send the desired state explicitly so repeating a request cannot toggle it back.
+    const newStatus = String(formData.get("publishStatus") || "");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(propertyId)
+      || !["draft", "published"].includes(newStatus)) {
+      return actionError("ID properti atau status publikasi tidak valid.");
+    }
+    // Lucia admin sessions do not authenticate the anonymous Supabase client.
+    // Check the admin first, then confirm that the privileged update changed a row.
+    const { data, error } = await getSupabaseAdmin().from("properties").update({
+      publish_status: newStatus,
+      updated_at: new Date().toISOString(),
+    }).eq("id", propertyId).select("id").maybeSingle();
+    if (error) {
+      console.error("setPropertyPublishStatusAction database:", error);
+      return actionError("Status publikasi gagal disimpan ke database. Silakan coba lagi.");
+    }
+    if (!data) return actionError("Properti tidak ditemukan atau sudah dihapus. Muat ulang daftar properti.");
+    try {
+      revalidateProperty(propertyId);
+      revalidatePath("/admin/dashboard");
+      revalidatePath("/properti/[slug]", "layout");
+    } catch (error) {
+      console.error("Publish status saved, but cache revalidation failed:", error);
+      return actionSuccess("Status publikasi tersimpan. Muat ulang halaman untuk melihat data terbaru.");
+    }
     return actionSuccess(newStatus === "published" ? "Properti berhasil diterbitkan." : "Properti dikembalikan ke draft.");
   } catch (error) {
-    console.error("togglePublishStatus:", error);
+    console.error("setPropertyPublishStatusAction:", error);
     return actionError(adminActionErrorMessage(error));
   }
 }

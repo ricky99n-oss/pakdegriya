@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ImagePlus, Save } from "lucide-react";
-import { togglePublishStatus } from "../actions";
 import UploadMediaForm from "./UploadMediaForm";
-import ActionForm from "@/components/admin/ActionForm";
+import PropertyPublishForm from "@/components/admin/PropertyPublishForm";
 import PropertyDetailsForm from "@/components/admin/PropertyDetailsForm";
 import MediaLibrary from "@/components/admin/MediaLibrary";
 import { getSupabase } from "@/lib/supabase";
@@ -65,9 +64,9 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
           >
             Buka Editor Tur 360°
           </Link>
-          <ActionForm action={togglePublishStatus}>
+          <PropertyPublishForm>
             <input type="hidden" name="propertyId" value={property.id} />
-            <input type="hidden" name="currentStatus" value={property.publish_status} />
+            <input type="hidden" name="publishStatus" value={property.publish_status === "published" ? "draft" : "published"} />
             <button
               type="submit"
               className={`px-6 py-2.5 rounded-xl font-bold shadow-sm text-sm ${
@@ -78,7 +77,7 @@ export default async function KelolaMediaProperti({ params }: { params: Promise<
             >
               {property.publish_status === "published" ? "Kembalikan ke Draft" : "Terbitkan ke Publik"}
             </button>
-          </ActionForm>
+          </PropertyPublishForm>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/admin/properties/route";
-import { updateProperty } from "@/lib/property-client";
+import { setPublishStatus, updateProperty } from "@/lib/property-client";
 import { updatePropertyAction } from "@/app/admin/properti/actions";
 import { revalidatePath } from "next/cache";
 
@@ -137,5 +137,59 @@ describe("property price saving", () => {
     const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch")); vi.stubGlobal("fetch", fetchMock);
     expect(await updateProperty(form())).toMatchObject({ success: false, error: expect.stringContaining("memeriksa hasil") });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("property publication", () => {
+  const publishRequest = (overrides: Record<string, string> = {}, headers: Record<string, string> = {}) =>
+    request({ operation: "setPublishStatus", fields: { propertyId, publishStatus: "published", ...overrides } }, headers);
+
+  it.each(["published", "draft"])("sets %s through the JSON client and keeps retries in the same state", async (publishStatus) => {
+    const fetchMock = vi.fn(async (url: string, init: RequestInit) => POST(new Request(new URL(url, origin), { ...init, headers: { ...init.headers, Origin: origin } })));
+    vi.stubGlobal("fetch", fetchMock);
+    state.row!.publish_status = publishStatus === "published" ? "draft" : "published";
+    const data = new FormData();
+    data.set("propertyId", propertyId); data.set("publishStatus", publishStatus);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      expect(await setPublishStatus(data)).toMatchObject({ success: true });
+      expect(state.row).toMatchObject({ publish_status: publishStatus, price: 900000000, code: "PG-001" });
+    }
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/admin/properties");
+    expect(fetchMock.mock.calls[0][1].headers).not.toHaveProperty("Next-Action");
+    expect(state.row?.updated_at).toEqual(expect.any(String));
+    expect(revalidatePath).toHaveBeenCalledWith("/");
+    expect(revalidatePath).toHaveBeenCalledWith(`/admin/properti/${propertyId}`);
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/dashboard");
+    expect(revalidatePath).toHaveBeenCalledWith("/properti/[slug]", "layout");
+  });
+  it("rejects an expired or non-admin session before obtaining database privileges", async () => {
+    state.admin = false;
+    expect(await (await publishRequest()).json()).toMatchObject({ success: false, error: expect.stringContaining("Sesi admin") });
+    expect(state.adminClient).not.toHaveBeenCalled();
+  });
+  it.each([["propertyId", "bad"], ["propertyId", ""], ["publishStatus", ""], ["publishStatus", "public"]])("rejects invalid publication field %s=%s", async (key, value) => {
+    expect((await publishRequest({ [key]: value })).status).toBe(400);
+    expect(state.adminClient).not.toHaveBeenCalled();
+  });
+  it("rejects cross-origin requests before writing", async () => {
+    expect((await publishRequest({}, { Origin: "https://evil.test" })).status).toBe(403);
+    expect(state.writes).toBe(0);
+  });
+  it("does not report success for a missing property", async () => {
+    state.row = null;
+    expect(await (await publishRequest()).json()).toMatchObject({ success: false, error: expect.stringContaining("tidak ditemukan") });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+  it("reports database failure without exposing internal details", async () => {
+    state.databaseError = { code: "42501", message: "internal database detail" };
+    expect(await (await publishRequest()).json()).toEqual({ success: false, error: "Status publikasi gagal disimpan ke database. Silakan coba lagi." });
+    expect(state.writes).toBe(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+  it("reports a committed status even when cache invalidation fails", async () => {
+    vi.mocked(revalidatePath).mockImplementation(() => { throw new Error("cache unavailable"); });
+    expect(await (await publishRequest()).json()).toMatchObject({ success: true, message: expect.stringContaining("tersimpan") });
+    expect(state.row?.publish_status).toBe("published");
+    expect(state.writes).toBe(1);
   });
 });
